@@ -33,7 +33,7 @@ export const MOTIF_META = {
 
 const HYLICS_MOTIFS = [...REGION_MOTIFS.ki, ...REGION_MOTIFS.raku];
 const GIGER_MOTIFS = [...REGION_MOTIFS.nu, ...REGION_MOTIFS.ai];
-const ENTITY_ICON_BASE = 76;
+const ENTITY_ICON_BASE = 88;
 
 export function getRegionArt(regionId) {
   return REGION_ART[regionId] ?? "giger";

@@ -103,7 +103,7 @@ const SPRITE_W = 116;
 const SPRITE_H = 80;
 const SPRITE_SQUASH = 0.88;
 const SHELL_MUU_SCALE = 3;
-const NOU_SPRITE_SCALE = 1.65;
+const NOU_SPRITE_SCALE = 2;
 
 let state = "title";
 let mode = "extrovert";
@@ -191,6 +191,7 @@ function startGame() {
   pendingMapRegion = "";
   regionStableTimer = 0;
   refreshSoulUI();
+  fitCanvas();
 }
 
 function triggerGameOver({ fromVoid = false } = {}) {
@@ -295,6 +296,7 @@ function enterNou() {
   shellScreen.classList.add("hidden");
   canvas.classList.remove("hidden");
   refreshSoulUI();
+  fitCanvas();
   setBgmEnabled(true);
   currentMapRegion = "";
   pendingMapRegion = "";
@@ -460,20 +462,27 @@ function screenToWorld(clientX, clientY) {
 }
 
 function fitCanvas() {
+  const vw = window.visualViewport?.width ?? window.innerWidth;
+  const vh = window.visualViewport?.height ?? window.innerHeight;
   const aspect = canvas.width / canvas.height;
-  const maxW = window.innerWidth;
-  const maxH = window.innerHeight;
   let w;
   let h;
-  if (maxW / maxH > aspect) {
-    h = maxH;
+  if (vw / vh > aspect) {
+    h = vh;
     w = h * aspect;
   } else {
-    w = maxW;
+    w = vw;
     h = w / aspect;
   }
-  canvas.style.width = `${w}px`;
-  canvas.style.height = `${h}px`;
+  canvas.style.width = `${Math.floor(w)}px`;
+  canvas.style.height = `${Math.floor(h)}px`;
+}
+
+function bindViewport() {
+  fitCanvas();
+  window.addEventListener("resize", fitCanvas);
+  window.visualViewport?.addEventListener("resize", fitCanvas);
+  window.addEventListener("orientationchange", () => setTimeout(fitCanvas, 100));
 }
 
 function drawTapMarker() {
@@ -945,11 +954,11 @@ function bindInput() {
   canvas.addEventListener("pointercancel", endTouch);
   canvas.addEventListener("pointerleave", endTouch);
 
-  window.addEventListener("resize", fitCanvas);
-  fitCanvas();
+  bindViewport();
 }
 
 async function boot() {
+  bindViewport();
   soul = loadSoul();
   initWorld();
   preloadVoices();

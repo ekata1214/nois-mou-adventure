@@ -4,21 +4,28 @@
   padding: 0;
 }
 
+html,
+body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+}
+
 body {
   background: #000;
   color: #f2f2f2;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  min-height: 100vh;
   overflow: hidden;
 }
 
 #app {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #000;
 }
 
 #title-screen {
@@ -104,11 +111,11 @@ body {
 }
 
 #game {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: block;
-  max-width: 100vw;
-  max-height: 100vh;
-  width: auto;
-  height: auto;
   background: #000;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
