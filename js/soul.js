@@ -1,0 +1,243 @@
+const STORAGE_KEY = "nois-mou-soul-v1";
+
+export const HP_MAX = 100;
+export const HUMAN_MAX = 100;
+export const HUMAN_MAX_TIME = 300; // 5分で時間成分がマックス
+
+const NEG = ["疲", "むか", "怒", "嫌", "苦", "悲", "死", "つら", "しんど", "不安", "虚無", "やば"];
+const POS = ["嬉", "楽", "好き", "幸", "ありがと", "笑", "最高", "うれ", "楽し", "愛"];
+const PHIL = ["思う", "哲学", "意味", "なぜ", "人生", "存在", "本質", "考察"];
+
+const REPLIES = {
+  negative: [
+    "……重いね。その言葉、ちゃんと預かる。",
+    "怒りも、疲れも、全部餌になる。",
+    "無理に消化しなくていいよ。",
+  ],
+  positive: [
+    "ふわっとした気持ち、伝わってる。",
+    "嬉しいこと、脳に染みる。",
+    "もっと聞かせて。",
+  ],
+  philosophical: [
+    "難しい言葉……でも好き。",
+    "人間は、こういうことを考えるんだ。",
+    "意味がなくても、意味を探す。",
+  ],
+  neutral: [
+    "……うん。読んだ。",
+    "今日のあなた、こんな感じなんだ。",
+    "殻の中に、少し残しておく。",
+  ],
+};
+
+const HEAL_BY_KIND = {
+  positive: 24,
+  philosophical: 20,
+  neutral: 14,
+  negative: 10,
+};
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function classify(text) {
+  if (NEG.some((w) => text.includes(w))) return "negative";
+  if (POS.some((w) => text.includes(w))) return "positive";
+  if (PHIL.some((w) => text.includes(w))) return "philosophical";
+  return "neutral";
+}
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function defaultState() {
+  return {
+    feeds: [],
+    lastFeedAt: Date.now(),
+    darkEntity: 0,
+    feedCounts: { negative: 0, positive: 0, philosophical: 0, neutral: 0 },
+    choices: { kill: 0, eat: 0, ignore: 0, friend: 0 },
+    totalFeeds: 0,
+    totalEncounters: 0,
+    brainWarmth: 0,
+    speedBoostUntil: 0,
+    lastReply: "……まだ、何も食べてない。",
+    lastChoiceLine: "",
+    hp: HP_MAX,
+    humanSpark: 0,
+    playTimeSeconds: 0,
+  };
+}
+
+export function loadSoul() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    const merged = { ...defaultState(), ...JSON.parse(raw) };
+    merged.hp = clamp(merged.hp ?? HP_MAX, 0, HP_MAX);
+    merged.humanSpark = clamp(merged.humanSpark ?? 0, 0, 40);
+    merged.playTimeSeconds = Math.max(0, merged.playTimeSeconds ?? 0);
+    return merged;
+  } catch {
+    return defaultState();
+  }
+}
+
+export function saveSoul(soul) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(soul));
+}
+
+export function getHumanGauge(soul) {
+  const timePart = (soul.playTimeSeconds / HUMAN_MAX_TIME) * HUMAN_MAX;
+  const spark = soul.humanSpark ?? 0;
+  return clamp(timePart + spark, 0, HUMAN_MAX);
+}
+
+export function isHumanMax(soul) {
+  return getHumanGauge(soul) >= HUMAN_MAX - 0.5;
+}
+
+export function feedSoul(soul, text) {
+  const trimmed = text.trim();
+  if (!trimmed) return { soul, reply: null, healed: 0 };
+
+  const kind = classify(trimmed);
+  soul.feeds.unshift({ text: trimmed.slice(0, 200), kind, at: Date.now() });
+  soul.feeds = soul.feeds.slice(0, 20);
+  soul.lastFeedAt = Date.now();
+  soul.totalFeeds += 1;
+  soul.feedCounts[kind] += 1;
+  soul.darkEntity = Math.max(0, soul.darkEntity - 18);
+
+  const heal = HEAL_BY_KIND[kind] ?? 12;
+  soul.hp = clamp((soul.hp ?? HP_MAX) + heal, 0, HP_MAX);
+
+  if (kind === "philosophical" || kind === "positive") {
+    soul.humanSpark = clamp((soul.humanSpark ?? 0) + 1.5, 0, 40);
+  }
+
+  soul.lastReply = pick(REPLIES[kind]);
+  saveSoul(soul);
+  return { soul, reply: soul.lastReply, kind, healed: heal };
+}
+
+export function tickSoul(soul, dt, opts = {}) {
+  const { playing = false, inNou = false } = opts;
+
+  if (playing) {
+    soul.playTimeSeconds = (soul.playTimeSeconds ?? 0) + dt;
+
+    if (Math.random() < dt * 0.14) {
+      soul.humanSpark = clamp((soul.humanSpark ?? 0) + 1 + Math.random() * 2.5, 0, 40);
+    }
+  }
+
+  const elapsed = (Date.now() - soul.lastFeedAt) / 1000;
+  if (elapsed > 45) {
+    soul.darkEntity = Math.min(100, soul.darkEntity + dt * 2.2);
+  }
+
+  if (playing && inNou && soul.hp > 0) {
+    const neglect = soul.darkEntity / 100;
+    const drain = dt * (0.35 + neglect * 1.1);
+    soul.hp = clamp(soul.hp - drain, 0, HP_MAX);
+  }
+
+  return soul;
+}
+
+export function damageHp(soul, amount) {
+  if (amount <= 0) return soul;
+  soul.hp = clamp((soul.hp ?? HP_MAX) - amount, 0, HP_MAX);
+  saveSoul(soul);
+  return soul;
+}
+
+export function healHp(soul, amount) {
+  if (amount <= 0) return soul;
+  soul.hp = clamp((soul.hp ?? HP_MAX) + amount, 0, HP_MAX);
+  saveSoul(soul);
+  return soul;
+}
+
+export function isDead(soul) {
+  return (soul.hp ?? HP_MAX) <= 0;
+}
+
+export function resumeAfterGameOver(soul) {
+  saveSoul(soul);
+  return soul;
+}
+
+export function resetProgress(soul) {
+  const fresh = defaultState();
+  Object.assign(soul, fresh);
+  saveSoul(soul);
+  return soul;
+}
+
+export function getMoveSpeed(base, soul) {
+  const neglect = soul.darkEntity / 100;
+  const introBonus = Math.min(soul.totalFeeds * 0.02, 0.15);
+  const boost = getSpeedMultiplier(soul);
+  const lowHp = (soul.hp ?? HP_MAX) < 30 ? 0.88 : 1;
+  return base * boost * lowHp * (0.75 + introBonus - neglect * 0.35);
+}
+
+export function isMalfunctioning(soul) {
+  return soul.darkEntity > 55;
+}
+
+export function getMoodLabel(soul) {
+  if (isDead(soul)) return "息が途切れる";
+  if ((soul.hp ?? HP_MAX) < 25) return "体が持たない";
+  if (getHumanGauge(soul) > 80) return "人間に近い";
+  if (soul.darkEntity > 75) return "思念体が近い";
+  if (soul.darkEntity > 40) return "殻が冷たい";
+  const c = soul.choices ?? {};
+  const topChoice = Object.entries(c).sort((a, b) => b[1] - a[1])[0];
+  if (topChoice && topChoice[1] > 2) {
+    const map = { kill: "鋭い気配", eat: "飢え", ignore: "無関心", friend: "共感" };
+    if (map[topChoice[0]]) return map[topChoice[0]];
+  }
+  const top = Object.entries(soul.feedCounts).sort((a, b) => b[1] - a[1])[0];
+  if (!top || top[1] === 0) return "静寂";
+  const map = {
+    negative: "重い思考",
+    positive: "軽い気配",
+    philosophical: "問いが残る",
+    neutral: "ぼんやり",
+  };
+  return map[top[0]] ?? "静寂";
+}
+
+export function applyEncounterChoice(soul, choiceKey, result) {
+  soul.choices = soul.choices ?? { kill: 0, eat: 0, ignore: 0, friend: 0 };
+  soul.choices[choiceKey] = (soul.choices[choiceKey] ?? 0) + 1;
+  soul.totalEncounters = (soul.totalEncounters ?? 0) + 1;
+  soul.darkEntity = Math.max(0, Math.min(100, soul.darkEntity + result.darkDelta));
+  soul.brainWarmth = Math.max(-1, Math.min(1, (soul.brainWarmth ?? 0) + result.brainWarmth));
+
+  if (result.hpDelta) {
+    soul.hp = clamp(soul.hp - result.hpDelta, 0, HP_MAX);
+  }
+
+  if (result.humanSpark) {
+    soul.humanSpark = clamp((soul.humanSpark ?? 0) + result.humanSpark, 0, 40);
+  }
+
+  if (result.speedBoost > 1) {
+    soul.speedBoostUntil = Date.now() + 8000;
+  }
+  soul.lastChoiceLine = result.message;
+  saveSoul(soul);
+  return soul;
+}
+
+export function getSpeedMultiplier(soul) {
+  if (soul.speedBoostUntil && Date.now() < soul.speedBoostUntil) return 1.2;
+  return 1;
+}
