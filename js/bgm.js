@@ -1,13 +1,26 @@
-const BGM_TRACKS = [
-  "assets/bgm/drone.mp3",
-  "assets/bgm/drone2.mp3",
-  "assets/bgm/drone_long1.mp3",
-  "assets/bgm/drone_long2.mp3",
-  "assets/bgm/dark_1.mp3",
-  "assets/bgm/dark_2.mp3",
-  "assets/bgm/dark_long1.mp3",
-  "assets/bgm/dark_long2.mp3",
-];
+const TRACKS = {
+  drone: "assets/bgm/drone.mp3",
+  drone2: "assets/bgm/drone2.mp3",
+  drone_long1: "assets/bgm/drone_long1.mp3",
+  drone_long2: "assets/bgm/drone_long2.mp3",
+  dark_1: "assets/bgm/dark_1.mp3",
+  dark_2: "assets/bgm/dark_2.mp3",
+  dark_long1: "assets/bgm/dark_long1.mp3",
+  dark_long2: "assets/bgm/dark_long2.mp3",
+  happy_1: "assets/bgm/happy_1.mp3",
+  happy_2: "assets/bgm/happy_2.mp3",
+  happy_long1: "assets/bgm/happy_long1.mp3",
+  happy_long2: "assets/bgm/happy_long2.mp3",
+};
+
+/** 季節エリアごとに出やすい曲（喜怒哀楽 → 夏/秋/梅雨/夕方） */
+const REGION_POOLS = {
+  hub: Object.keys(TRACKS),
+  ki: ["happy_1", "happy_2", "happy_long1", "happy_long2", "drone", "drone2"],
+  nu: ["dark_1", "dark_2", "dark_long1", "dark_long2", "drone_long1"],
+  ai: ["dark_1", "dark_2", "dark_long1", "dark_long2", "drone_long1", "drone_long2"],
+  raku: ["happy_1", "happy_2", "drone", "drone2", "dark_1", "dark_2", "happy_long1"],
+};
 
 const BGM_VOLUME = 0.38;
 const FADE_MS = 1400;
@@ -25,9 +38,12 @@ players.forEach((p) => {
   p.preload = "auto";
 });
 
-function pickTrack() {
-  const pool = BGM_TRACKS.length > 1 ? BGM_TRACKS.filter((t) => t !== currentTrack) : BGM_TRACKS;
-  return pool[Math.floor(Math.random() * pool.length)];
+function pickTrack(regionKey) {
+  const pool = REGION_POOLS[regionKey] ?? REGION_POOLS.hub;
+  const options =
+    pool.length > 1 ? pool.filter((key) => TRACKS[key] !== currentTrack) : pool;
+  const key = options[Math.floor(Math.random() * options.length)] ?? pool[0];
+  return TRACKS[key];
 }
 
 function cancelFade() {
@@ -60,7 +76,7 @@ export function unlockBgm() {
 }
 
 export function preloadBgm() {
-  BGM_TRACKS.forEach((src) => {
+  Object.values(TRACKS).forEach((src) => {
     const a = new Audio();
     a.preload = "auto";
     a.src = src;
@@ -81,7 +97,7 @@ export function onMapRegionChange(regionKey, { force = false } = {}) {
   if (!force && regionKey === currentRegion) return;
 
   currentRegion = regionKey;
-  const nextTrack = pickTrack();
+  const nextTrack = pickTrack(regionKey);
   currentTrack = nextTrack;
 
   const cur = players[active];
@@ -90,29 +106,22 @@ export function onMapRegionChange(regionKey, { force = false } = {}) {
   next.currentTime = 0;
   next.volume = 0;
 
-  const startNext = () => {
-    next.play().catch(() => {});
-    fadeVolume(next, 0, BGM_VOLUME, FADE_MS);
-    if (!cur.paused && cur.volume > 0.01) {
-      fadeVolume(cur, cur.volume, 0, FADE_MS, () => {
-        cur.pause();
-      });
-    } else {
+  next.play().catch(() => {});
+  fadeVolume(next, 0, BGM_VOLUME, FADE_MS);
+  if (!cur.paused && cur.volume > 0.01) {
+    fadeVolume(cur, cur.volume, 0, FADE_MS, () => {
       cur.pause();
-    }
-    active = 1 - active;
-  };
-
-  if (cur.paused || cur.volume < 0.01) {
-    startNext();
+    });
   } else {
-    startNext();
+    cur.pause();
   }
+  active = 1 - active;
 }
 
 export function stopBgm() {
   cancelFade();
   currentRegion = "";
+  currentTrack = "";
   players.forEach((p) => {
     p.pause();
     p.volume = 0;

@@ -9,6 +9,7 @@ import {
   getAreaName,
   getRegionAt,
   REGION_TINT,
+  getTilePalette,
   isWalkable,
 } from "./world.js";
 import { drawSprite, loadSprites } from "./sprites.js";
@@ -54,6 +55,7 @@ import {
   onMapRegionChange,
   getBgmRegionKey,
 } from "./bgm.js";
+import { spawnProps, drawProps } from "./props.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -97,6 +99,7 @@ let world;
 let player;
 let sprites;
 let entities;
+let props;
 let soul;
 let camera = { x: 0, y: 0 };
 let keys = new Set();
@@ -135,6 +138,7 @@ function initWorld() {
     dir: "front",
   };
   entities = spawnEntities(world, TILE, isWalkable);
+  props = spawnProps(world, TILE, isWalkable);
 }
 
 function startGame() {
@@ -430,20 +434,18 @@ function drawVoidGrain() {
 }
 
 function drawTile(x, y, tile, tx, ty) {
-  const pal = PALETTE[tile] ?? PALETTE[T.VOID];
+  const region = getRegionAt(tx, ty);
+  const regionId = region?.id;
+  const pal = getTilePalette(tile, regionId);
   const px = x - camera.x;
   const py = y - camera.y;
 
   ctx.fillStyle = pal.base;
   ctx.fillRect(px, py, TILE, TILE);
 
-  if (tile !== T.VOID) {
-    const region = getRegionAt(tx, ty);
-    const tint = region?.id && REGION_TINT[region.id];
-    if (tint) {
-      ctx.fillStyle = tint;
-      ctx.fillRect(px, py, TILE, TILE);
-    }
+  if (tile !== T.VOID && regionId && REGION_TINT[regionId]) {
+    ctx.fillStyle = REGION_TINT[regionId];
+    ctx.fillRect(px, py, TILE, TILE);
   }
 
   const stripe = (tx + ty + Math.floor(dither * 2)) % 3 === 0;
@@ -453,8 +455,12 @@ function drawTile(x, y, tile, tx, ty) {
   }
 
   if (tile === T.FLUID) {
-    const pulse = 0.15 + Math.sin(dither * 2 + tx * 0.4 + ty * 0.3) * 0.08;
-    ctx.fillStyle = `rgba(200, 40, 60, ${pulse})`;
+    const pulse = 0.2 + Math.sin(dither * 2 + tx * 0.4 + ty * 0.3) * 0.1;
+    if (regionId === "ai") {
+      ctx.fillStyle = `rgba(120, 200, 235, ${pulse})`;
+    } else {
+      ctx.fillStyle = `rgba(200, 40, 60, ${pulse})`;
+    }
     ctx.fillRect(px + 4, py + 6, TILE - 8, TILE - 10);
   }
 
@@ -566,12 +572,59 @@ function drawMinimap() {
   ctx.fillRect(mx + (player.x / TILE) * sx - 2, my + (player.y / TILE) * sy - 2, 4, 4);
 }
 
+function drawRegionAmbience() {
+  const key = currentMapRegion;
+  if (!key || key === "hub") return;
+
+  if (key === "ai") {
+    ctx.strokeStyle = "rgba(150, 210, 240, 0.12)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 50; i++) {
+      const x = (i * 53 + dither * 140) % canvas.width;
+      const y = (i * 37 + dither * 220) % canvas.height;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 2, y + 10);
+      ctx.stroke();
+    }
+  }
+
+  if (key === "ki") {
+    const g = ctx.createRadialGradient(canvas.width * 0.5, 0, 0, canvas.width * 0.5, 0, canvas.height * 0.7);
+    g.addColorStop(0, "rgba(255, 220, 60, 0.08)");
+    g.addColorStop(1, "rgba(255, 220, 60, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  if (key === "nu") {
+    ctx.fillStyle = "rgba(200, 60, 40, 0.04)";
+    for (let i = 0; i < 8; i++) {
+      const x = (i * 97 + dither * 30) % canvas.width;
+      const y = (i * 61 + dither * 20) % (canvas.height * 0.6);
+      ctx.beginPath();
+      ctx.ellipse(x, y, 4, 2, i, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  if (key === "raku") {
+    const g = ctx.createLinearGradient(0, canvas.height * 0.3, 0, canvas.height);
+    g.addColorStop(0, "rgba(255, 120, 50, 0)");
+    g.addColorStop(1, "rgba(255, 100, 40, 0.12)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
 function draw() {
   drawVoidGrain();
   drawWorld();
+  drawProps(ctx, props, camera, dither);
   drawEntities();
   drawPlayer();
   drawDarkEntity();
+  drawRegionAmbience();
   drawGlitch();
   drawRedFrame();
   drawMinimap();

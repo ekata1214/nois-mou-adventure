@@ -13,7 +13,7 @@ export const T = {
 
 const SOLID = new Set([T.RIDGE, T.FLUID]);
 
-/** 喜怒哀楽 — 4つの感情領域 */
+/** 喜怒哀楽 — 季節・時間帯で表現 */
 const REGIONS = [
   {
     id: "ki",
@@ -21,9 +21,10 @@ const REGIONS = [
     cy: 16,
     r: 14,
     name: "喜",
-    label: "喜びの領域",
+    label: "黄色の夏",
+    theme: "summer",
     bias: ["joy", "hope"],
-    palette: { ground: "#2a2030", path: "#6b4540", fluid: false },
+    palette: { ground: "#2a2810", path: "#6a5a20", fluid: false },
   },
   {
     id: "nu",
@@ -31,9 +32,10 @@ const REGIONS = [
     cy: 36,
     r: 14,
     name: "怒",
-    label: "怒りの領域",
+    label: "赤色の秋",
+    theme: "autumn",
     bias: ["anger", "envy"],
-    palette: { ground: "#281018", path: "#7a2030", fluid: true },
+    palette: { ground: "#281410", path: "#6a3020", fluid: false },
   },
   {
     id: "ai",
@@ -41,9 +43,10 @@ const REGIONS = [
     cy: 56,
     r: 14,
     name: "哀",
-    label: "哀しみの領域",
+    label: "水色の梅雨",
+    theme: "rainy",
     bias: ["loneliness", "void", "anxiety", "guilt"],
-    palette: { ground: "#141828", path: "#303850", fluid: true },
+    palette: { ground: "#101820", path: "#304858", fluid: true },
   },
   {
     id: "raku",
@@ -51,9 +54,10 @@ const REGIONS = [
     cy: 36,
     r: 14,
     name: "楽",
-    label: "楽しみの領域",
+    label: "オレンジの夕方",
+    theme: "sunset",
     bias: ["love", "curiosity", "joy"],
-    palette: { ground: "#1a2830", path: "#405848", fluid: false },
+    palette: { ground: "#281810", path: "#5a3820", fluid: false },
   },
 ];
 
@@ -139,8 +143,8 @@ export function createWorld() {
         tiles[y][x] = T.PATH;
       } else if (
         region.palette?.fluid &&
-        dist(x, y, region.cx - 4, region.cy + 3) < 4 &&
-        n > 0.5
+        dist(x, y, region.cx - 4, region.cy + 3) < 5 &&
+        n > 0.45
       ) {
         tiles[y][x] = T.FLUID;
       } else if (n2 > 0.84) {
@@ -193,11 +197,30 @@ export function getRegionAt(tx, ty) {
 }
 
 export const REGION_TINT = {
-  ki: "rgba(255, 210, 80, 0.06)",
-  nu: "rgba(229, 9, 20, 0.08)",
-  ai: "rgba(100, 120, 180, 0.09)",
-  raku: "rgba(80, 200, 140, 0.07)",
+  ki: "rgba(255, 220, 60, 0.14)",
+  nu: "rgba(210, 70, 45, 0.13)",
+  ai: "rgba(120, 200, 235, 0.14)",
+  raku: "rgba(255, 130, 50, 0.13)",
 };
+
+export const REGION_TILE = {
+  ki: { ground: "#2a2810", path: "#5a4a18", accent: "#ffd84d", fluid: "#4a4010" },
+  nu: { ground: "#281410", path: "#5a2818", accent: "#e85030", fluid: "#3a1810" },
+  ai: { ground: "#101820", path: "#283848", accent: "#88cce8", fluid: "#1a3040" },
+  raku: { ground: "#281810", path: "#4a3018", accent: "#ff8830", fluid: "#3a2010" },
+};
+
+export function getTilePalette(tile, regionId) {
+  const base = PALETTE[tile] ?? PALETTE[T.VOID];
+  const regional = regionId && REGION_TILE[regionId];
+  if (!regional || tile === T.VOID || tile === T.RIDGE) return base;
+
+  if (tile === T.GROUND) return { base: regional.ground, accent: regional.accent };
+  if (tile === T.PATH) return { base: regional.path, accent: regional.accent };
+  if (tile === T.FLUID) return { base: regional.fluid, accent: regional.accent };
+  if (tile === T.BONE) return { base: base.base, accent: regional.accent };
+  return base;
+}
 
 export function getAreaName(px, py) {
   const region = regionAt(px / TILE, py / TILE);
