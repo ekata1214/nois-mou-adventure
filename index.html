@@ -12,6 +12,7 @@
       <p class="brand">UNGR ARCHIVE PRESENTS</p>
       <img id="title-art" src="assets/title.png" alt="ムー君の冒険" />
       <p class="start-hint">CLICK / SPACE / TAP to enter NOU</p>
+      <p class="start-hint mobile-hint">MOBILE — TAP map to move</p>
       <p class="credit">Nois Mou — World Scale Prototype</p>
     </div>
     <canvas id="game" width="1280" height="720"></canvas>
@@ -20,14 +21,15 @@
       <p class="shell-brand">INTROVERT — 殻（カラ）</p>
       <div class="shell-layout">
         <div class="shell-visual">
-          <div class="shell-oval"></div>
-          <img id="shell-muu" src="assets/muu/front.png" alt="ムー君" />
+          <canvas id="shell-muu" width="696" height="424" aria-label="ムー君"></canvas>
           <p id="muu-speech">……</p>
         </div>
         <div class="shell-panel">
-          <label for="feed-input">餌（日記・愚痴・嬉しかったこと）</label>
-          <textarea id="feed-input" rows="6" placeholder="今日あったこと、思ったこと……"></textarea>
-          <button id="feed-btn" type="button">餌をあげる</button>
+          <p id="shell-question" class="shell-question"></p>
+          <label for="feed-input">答え（100文字以上）</label>
+          <textarea id="feed-input" rows="8" placeholder="100文字以上、正直に書いて……"></textarea>
+          <p id="feed-char-count" class="feed-char-count">0 / 100</p>
+          <button id="feed-btn" type="button">答える</button>
           <div id="dark-meter">
             <span>闇の思念体</span>
             <div class="meter-track"><div id="dark-fill"></div></div>
@@ -53,7 +55,7 @@
         <p id="combat-type" class="combat-type"></p>
         <h2 id="entity-name">感情の気配</h2>
         <p id="entity-line">……</p>
-        <div id="entity-visual"></div>
+        <img id="entity-visual" src="" alt="" />
         <div class="choice-grid">
           <button type="button" data-choice="kill">殺す</button>
           <button type="button" data-choice="eat">食べる</button>
@@ -86,8 +88,8 @@
     <div id="gameover-screen" class="hidden">
       <div class="gameover-panel">
         <p class="encounter-brand">GAME OVER</p>
-        <h2>体力が尽きた</h2>
-        <p class="gameover-line">……</p>
+        <h2 id="gameover-title">体力が尽きた</h2>
+        <p id="gameover-line" class="gameover-line">……</p>
         <button id="retry-btn" type="button" class="mode-switch">殻へ戻る</button>
         <button id="full-reset-btn" type="button" class="mode-switch ghost">はじめから</button>
       </div>

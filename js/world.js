@@ -3,6 +3,7 @@ export const COLS = 96;
 export const ROWS = 72;
 
 export const T = {
+  /** マップ外 — 物理的な現実世界（VOID）。ムー君はここでは生きられない */
   VOID: 0,
   GROUND: 1,
   PATH: 2,
@@ -21,8 +22,9 @@ const REGIONS = [
     cy: 16,
     r: 14,
     name: "喜",
-    label: "黄色の夏",
+    label: "喜 — 黄色の夏",
     theme: "summer",
+    art: "hylics",
     bias: ["joy", "hope"],
     palette: { ground: "#2a2810", path: "#6a5a20", fluid: false },
   },
@@ -32,8 +34,9 @@ const REGIONS = [
     cy: 36,
     r: 14,
     name: "怒",
-    label: "赤色の秋",
+    label: "怒 — 赤色の秋",
     theme: "autumn",
+    art: "giger",
     bias: ["anger", "envy"],
     palette: { ground: "#281410", path: "#6a3020", fluid: false },
   },
@@ -43,8 +46,9 @@ const REGIONS = [
     cy: 56,
     r: 14,
     name: "哀",
-    label: "水色の梅雨",
+    label: "哀 — 水色の梅雨",
     theme: "rainy",
+    art: "giger",
     bias: ["loneliness", "void", "anxiety", "guilt"],
     palette: { ground: "#101820", path: "#304858", fluid: true },
   },
@@ -54,8 +58,9 @@ const REGIONS = [
     cy: 36,
     r: 14,
     name: "楽",
-    label: "オレンジの夕方",
+    label: "楽 — オレンジの夕方",
     theme: "sunset",
+    art: "hylics",
     bias: ["love", "curiosity", "joy"],
     palette: { ground: "#281810", path: "#5a3820", fluid: false },
   },
@@ -178,6 +183,24 @@ export function isWalkable(tiles, tx, ty) {
   return !SOLID.has(tiles[ty][tx]);
 }
 
+export function getTileAt(tiles, px, py) {
+  const tx = Math.floor(px / TILE);
+  const ty = Math.floor(py / TILE);
+  if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return T.VOID;
+  return tiles[ty][tx];
+}
+
+export function isInVoid(tiles, px, py) {
+  return getTileAt(tiles, px, py) === T.VOID;
+}
+
+/** VOID = 俺らの現実世界。時間と空間が物理的に存在する領域 */
+export const VOID_REALM = {
+  name: "VOID",
+  label: "現実世界",
+  tagline: "時間と空間がある、俺らの世界",
+};
+
 export function canMove(tiles, x, y, w, h) {
   const pts = [
     [x + 6, y + 8],
@@ -222,7 +245,10 @@ export function getTilePalette(tile, regionId) {
   return base;
 }
 
-export function getAreaName(px, py) {
+export function getAreaName(px, py, tiles) {
+  if (tiles && isInVoid(tiles, px, py)) {
+    return `VOID — ${VOID_REALM.label}`;
+  }
   const region = regionAt(px / TILE, py / TILE);
   const label = region.label ?? region.name;
   return `NOU — ${label}`;

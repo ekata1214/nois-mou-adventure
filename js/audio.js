@@ -56,6 +56,76 @@ function getAudio(key) {
 
 export function unlockAudio() {
   unlocked = true;
+  resumeAudioContext();
+}
+
+let audioCtx = null;
+let stepPhase = 0;
+
+function getAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioCtx;
+}
+
+function resumeAudioContext() {
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === "suspended") ctx.resume();
+  } catch {
+    /* ignore */
+  }
+}
+
+/** RPG風の合成足音（Web Audio） */
+export function playFootstep({ inVoid = false } = {}) {
+  if (!unlocked) return;
+
+  let ctx;
+  try {
+    ctx = getAudioContext();
+    if (ctx.state === "suspended") ctx.resume();
+  } catch {
+    return;
+  }
+
+  stepPhase = 1 - stepPhase;
+  const t = ctx.currentTime;
+  const vol = inVoid ? 0.1 : 0.2;
+
+  const noise = ctx.createBufferSource();
+  const len = Math.floor(ctx.sampleRate * 0.045);
+  const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i++) {
+    data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  }
+  noise.buffer = buffer;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = inVoid ? 320 : 880;
+
+  const nGain = ctx.createGain();
+  nGain.gain.setValueAtTime(vol, t);
+  nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+  noise.connect(filter).connect(nGain).connect(ctx.destination);
+  noise.start(t);
+  noise.stop(t + 0.06);
+
+  const osc = ctx.createOscillator();
+  osc.type = "triangle";
+  const base = inVoid ? 75 : 110 + stepPhase * 18;
+  osc.frequency.setValueAtTime(base, t);
+  osc.frequency.exponentialRampToValueAtTime(42, t + 0.065);
+
+  const oGain = ctx.createGain();
+  oGain.gain.setValueAtTime(vol * 0.75, t);
+  oGain.gain.exponentialRampToValueAtTime(0.001, t + 0.075);
+  osc.connect(oGain).connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + 0.08);
 }
 
 export function preloadVoices() {

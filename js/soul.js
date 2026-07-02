@@ -124,6 +124,72 @@ export function feedSoul(soul, text) {
   return { soul, reply: soul.lastReply, kind, healed: heal };
 }
 
+function isMeaningfulAnswer(text) {
+  const compact = text.replace(/\s/g, "");
+  if (compact.length < 100) return false;
+  if (new Set(compact).size < 10) return false;
+  if (/^(.)\1{19,}/.test(compact)) return false;
+  return true;
+}
+
+const SHELL_OK_REPLIES = [
+  "……うん。ちゃんと読んだ。",
+  "長い答え、預かった。",
+  "その言葉、脳に残す。",
+  "……ありがと。少し、戻った。",
+  "人間っぽい答えだね。",
+];
+
+const SHELL_SHORT_REPLIES = [
+  "……もう少し。100文字、越えて。",
+  "短い。もっと聞かせて。",
+  "まだ、足りない。",
+];
+
+const SHELL_INVALID_REPLIES = [
+  "……それ、答えになってない。",
+  "ごまかせないよ。",
+  "もう一度、ちゃんと。",
+];
+
+export function answerShellQuestion(soul, text, question, minLen = 100) {
+  const trimmed = text.trim();
+  if (!trimmed) return { soul, ok: false, reply: null, healed: 0 };
+
+  if (trimmed.length < minLen || !isMeaningfulAnswer(trimmed)) {
+    const reply =
+      trimmed.length < minLen
+        ? pick(SHELL_SHORT_REPLIES)
+        : pick(SHELL_INVALID_REPLIES);
+    soul.lastReply = reply;
+    return { soul, ok: false, reply, healed: 0, remaining: Math.max(0, minLen - trimmed.length) };
+  }
+
+  const kind = classify(trimmed);
+  soul.feeds.unshift({
+    text: trimmed.slice(0, 400),
+    kind,
+    question: question?.slice(0, 120),
+    at: Date.now(),
+  });
+  soul.feeds = soul.feeds.slice(0, 20);
+  soul.lastFeedAt = Date.now();
+  soul.totalFeeds += 1;
+  soul.feedCounts[kind] = (soul.feedCounts[kind] ?? 0) + 1;
+  soul.darkEntity = Math.max(0, soul.darkEntity - 14);
+
+  const heal = 30;
+  soul.hp = clamp((soul.hp ?? HP_MAX) + heal, 0, HP_MAX);
+
+  if (kind === "philosophical" || kind === "positive") {
+    soul.humanSpark = clamp((soul.humanSpark ?? 0) + 2, 0, 40);
+  }
+
+  soul.lastReply = pick(SHELL_OK_REPLIES);
+  saveSoul(soul);
+  return { soul, ok: true, reply: soul.lastReply, kind, healed: heal };
+}
+
 export function tickSoul(soul, dt, opts = {}) {
   const { playing = false, inNou = false } = opts;
 
@@ -142,7 +208,10 @@ export function tickSoul(soul, dt, opts = {}) {
 
   if (playing && inNou && soul.hp > 0) {
     const neglect = soul.darkEntity / 100;
-    const drain = dt * (0.35 + neglect * 1.1);
+    const inVoid = opts.inVoid ?? false;
+    const drain = inVoid
+      ? dt * (1.2 + neglect * 0.8)
+      : dt * (0.025 + neglect * 0.07);
     soul.hp = clamp(soul.hp - drain, 0, HP_MAX);
   }
 
@@ -181,18 +250,20 @@ export function resetProgress(soul) {
 
 export function getMoveSpeed(base, soul) {
   const neglect = soul.darkEntity / 100;
-  const introBonus = Math.min(soul.totalFeeds * 0.02, 0.15);
+  const introBonus = Math.min(soul.totalFeeds * 0.02, 0.12);
   const boost = getSpeedMultiplier(soul);
-  const lowHp = (soul.hp ?? HP_MAX) < 30 ? 0.88 : 1;
-  return base * boost * lowHp * (0.75 + introBonus - neglect * 0.35);
+  const lowHp = (soul.hp ?? HP_MAX) < 30 ? 0.94 : 1;
+  const mult = Math.max(0.88, 0.96 + introBonus - neglect * 0.18);
+  return base * boost * lowHp * mult;
 }
 
 export function isMalfunctioning(soul) {
   return soul.darkEntity > 55;
 }
 
-export function getMoodLabel(soul) {
+export function getMoodLabel(soul, opts = {}) {
   if (isDead(soul)) return "息が途切れる";
+  if (opts?.inVoid) return "VOID——生きられない";
   if ((soul.hp ?? HP_MAX) < 25) return "体が持たない";
   if (getHumanGauge(soul) > 80) return "人間に近い";
   if (soul.darkEntity > 75) return "思念体が近い";

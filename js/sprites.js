@@ -9,7 +9,7 @@ export function loadImage(src) {
   });
 }
 
-function keyBlack(img, threshold = 36) {
+export function keyBlack(img, threshold = 36) {
   if (cache.has(img.src)) return cache.get(img.src);
 
   const c = document.createElement("canvas");

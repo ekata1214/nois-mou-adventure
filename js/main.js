@@ -11,19 +11,21 @@ import {
   REGION_TINT,
   getTilePalette,
   isWalkable,
+  isInVoid,
+  VOID_REALM,
 } from "./world.js";
 import { drawSprite, loadSprites } from "./sprites.js";
+import { loadEntityIcons, MOTIF_META, getRegionArt } from "./entity-icons.js";
 import {
   loadSoul,
   saveSoul,
-  feedSoul,
+  answerShellQuestion,
   tickSoul,
   getMoveSpeed,
   isMalfunctioning,
   getMoodLabel,
   getHumanGauge,
   applyEncounterChoice,
-  damageHp,
   isDead,
   resumeAfterGameOver,
   resetProgress,
@@ -44,6 +46,7 @@ import {
   preloadVoices,
   playVoice,
   playClip,
+  playFootstep,
   voiceForFeedKind,
   voiceForChoice,
   voiceForTimeOfDay,
@@ -53,9 +56,11 @@ import {
   preloadBgm,
   setBgmEnabled,
   onMapRegionChange,
+  onShellBgmStart,
   getBgmRegionKey,
 } from "./bgm.js";
-import { spawnProps, drawProps } from "./props.js";
+import { spawnProps, drawProps, loadScenery } from "./props.js";
+import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -75,13 +80,17 @@ const moodLabel = document.getElementById("mood-label");
 const feedInput = document.getElementById("feed-input");
 const feedBtn = document.getElementById("feed-btn");
 const feedLog = document.getElementById("feed-log");
+const feedCharCount = document.getElementById("feed-char-count");
 const muuSpeech = document.getElementById("muu-speech");
+const shellQuestionEl = document.getElementById("shell-question");
 const darkFill = document.getElementById("dark-fill");
 const hpFill = document.getElementById("hp-fill");
 const humanFill = document.getElementById("human-fill");
 const shellHpFill = document.getElementById("shell-hp-fill");
 const shellHumanFill = document.getElementById("shell-human-fill");
 const gameoverScreen = document.getElementById("gameover-screen");
+const gameoverTitle = document.getElementById("gameover-title");
+const gameoverLine = document.getElementById("gameover-line");
 const retryBtn = document.getElementById("retry-btn");
 const fullResetBtn = document.getElementById("full-reset-btn");
 const toShellBtn = document.getElementById("to-shell");
@@ -89,20 +98,27 @@ const toNouBtn = document.getElementById("to-nou");
 const shellMuu = document.getElementById("shell-muu");
 const choiceButtons = document.querySelectorAll(".choice-grid button");
 
-const BASE_SPEED = 185;
-const SPRITE_W = 54;
-const SPRITE_H = 58;
+const BASE_SPEED = 255;
+const SPRITE_W = 116;
+const SPRITE_H = 80;
+const SPRITE_SQUASH = 0.88;
+const SHELL_MUU_SCALE = 3;
+const NOU_SPRITE_SCALE = 1.65;
 
 let state = "title";
 let mode = "extrovert";
 let world;
 let player;
 let sprites;
+let entityIcons;
 let entities;
 let props;
 let soul;
 let camera = { x: 0, y: 0 };
 let keys = new Set();
+const isTouchDevice =
+  window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+let tapTarget = null;
 let touch = { x: 0, y: 0, active: false, originX: 0, originY: 0 };
 let lastTime = 0;
 let dither = 0;
@@ -115,11 +131,27 @@ let lowHpVoiceTimer = 0;
 let currentMapRegion = "";
 let pendingMapRegion = "";
 let regionStableTimer = 0;
+let stepDistance = 0;
+let currentShellQuestion = "";
+const STEP_INTERVAL = 30;
 
 function pulseMuu(ms = 500) {
   if (!shellMuu) return;
   shellMuu.classList.add("speaking");
   setTimeout(() => shellMuu.classList.remove("speaking"), ms);
+}
+
+function drawShellMuu() {
+  if (!shellMuu || !sprites?.front) return;
+  const sctx = shellMuu.getContext("2d");
+  const w = shellMuu.width;
+  const h = shellMuu.height;
+  sctx.clearRect(0, 0, w, h);
+
+  const warmth = soul?.brainWarmth ?? 0;
+  const width = SPRITE_W * SHELL_MUU_SCALE * (1 + warmth * 0.05);
+  const height = SPRITE_H * SPRITE_SQUASH * SHELL_MUU_SCALE * (1 - warmth * 0.03);
+  drawSprite(sctx, sprites.front, w / 2, h * 0.96, width, height);
 }
 
 function beginPlay() {
@@ -144,7 +176,7 @@ function initWorld() {
 function startGame() {
   titleScreen.classList.add("hidden");
   if (isDead(soul)) {
-    triggerGameOver();
+    triggerGameOverIfDead();
     return;
   }
   hud.classList.remove("hidden");
@@ -161,7 +193,7 @@ function startGame() {
   refreshSoulUI();
 }
 
-function triggerGameOver() {
+function triggerGameOver({ fromVoid = false } = {}) {
   if (state === "gameover") return;
   state = "gameover";
   encounterScreen.classList.add("hidden");
@@ -172,8 +204,24 @@ function triggerGameOver() {
   activeEntity = null;
   encounterLocked = false;
   saveSoul(soul);
+
+  if (fromVoid) {
+    gameoverTitle.textContent = "VOIDに触れすぎた";
+    gameoverLine.textContent =
+      "ムー君は、人間の思考の中でしか生きられない。時間と空間がある、俺らの現実——ここでは、存在を保てない。";
+  } else {
+    gameoverTitle.textContent = "体力が尽きた";
+    gameoverLine.textContent = "……";
+  }
+
   setBgmEnabled(false);
   playVoice("gameover", { volume: 0.9, force: true });
+}
+
+function triggerGameOverIfDead() {
+  if (!isDead(soul)) return;
+  const fromVoid = mode === "extrovert" && isInVoid(world.tiles, player.x, player.y);
+  triggerGameOver({ fromVoid });
 }
 
 function retryFromDeath() {
@@ -184,7 +232,6 @@ function retryFromDeath() {
   enterShell();
   playVoice("shell_idle", { volume: 0.7 });
   pulseMuu(600);
-  muuSpeech.textContent = soul.lastReply;
   refreshSoulUI();
 }
 
@@ -199,8 +246,26 @@ function fullReset() {
   canvas.classList.add("hidden");
   shellScreen.classList.remove("hidden");
   mode = "introvert";
-  muuSpeech.textContent = soul.lastReply;
+  presentShellQuestion();
   refreshSoulUI();
+  setBgmEnabled(true);
+  onShellBgmStart();
+}
+
+function presentShellQuestion() {
+  currentShellQuestion = pickShellQuestion(currentShellQuestion);
+  muuSpeech.textContent = currentShellQuestion;
+  if (shellQuestionEl) shellQuestionEl.textContent = currentShellQuestion;
+  feedInput.value = "";
+  updateFeedCharCount();
+  pulseMuu(500);
+}
+
+function updateFeedCharCount() {
+  if (!feedCharCount) return;
+  const len = feedInput.value.trim().length;
+  feedCharCount.textContent = `${len} / ${SHELL_ANSWER_MIN}`;
+  feedCharCount.classList.toggle("ready", len >= SHELL_ANSWER_MIN);
 }
 
 function enterShell() {
@@ -210,13 +275,15 @@ function enterShell() {
   shellScreen.classList.remove("hidden");
   canvas.classList.add("hidden");
   encounterScreen.classList.add("hidden");
+  presentShellQuestion();
   refreshSoulUI();
-  muuSpeech.textContent = soul.lastReply;
+  setBgmEnabled(true);
+  onShellBgmStart();
   if (fromNou) {
     playClip(voiceForTimeOfDay(), 0.72);
     pulseMuu(700);
   }
-  setBgmEnabled(false);
+  drawShellMuu();
 }
 
 function enterNou() {
@@ -231,6 +298,10 @@ function enterNou() {
   setBgmEnabled(true);
   currentMapRegion = "";
   pendingMapRegion = "";
+  regionStableTimer = 0;
+  const region = getRegionAt(player.x / TILE, player.y / TILE);
+  onMapRegionChange(getBgmRegionKey(region), { force: true });
+  currentMapRegion = getBgmRegionKey(region);
   playVoice("nou_enter", { volume: 0.5 });
 }
 
@@ -251,8 +322,9 @@ function refreshGauges() {
 }
 
 function refreshSoulUI() {
+  const inVoid = state === "play" && mode === "extrovert" && isInVoid(world.tiles, player.x, player.y);
   darkFill.style.width = `${soul.darkEntity}%`;
-  moodLabel.textContent = getMoodLabel(soul);
+  moodLabel.textContent = getMoodLabel(soul, { inVoid });
   refreshGauges();
   feedLog.innerHTML = soul.feeds
     .slice(0, 5)
@@ -268,16 +340,23 @@ function escapeHtml(s) {
 }
 
 function submitFeed() {
-  const { soul: next, reply, kind } = feedSoul(soul, feedInput.value);
-  soul = next;
-  if (reply) {
-    muuSpeech.textContent = reply;
+  const result = answerShellQuestion(soul, feedInput.value, currentShellQuestion, SHELL_ANSWER_MIN);
+  soul = result.soul;
+  if (!result.reply) return;
+
+  muuSpeech.textContent = result.reply;
+  refreshSoulUI();
+  updateFeedCharCount();
+
+  if (result.ok) {
     feedInput.value = "";
-    refreshSoulUI();
-    if (kind) {
-      playVoice(voiceForFeedKind(kind), { volume: 0.88 });
-      pulseMuu(800);
-    }
+    updateFeedCharCount();
+    playVoice(voiceForFeedKind(result.kind ?? "philosophical"), { volume: 0.88 });
+    pulseMuu(800);
+    setTimeout(presentShellQuestion, 2200);
+  } else {
+    playVoice("feed_negative", { volume: 0.55 });
+    pulseMuu(400);
   }
 }
 
@@ -295,28 +374,26 @@ function showCombatFlash(style) {
 function openEncounter(entity) {
   if (encounterLocked || encounterCooldown > 0 || isDead(soul)) return;
 
-  soul = damageHp(soul, 5);
-  refreshGauges();
-  if (isDead(soul)) {
-    triggerGameOver();
-    return;
-  }
-
   activeEntity = entity;
   encounterLocked = true;
+  tapTarget = null;
   encounterScreen.classList.remove("hidden");
   choiceResultEl.textContent = "";
   encounterCloseBtn.classList.add("hidden");
   choiceButtons.forEach((b) => (b.disabled = false));
 
   const def = ENTITY_DEFS[entity.type];
+  const motifMeta = MOTIF_META[entity.motif];
   const style = randomCombatStyle();
   showCombatFlash(style);
 
-  entityNameEl.textContent = def.name;
+  entityNameEl.textContent = motifMeta?.label ?? def.name;
   entityLineEl.textContent = getEntityLine(entity);
-  entityVisualEl.style.background = `radial-gradient(circle at 40% 35%, ${def.core}, ${def.color} 70%)`;
-  entityVisualEl.style.boxShadow = `0 0 50px ${def.color}55`;
+  entityVisualEl.src = entity.motif
+    ? `assets/icons/${getRegionArt(entity.regionId)}/${entity.motif}.png`
+    : "";
+  entityVisualEl.alt = motifMeta?.label ?? def.name;
+  entityVisualEl.style.filter = `drop-shadow(0 0 28px ${motifMeta?.glow ?? def.color}99)`;
   playVoice("encounter_open", { volume: 0.8 });
 }
 
@@ -341,12 +418,12 @@ function handleChoice(choiceKey) {
   if (soul.darkEntity > 85) glitch = 0.4;
   if (isDead(soul)) {
     closeEncounter();
-    triggerGameOver();
+    triggerGameOverIfDead();
   }
 }
 
 function updateMapBgm(dt) {
-  if (state !== "play" || mode !== "extrovert") return;
+  if (state !== "play" || mode !== "extrovert" || encounterLocked) return;
 
   const region = getRegionAt(player.x / TILE, player.y / TILE);
   const key = getBgmRegionKey(region);
@@ -372,20 +449,74 @@ function updateMapBgm(dt) {
   }
 }
 
+function screenToWorld(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return {
+    x: (clientX - rect.left) * scaleX + camera.x,
+    y: (clientY - rect.top) * scaleY + camera.y,
+  };
+}
+
+function fitCanvas() {
+  const aspect = canvas.width / canvas.height;
+  const maxW = window.innerWidth;
+  const maxH = window.innerHeight;
+  let w;
+  let h;
+  if (maxW / maxH > aspect) {
+    h = maxH;
+    w = h * aspect;
+  } else {
+    w = maxW;
+    h = w / aspect;
+  }
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+}
+
+function drawTapMarker() {
+  if (!tapTarget || mode !== "extrovert" || encounterLocked) return;
+  const sx = tapTarget.x - camera.x;
+  const sy = tapTarget.y - camera.y;
+  const pulse = 0.5 + Math.sin(dither * 6) * 0.2;
+  ctx.strokeStyle = `rgba(229, 9, 20, ${pulse})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(sx, sy, 12, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = `rgba(229, 9, 20, ${pulse * 0.35})`;
+  ctx.beginPath();
+  ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function updatePlayer(dt) {
   if (encounterLocked || isDead(soul)) return;
 
   const speed = getMoveSpeed(BASE_SPEED, soul);
   let dx = 0;
   let dy = 0;
-  if (keys.has("ArrowLeft") || keys.has("KeyA")) dx -= 1;
-  if (keys.has("ArrowRight") || keys.has("KeyD")) dx += 1;
-  if (keys.has("ArrowUp") || keys.has("KeyW")) dy -= 1;
-  if (keys.has("ArrowDown") || keys.has("KeyS")) dy += 1;
 
-  if (touch.active) {
-    dx = touch.x;
-    dy = touch.y;
+  if (isTouchDevice && tapTarget) {
+    const dist = Math.hypot(tapTarget.x - player.x, tapTarget.y - player.y);
+    if (dist < 14) {
+      tapTarget = null;
+    } else {
+      dx = tapTarget.x - player.x;
+      dy = tapTarget.y - player.y;
+    }
+  } else {
+    if (keys.has("ArrowLeft") || keys.has("KeyA")) dx -= 1;
+    if (keys.has("ArrowRight") || keys.has("KeyD")) dx += 1;
+    if (keys.has("ArrowUp") || keys.has("KeyW")) dy -= 1;
+    if (keys.has("ArrowDown") || keys.has("KeyS")) dy -= 1;
+
+    if (!isTouchDevice && touch.active) {
+      dx = touch.x;
+      dy = touch.y;
+    }
   }
 
   if (isMalfunctioning(soul) && Math.random() < 0.03) {
@@ -405,6 +536,9 @@ function updatePlayer(dt) {
     }
   }
 
+  const prevX = player.x;
+  const prevY = player.y;
+
   const nx = player.x + dx * speed * dt;
   if (canMove(world.tiles, nx - player.w / 2, player.y - player.h, player.w, player.h)) {
     player.x = nx;
@@ -414,11 +548,24 @@ function updatePlayer(dt) {
     player.y = ny;
   }
 
+  const moved = Math.hypot(player.x - prevX, player.y - prevY);
+  if (moved > 0.5) {
+    stepDistance += moved;
+    if (stepDistance >= STEP_INTERVAL) {
+      stepDistance = 0;
+      const inVoid = isInVoid(world.tiles, player.x, player.y);
+      playFootstep({ inVoid });
+    }
+  } else {
+    stepDistance = 0;
+  }
+
+  const inVoid = isInVoid(world.tiles, player.x, player.y);
+  areaLabel.textContent = `${getAreaName(player.x, player.y, world.tiles)} / ${getMoodLabel(soul, { inVoid })}`;
+  moodLabel.textContent = getMoodLabel(soul, { inVoid });
+
   const near = findNearby(entities, player.x, player.y);
   if (near) openEncounter(near);
-
-  areaLabel.textContent = `${getAreaName(player.x, player.y)} / ${getMoodLabel(soul)}`;
-  moodLabel.textContent = getMoodLabel(soul);
 }
 
 function updateCamera() {
@@ -442,6 +589,18 @@ function drawTile(x, y, tile, tx, ty) {
 
   ctx.fillStyle = pal.base;
   ctx.fillRect(px, py, TILE, TILE);
+
+  if (tile === T.VOID) {
+    ctx.strokeStyle = "rgba(229, 9, 20, 0.07)";
+    ctx.lineWidth = 1;
+    if ((tx + ty) % 3 === 0) {
+      ctx.strokeRect(px + 2, py + 2, TILE - 4, TILE - 4);
+    }
+    if ((tx * 5 + ty * 3) % 7 === 0) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+      ctx.fillRect(px + 14, py + 14, 2, 2);
+    }
+  }
 
   if (tile !== T.VOID && regionId && REGION_TINT[regionId]) {
     ctx.fillStyle = REGION_TINT[regionId];
@@ -492,14 +651,32 @@ function drawWorld() {
 }
 
 function drawEntities() {
-  for (const e of entities) drawEntity(ctx, e, camera, dither);
+  for (const e of entities) drawEntity(ctx, e, camera, dither, entityIcons);
 }
 
 function drawDarkEntity() {
-  if (soul.darkEntity < 20) return;
-  const alpha = (soul.darkEntity / 100) * 0.35;
+  if (soul.darkEntity < 45) return;
+  const alpha = ((soul.darkEntity - 45) / 55) * 0.12;
   ctx.fillStyle = `rgba(80, 0, 20, ${alpha})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawVoidHazard() {
+  if (mode !== "extrovert" || !isInVoid(world.tiles, player.x, player.y)) return;
+  const pulse = 0.1 + Math.sin(dither * 4) * 0.04;
+  ctx.fillStyle = `rgba(0, 0, 0, ${pulse})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = `rgba(229, 9, 20, ${0.22 + Math.sin(dither * 5) * 0.1})`;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
+
+  ctx.fillStyle = "rgba(229, 9, 20, 0.7)";
+  ctx.font = "bold 11px Helvetica Neue, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("VOID", 20, canvas.height - 36);
+  ctx.fillStyle = "rgba(180, 180, 180, 0.55)";
+  ctx.font = "10px Helvetica Neue, sans-serif";
+  ctx.fillText(VOID_REALM.tagline, 20, canvas.height - 20);
 }
 
 function drawGlitch() {
@@ -523,17 +700,16 @@ function drawPlayer() {
   const sy = player.y - camera.y;
 
   const warmth = soul.brainWarmth ?? 0;
-  const width = SPRITE_W * (1 + warmth * 0.05);
-  const height = SPRITE_H * (1 - warmth * 0.03);
-  drawSprite(ctx, img, sx, sy, width, height);
+  const width = SPRITE_W * NOU_SPRITE_SCALE * (1 + warmth * 0.05);
+  const height = SPRITE_H * SPRITE_SQUASH * NOU_SPRITE_SCALE * (1 - warmth * 0.03);
 
-  const r = 229 + warmth * 20;
-  const g = 9 - warmth * 40;
-  const glow = 0.12 + Math.max(0, warmth) * 0.25;
-  ctx.fillStyle = `rgba(${r}, ${Math.max(0, g)}, 20, ${glow})`;
+  ctx.save();
+  ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
   ctx.beginPath();
-  ctx.arc(sx, sy - height + 16, 14, 0, Math.PI * 2);
+  ctx.ellipse(sx, sy + 5, width * 0.34, 6, 0, 0, Math.PI * 2);
   ctx.fill();
+  drawSprite(ctx, img, sx, sy, width, height);
+  ctx.restore();
 }
 
 function drawMinimap() {
@@ -563,8 +739,8 @@ function drawMinimap() {
 
   for (const e of entities) {
     if (!e.alive) continue;
-    const def = ENTITY_DEFS[e.type];
-    ctx.fillStyle = def.color;
+    const meta = MOTIF_META[e.motif];
+    ctx.fillStyle = meta?.glow ?? ENTITY_DEFS[e.type].color;
     ctx.fillRect(mx + (e.x / TILE) * sx - 1, my + (e.y / TILE) * sy - 1, 3, 3);
   }
 
@@ -577,7 +753,7 @@ function drawRegionAmbience() {
   if (!key || key === "hub") return;
 
   if (key === "ai") {
-    ctx.strokeStyle = "rgba(150, 210, 240, 0.12)";
+    ctx.strokeStyle = "rgba(150, 210, 240, 0.05)";
     ctx.lineWidth = 1;
     for (let i = 0; i < 50; i++) {
       const x = (i * 53 + dither * 140) % canvas.width;
@@ -591,14 +767,14 @@ function drawRegionAmbience() {
 
   if (key === "ki") {
     const g = ctx.createRadialGradient(canvas.width * 0.5, 0, 0, canvas.width * 0.5, 0, canvas.height * 0.7);
-    g.addColorStop(0, "rgba(255, 220, 60, 0.08)");
+    g.addColorStop(0, "rgba(255, 220, 60, 0.03)");
     g.addColorStop(1, "rgba(255, 220, 60, 0)");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
   if (key === "nu") {
-    ctx.fillStyle = "rgba(200, 60, 40, 0.04)";
+    ctx.fillStyle = "rgba(200, 60, 40, 0.015)";
     for (let i = 0; i < 8; i++) {
       const x = (i * 97 + dither * 30) % canvas.width;
       const y = (i * 61 + dither * 20) % (canvas.height * 0.6);
@@ -611,7 +787,7 @@ function drawRegionAmbience() {
   if (key === "raku") {
     const g = ctx.createLinearGradient(0, canvas.height * 0.3, 0, canvas.height);
     g.addColorStop(0, "rgba(255, 120, 50, 0)");
-    g.addColorStop(1, "rgba(255, 100, 40, 0.12)");
+    g.addColorStop(1, "rgba(255, 100, 40, 0.04)");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
@@ -621,10 +797,12 @@ function draw() {
   drawVoidGrain();
   drawWorld();
   drawProps(ctx, props, camera, dither);
+  drawDarkEntity();
+  drawVoidHazard();
+  drawRegionAmbience();
+  drawTapMarker();
   drawEntities();
   drawPlayer();
-  drawDarkEntity();
-  drawRegionAmbience();
   drawGlitch();
   drawRedFrame();
   drawMinimap();
@@ -641,6 +819,7 @@ function loop(time) {
     soul = tickSoul(soul, dt, {
       playing: true,
       inNou: mode === "extrovert",
+      inVoid: mode === "extrovert" && isInVoid(world.tiles, player.x, player.y),
     });
     refreshGauges();
 
@@ -650,7 +829,7 @@ function loop(time) {
       saveTimer = 0;
     }
 
-    if (isDead(soul)) triggerGameOver();
+    if (isDead(soul)) triggerGameOverIfDead();
   }
 
   if (state === "play" && mode === "extrovert" && !isDead(soul)) {
@@ -668,6 +847,7 @@ function loop(time) {
 
   if (state === "play" && mode === "introvert") {
     refreshSoulUI();
+    drawShellMuu();
   }
 
   if (state === "play" && mode === "extrovert") {
@@ -708,11 +888,20 @@ function bindInput() {
   window.addEventListener("keyup", (e) => keys.delete(e.code));
 
   titleScreen.addEventListener("click", beginPlay);
+  titleScreen.addEventListener(
+    "touchend",
+    (e) => {
+      e.preventDefault();
+      beginPlay();
+    },
+    { passive: false }
+  );
   retryBtn.addEventListener("click", retryFromDeath);
   fullResetBtn.addEventListener("click", fullReset);
   toShellBtn.addEventListener("click", enterShell);
   toNouBtn.addEventListener("click", enterNou);
   feedBtn.addEventListener("click", submitFeed);
+  feedInput.addEventListener("input", updateFeedCharCount);
   encounterCloseBtn.addEventListener("click", closeEncounter);
 
   choiceButtons.forEach((btn) => {
@@ -723,27 +912,41 @@ function bindInput() {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitFeed();
   });
 
-  canvas.addEventListener("pointerdown", (e) => {
-    if (mode !== "extrovert" || encounterLocked) return;
-    touch.active = true;
-    touch.originX = e.clientX;
-    touch.originY = e.clientY;
-  });
+  canvas.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (mode !== "extrovert" || encounterLocked) return;
+      if (isTouchDevice) {
+        e.preventDefault();
+        tapTarget = screenToWorld(e.clientX, e.clientY);
+        return;
+      }
+      touch.active = true;
+      touch.originX = e.clientX;
+      touch.originY = e.clientY;
+    },
+    { passive: false }
+  );
   canvas.addEventListener("pointermove", (e) => {
-    if (!touch.active || mode !== "extrovert" || encounterLocked) return;
+    if (isTouchDevice || !touch.active || mode !== "extrovert" || encounterLocked) return;
     const dx = e.clientX - touch.originX;
     const dy = e.clientY - touch.originY;
-    const m = 48;
+    const m = 28;
     touch.x = Math.max(-1, Math.min(1, dx / m));
     touch.y = Math.max(-1, Math.min(1, dy / m));
   });
   const endTouch = () => {
+    if (isTouchDevice) return;
     touch.active = false;
     touch.x = 0;
     touch.y = 0;
   };
   canvas.addEventListener("pointerup", endTouch);
+  canvas.addEventListener("pointercancel", endTouch);
   canvas.addEventListener("pointerleave", endTouch);
+
+  window.addEventListener("resize", fitCanvas);
+  fitCanvas();
 }
 
 async function boot() {
@@ -752,8 +955,11 @@ async function boot() {
   preloadVoices();
   preloadBgm();
   sprites = await loadSprites("assets/muu");
+  entityIcons = await loadEntityIcons("assets/icons");
+  await loadScenery("assets/scenery");
   bindInput();
   refreshSoulUI();
+  drawShellMuu();
   requestAnimationFrame(loop);
 }
 

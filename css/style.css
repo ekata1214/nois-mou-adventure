@@ -78,6 +78,19 @@ body {
   text-transform: uppercase;
 }
 
+.mobile-hint {
+  display: none;
+  margin-top: 10px;
+  font-size: 10px;
+  color: #666;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .mobile-hint {
+    display: block;
+  }
+}
+
 .credit {
   position: absolute;
   bottom: 40px;
@@ -97,6 +110,8 @@ body {
   width: auto;
   height: auto;
   background: #000;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #game.hidden {
@@ -301,41 +316,40 @@ body {
   justify-content: center;
 }
 
-.shell-oval {
-  position: absolute;
-  width: min(380px, 80%);
-  height: min(480px, 70vh);
-  border: 1px solid rgba(229, 9, 20, 0.45);
-  border-radius: 50% 50% 48% 52% / 55% 55% 45% 45%;
-  background: radial-gradient(ellipse at 50% 40%, #1a1018 0%, #050508 70%);
-  box-shadow: inset 0 0 80px rgba(229, 9, 20, 0.08);
-}
-
 #shell-muu {
   position: relative;
-  max-height: 34vh;
-  max-width: 180px;
-  width: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 0 24px rgba(229, 9, 20, 0.25));
-  mix-blend-mode: screen;
+  width: min(696px, 90%);
+  height: auto;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.6));
   transition: filter 0.2s ease, transform 0.2s ease;
 }
 
 #shell-muu.speaking {
-  filter: drop-shadow(0 0 36px rgba(229, 9, 20, 0.55));
-  transform: scale(1.03);
+  filter: drop-shadow(0 4px 28px rgba(229, 9, 20, 0.45));
+  transform: scale(1.02);
 }
 
 #muu-speech {
   position: relative;
   margin-top: 20px;
-  max-width: 420px;
+  max-width: 520px;
   text-align: center;
-  font-size: 15px;
-  line-height: 1.6;
-  color: #ccc;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #e8e8e8;
   min-height: 3em;
+}
+
+.feed-char-count {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: #666;
+  text-align: right;
+  margin: 0;
+}
+
+.feed-char-count.ready {
+  color: #e50914;
 }
 
 .shell-panel {
@@ -344,6 +358,14 @@ body {
   gap: 12px;
   border-left: 1px solid #222;
   padding-left: 32px;
+}
+
+.shell-question {
+  font-size: 15px;
+  line-height: 1.75;
+  color: #f0f0f0;
+  margin: 0 0 8px;
+  min-height: 4.5em;
 }
 
 .shell-panel label {
@@ -450,10 +472,10 @@ body {
 }
 
 .encounter-panel {
-  width: min(560px, 92vw);
+  width: min(840px, 90vw);
   border: 1px solid #e50914;
   background: #050508;
-  padding: 32px 28px;
+  padding: 48px 42px;
   position: relative;
 }
 
@@ -471,54 +493,56 @@ body {
 
 .encounter-brand {
   color: #e50914;
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.4em;
-  margin-bottom: 8px;
+  margin-bottom: 9px;
 }
 
 .combat-type {
-  font-size: 10px;
+  font-size: 9px;
   color: #666;
   letter-spacing: 0.2em;
-  margin-bottom: 12px;
-  min-height: 14px;
+  margin-bottom: 15px;
+  min-height: 12px;
 }
 
 #entity-name {
-  font-size: 22px;
+  font-size: 30px;
   font-weight: 600;
   letter-spacing: 0.08em;
-  margin-bottom: 8px;
+  margin-bottom: 9px;
 }
 
 #entity-line {
   font-size: 14px;
   color: #aaa;
-  line-height: 1.5;
-  margin-bottom: 20px;
+  line-height: 1.55;
+  margin-bottom: 24px;
 }
 
 #entity-visual {
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 24px;
-  border-radius: 50%;
-  border: 1px solid #333;
-  box-shadow: 0 0 40px rgba(229, 9, 20, 0.2);
+  display: block;
+  width: 384px;
+  height: 384px;
+  margin: 0 auto 30px;
+  object-fit: contain;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .choice-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 12px;
 }
 
 .choice-grid button {
   border: 1px solid #444;
   background: #0a0a0a;
   color: #f2f2f2;
-  padding: 14px;
-  font-size: 13px;
+  padding: 17px;
+  font-size: 12px;
   letter-spacing: 0.12em;
   cursor: pointer;
 }
@@ -529,11 +553,11 @@ body {
 }
 
 .choice-result {
-  margin-top: 16px;
+  margin-top: 18px;
   font-size: 14px;
   color: #ccc;
   min-height: 1.4em;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 #encounter-close.hidden {
@@ -541,8 +565,10 @@ body {
 }
 
 #encounter-close {
-  margin-top: 20px;
+  margin-top: 21px;
   width: 100%;
+  padding: 14px;
+  font-size: 12px;
 }
 
 #combat-flash {
@@ -579,6 +605,40 @@ body {
 }
 
 @media (max-width: 900px) {
+  #hud {
+    font-size: 10px;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+  }
+
+  .gauge-row {
+    gap: 4px;
+  }
+
+  .meter-track {
+    width: min(120px, 28vw);
+  }
+
+  .mode-switch.small {
+    padding: 8px 10px;
+    font-size: 9px;
+  }
+
+  #entity-visual {
+    width: min(384px, 72vw);
+    height: min(384px, 72vw);
+  }
+
+  .encounter-panel {
+    width: min(840px, 94vw);
+    padding: 32px 20px;
+  }
+
+  #entity-name {
+    font-size: 24px;
+  }
+
   .shell-layout {
     grid-template-columns: 1fr;
     overflow-y: auto;

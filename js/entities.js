@@ -1,3 +1,5 @@
+import { pickMotifForRegion, drawEntityIcon } from "./entity-icons.js";
+
 export const CHOICE = {
   KILL: "kill",
   EAT: "eat",
@@ -157,6 +159,8 @@ export function spawnEntities(world, TILE, isWalkable) {
         entities.push({
           id: `e${id++}`,
           type,
+          motif: pickMotifForRegion(region.id),
+          regionId: region.id,
           region: region.name,
           x: tx * TILE + TILE / 2,
           y: ty * TILE + TILE / 2,
@@ -184,7 +188,7 @@ export function updateEntities(entities, dt, tiles, TILE, canMoveFn) {
       e.vx = (Math.random() - 0.5) * 40;
       e.vy = (Math.random() - 0.5) * 40;
     }
-    const size = 20;
+    const size = 24;
     const nx = e.x + e.vx * dt;
     const ny = e.y + e.vy * dt;
     if (canMoveFn(tiles, nx - size / 2, ny - size / 2, size, size)) {
@@ -201,42 +205,8 @@ export function findNearby(entities, px, py, range = 52) {
   return entities.find((e) => e.alive && Math.hypot(e.x - px, e.y - py) < range);
 }
 
-export function drawEntity(ctx, e, camera, dither) {
-  if (!e.alive) return;
-  const def = ENTITY_DEFS[e.type];
-  const sx = e.x - camera.x;
-  const sy = e.y - camera.y;
-  const scale = e.scale ?? 1;
-  const r = (16 + Math.sin(e.pulse) * 3) * scale;
-
-  ctx.save();
-  ctx.globalAlpha = 0.25;
-  ctx.fillStyle = def.color;
-  ctx.beginPath();
-  ctx.arc(sx, sy, r + 10, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-
-  ctx.fillStyle = def.core;
-  ctx.beginPath();
-  ctx.arc(sx, sy - 4, r * 0.55, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = def.color;
-  ctx.lineWidth = 1.5;
-  for (let i = 0; i < 4; i++) {
-    const a = e.pulse + (i * Math.PI) / 2;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(sx + Math.cos(a) * (r + 6), sy + Math.sin(a) * (r + 6));
-    ctx.stroke();
-  }
-
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.font = "10px Helvetica Neue, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(def.name, sx, sy - r - 14);
-  ctx.restore();
+export function drawEntity(ctx, e, camera, dither, icons) {
+  drawEntityIcon(ctx, icons, e, camera, dither);
 }
 
 export function randomCombatStyle() {
@@ -265,25 +235,25 @@ export function resolveChoice(entity, choice) {
     case CHOICE.KILL:
       darkDelta = def.kind === "negative" ? 8 : def.kind === "neutral" ? 10 : 12;
       brainWarmth = -0.2;
-      hpDelta = 10;
+      hpDelta = -14;
       break;
     case CHOICE.EAT:
       darkDelta = def.kind === "negative" ? 14 : def.kind === "neutral" ? 6 : 2;
       speedBoost = def.kind === "negative" ? 1.25 : def.kind === "neutral" ? 1.1 : 1.05;
       brainWarmth = def.kind === "negative" ? 0.3 : def.kind === "neutral" ? 0.15 : 0.1;
-      hpDelta = def.kind === "negative" ? 16 : def.kind === "neutral" ? 8 : 5;
+      hpDelta = def.kind === "negative" ? -20 : def.kind === "neutral" ? -12 : -10;
       entity.scale = 1.1;
       break;
     case CHOICE.IGNORE:
       remove = false;
       darkDelta = 16;
-      hpDelta = 12;
+      hpDelta = -8;
       entity.scale = Math.min(1.8, entity.scale + 0.15);
       break;
     case CHOICE.FRIEND:
       darkDelta = -10;
       brainWarmth = 0.25;
-      hpDelta = -6;
+      hpDelta = -24;
       humanSpark = 2;
       remove = true;
       break;

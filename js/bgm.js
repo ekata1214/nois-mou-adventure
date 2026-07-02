@@ -11,6 +11,8 @@ const TRACKS = {
   happy_2: "assets/bgm/happy_2.mp3",
   happy_long1: "assets/bgm/happy_long1.mp3",
   happy_long2: "assets/bgm/happy_long2.mp3",
+  heal_long1: "assets/bgm/heal_long1.mp3",
+  heal_long2: "assets/bgm/heal_long2.mp3",
 };
 
 /** 季節エリアごとに出やすい曲（喜怒哀楽 → 夏/秋/梅雨/夕方） */
@@ -20,6 +22,8 @@ const REGION_POOLS = {
   nu: ["dark_1", "dark_2", "dark_long1", "dark_long2", "drone_long1"],
   ai: ["dark_1", "dark_2", "dark_long1", "dark_long2", "drone_long1", "drone_long2"],
   raku: ["happy_1", "happy_2", "drone", "drone2", "dark_1", "dark_2", "happy_long1"],
+  /** 殻（イントロバート）— heal曲ランダム */
+  shell: ["heal_long1", "heal_long2"],
 };
 
 const BGM_VOLUME = 0.38;
@@ -40,9 +44,10 @@ players.forEach((p) => {
 
 function pickTrack(regionKey) {
   const pool = REGION_POOLS[regionKey] ?? REGION_POOLS.hub;
+  const keys = pool.filter((key) => TRACKS[key]);
   const options =
-    pool.length > 1 ? pool.filter((key) => TRACKS[key] !== currentTrack) : pool;
-  const key = options[Math.floor(Math.random() * options.length)] ?? pool[0];
+    keys.length > 1 ? keys.filter((key) => TRACKS[key] !== currentTrack) : keys;
+  const key = options[Math.floor(Math.random() * options.length)] ?? keys[0];
   return TRACKS[key];
 }
 
@@ -90,6 +95,10 @@ export function setBgmEnabled(on) {
 
 export function getBgmRegionKey(region) {
   return region?.id ?? "hub";
+}
+
+export function onShellBgmStart() {
+  onMapRegionChange("shell", { force: true });
 }
 
 export function onMapRegionChange(regionKey, { force = false } = {}) {
