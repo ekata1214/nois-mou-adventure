@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>ムー君の冒険 — NOU</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="title-screen">
+      <p class="brand">UNGR ARCHIVE PRESENTS</p>
+      <img id="title-art" src="assets/title.png" alt="ムー君の冒険" />
+      <p class="start-hint">CLICK / SPACE / TAP to enter NOU</p>
+      <p class="credit">Nois Mou — Phase 0 Prototype</p>
+    </div>
+    <canvas id="game" width="1280" height="720"></canvas>
+    <div id="hud" class="hidden">
+      <span id="area-label">NOU — 始まりの断片</span>
+      <span id="hint">WASD / 矢印 で移動</span>
+    </div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
