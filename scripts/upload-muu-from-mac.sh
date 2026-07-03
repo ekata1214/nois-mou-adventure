@@ -66,6 +66,9 @@ for f in assets/muu/manifest.json assets/muu/README-speak-mou.txt; do
   [ -f "$f" ] && UPLOAD_FILES+=("$f")
 done
 
+# 前回失敗で blend がインデックスに残っていたら外す
+git rm --cached -f assets/muu/*.blend 2>/dev/null || true
+
 if [ "$USE_LFS" -eq 1 ]; then
   git add .gitattributes "${UPLOAD_FILES[@]}"
 else
@@ -89,9 +92,8 @@ echo ">> push 中..."
 if ! git push -u origin "$(git branch --show-current)"; then
   echo ""
   echo "✗ push 失敗"
-  echo "  前回の失敗コミットがある場合:"
-  echo "    git reset --soft HEAD~1"
-  echo "    git pull"
+  echo "  復旧してから再実行:"
+  echo "    ./scripts/reset-muu-upload.sh"
   echo "    ./scripts/upload-muu-from-mac.sh"
   echo ""
   echo "  .blend も送りたい場合: brew install git-lfs && git lfs install"
