@@ -1,6 +1,6 @@
 {
-  "model": "this.glb",
-  "models": ["this.glb"],
+  "model": "this ver2.glb",
+  "models": ["this ver2.glb", "this ver2.GLB", "this.glb"],
   "camera": {
     "fov": 42
   },

@@ -31,24 +31,34 @@ else
   ok=0
 fi
 
-if grep -q "v20260703k" index.html 2>/dev/null; then
-  echo "✓ 最新バージョン (v20260703k)"
+if grep -q "v20260703l" index.html 2>/dev/null; then
+  echo "✓ 最新バージョン (v20260703l)"
 else
   echo "✗ コードが古い → git pull してください"
   ok=0
 fi
 
-if [ -f "assets/room/this.glb" ]; then
+if [ -f "assets/room/this ver2.glb" ]; then
+  size=$(du -h "assets/room/this ver2.glb" | cut -f1)
+  echo "✓ assets/room/this ver2.glb ($size)"
+elif [ -f "assets/room/this ver2.GLB" ]; then
+  size=$(du -h "assets/room/this ver2.GLB" | cut -f1)
+  echo "✓ assets/room/this ver2.GLB ($size)"
+elif [ -f "assets/room/this.glb" ]; then
   size=$(du -h "assets/room/this.glb" | cut -f1)
-  echo "✓ assets/room/this.glb ($size)"
-elif [ -f "assets/room/this.GLB" ]; then
-  size=$(du -h "assets/room/this.GLB" | cut -f1)
-  echo "✓ assets/room/this.GLB ($size)"
+  echo "✓ assets/room/this.glb ($size) — this ver2.glb 推奨"
 else
-  echo "✗ assets/room/this.glb がありません"
-  echo "  Blender から this.glb で export して assets/room/ に置いてください"
+  echo "✗ assets/room/this ver2.glb がありません"
+  echo "  Blender から this ver2.glb で export して assets/room/ に置いてください"
   ls -la "assets/room/" 2>/dev/null || true
   ok=0
+fi
+
+if [ ! -f "assets/void/void-stars.png" ]; then
+  echo "✗ assets/void/void-stars.png がありません"
+  ok=0
+else
+  echo "✓ assets/void/void-stars.png"
 fi
 
 echo ""

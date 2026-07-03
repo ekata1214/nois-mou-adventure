@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-const GLB_FALLBACK_FILES = ["this.glb", "this.GLB"];
+const GLB_FALLBACK_FILES = ["this ver2.glb", "this ver2.GLB", "this.glb", "this.GLB"];
 
 function modelUrl(basePath, name) {
   return `${basePath}/${encodeURIComponent(name)}`;

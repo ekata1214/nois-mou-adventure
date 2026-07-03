@@ -83,7 +83,7 @@ import {
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
 import { createShellRoomView } from "./shell-room.js";
-import { drawVoidCosmosBackground, drawVoidTileCosmos } from "./void-cosmos.js";
+import { drawVoidCosmosBackground, drawVoidTileCosmos, preloadVoidCosmos } from "./void-cosmos.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -962,7 +962,7 @@ function drawTile(x, y, tile, tx, ty) {
   }
 
   if (tile === T.VOID) {
-    drawVoidTileCosmos(ctx, px, py, TILE, tx, ty, dither);
+    drawVoidTileCosmos(ctx, px, py, TILE, tx, ty);
     ctx.strokeStyle = "rgba(229, 9, 20, 0.05)";
     ctx.lineWidth = 1;
     if ((tx + ty) % 5 === 0) {
@@ -1432,6 +1432,7 @@ async function boot() {
   initWorld();
   preloadVoices();
   preloadBgm();
+  preloadVoidCosmos();
   bindInput();
   requestAnimationFrame(loop);
 
