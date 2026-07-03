@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-const GLB_FALLBACK_FILES = ["speak_mou.glb", "speak_mou.GLB"];
+const GLB_FALLBACK_FILES = ["speak_mou.glb", "speak-mou.glb", "speak_mou.GLB"];
 
 function modelUrl(basePath, name) {
   return `${basePath}/${encodeURIComponent(name)}`;
@@ -118,6 +118,7 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu") 
   const idleNames = manifest?.animations?.idle ?? ["idle", "Idle", "rest"];
   const speakNames = manifest?.animations?.speak ?? [
     "speak_mou",
+    "speak-mou",
     "speak",
     "Speak",
     "speak mou",

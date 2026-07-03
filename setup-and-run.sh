@@ -37,7 +37,14 @@ else
   echo "✗ assets/room/ に GLB がありません（this ver2.glb を置いてください）"
 fi
 
-if [ -f "assets/muu/speak_mou.glb" ]; then
+if ls assets/muu/*.blend >/dev/null 2>&1; then
+  echo ">> speak-mou.blend から GLB を生成..."
+  if bash scripts/export-speak-mou.sh; then
+    echo "✓ speak_mou.glb 生成完了"
+  else
+    echo "△ speak_mou.glb 生成失敗 — 手動 export または scripts/export-speak-mou.sh"
+  fi
+elif [ -f "assets/muu/speak_mou.glb" ]; then
   size=$(du -h "assets/muu/speak_mou.glb" | cut -f1)
   echo "✓ assets/muu/speak_mou.glb ($size)"
 elif [ -f "assets/muu/speak_mou.GLB" ]; then
