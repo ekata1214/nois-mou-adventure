@@ -6,7 +6,6 @@ import re
 import sys
 
 import bpy
-from mathutils import Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 MUU_DIR = os.path.join(ROOT, "assets", "muu")
@@ -39,11 +38,57 @@ def load_export_opts():
         return json.load(f)
 
 
-def reset_shape_keys(obj):
+def log_shape_keys(obj):
     if obj.type != "MESH" or not obj.data.shape_keys:
         return
-    for block in obj.data.shape_keys.key_blocks:
-        block.value = 0.0
+    active = [(kb.name, round(kb.value, 4)) for kb in obj.data.shape_keys.key_blocks if abs(kb.value) > 1e-5]
+    if active:
+        preview = ", ".join(f"{n}={v}" for n, v in active[:8])
+        extra = f" (+{len(active) - 8} more)" if len(active) > 8 else ""
+        print(f"[info] shape keys kept on {obj.name}: {preview}{extra}")
+    else:
+        print(f"[info] shape keys on {obj.name}: all at 0 (base mesh — HumGen default?)")
+
+
+def bake_viewport_mesh(obj):
+    """Viewport の見た目（HumGen シェイプキー・モディファイア）をメッシュ頂点に焼き付ける。"""
+    if obj.type != "MESH":
+        return
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    obj_eval = obj.evaluated_get(depsgraph)
+    baked = bpy.data.meshes.new_from_object(
+        obj_eval,
+        preserve_all_data_layers=True,
+        depsgraph=depsgraph,
+    )
+    old = obj.data
+    obj.data = baked
+    if old.users <= 1:
+        bpy.data.meshes.remove(old, do_unlink=True)
+    print(f"[info] baked viewport mesh: {obj.name} ({len(baked.vertices)} verts)")
+
+
+def apply_non_armature_modifiers(obj):
+    """Armature 以外のモディファイアを適用（HumGen 等）。"""
+    if obj.type != "MESH":
+        return
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    for mod in list(obj.modifiers):
+        if mod.type == "ARMATURE":
+            continue
+        if mod.type == "PARTICLE_SYSTEM":
+            try:
+                obj.modifiers.remove(mod)
+            except Exception:
+                pass
+            continue
+        try:
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+            print(f"[info] applied modifier {mod.name} on {obj.name}")
+        except Exception as err:
+            print(f"[warn] could not apply {mod.name} on {obj.name}: {err}")
+    obj.select_set(False)
 
 
 def clamp_materials():
@@ -179,6 +224,16 @@ def export_glb(opts):
     print(f"[ok] exported -> {OUT_GLB}")
 
 
+def prepare_mesh_for_export(mesh, opts):
+    """HumGen のカスタム体型を維持したまま export 用に整える。"""
+    log_shape_keys(mesh)
+    if opts.get("apply_modifiers", True):
+        apply_non_armature_modifiers(mesh)
+    if opts.get("bake_viewport", True):
+        bake_viewport_mesh(mesh)
+    normalize_mesh_weights(mesh, limit=int(opts.get("weight_limit", 4)))
+
+
 def main():
     opts = load_export_opts()
     blend_path = find_blend()
@@ -198,8 +253,7 @@ def main():
     print(f"[info] armature={armature.name} meshes={[m.name for m in meshes]}")
 
     for mesh in meshes:
-        reset_shape_keys(mesh)
-        normalize_mesh_weights(mesh, limit=int(opts.get("weight_limit", 4)))
+        prepare_mesh_for_export(mesh, opts)
 
     clamp_materials()
     rename_active_action(armature, opts.get("animation_name", "speak_mou"))
