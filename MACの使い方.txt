@@ -1,0 +1,38 @@
+ムー君の冒険 — Mac での起動方法
+================================
+
+【いちばん簡単】
+  Finder でこのフォルダを開き、RUN.command をダブルクリック
+
+
+【ターミナルで起動】
+  cd "/Users/takaearasaki/Desktop/MY GAMES/nois-mou-adventure"
+  ./setup-and-run.sh
+
+
+【よくある間違い】
+
+  ✗ /Users/.../nois-mou-adventure ./start-local.sh
+    → フォルダを「実行」しようとして permission denied になります
+
+  ✗ サーバー起動中に git pull や ./setup-and-run.sh を打つ
+    → そのターミナルはサーバー専用です。まず Ctrl+C で止めてから実行
+
+  ✗ python3 -m http.server を手動で起動したまま古いコードを見る
+    → setup-and-run.sh を使うか、git pull 後に Cmd+Shift+R で強制リロード
+
+
+【ターミナルに出る BrokenPipeError について】
+  BGM を先読みしている途中でブラウザが接続を切るだけです。
+  ゲームの不具合ではありません。setup-and-run.sh なら出にくくなります。
+
+
+【最新版か確認】
+  タイトル画面の下: v20260703i
+  殻モードのボタン: 「餌をあげる」
+  ブラウザの開発者ツール Network に js/shell-room.js がある
+
+
+【3D 部屋が真っ黒なとき】
+  assets/room/this.glb があるか確認
+  （room right.glb があるだけなら setup-and-run.sh がコピーします）
