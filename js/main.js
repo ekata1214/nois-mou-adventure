@@ -33,6 +33,7 @@ import {
 } from "./soul.js";
 import {
   ENTITY_DEFS,
+  CHOICE,
   spawnEntities,
   updateEntities,
   findNearby,
@@ -41,6 +42,14 @@ import {
   getEntityLine,
   resolveChoice,
 } from "./entities.js";
+import {
+  createActionCombat,
+  updateActionCombat,
+  drawActionCombat,
+  ENCOUNTER_ZOOM,
+  ZOOM_IN_DURATION,
+  ZOOM_OUT_DURATION,
+} from "./combat-action.js";
 import {
   unlockAudio,
   preloadVoices,
@@ -68,8 +77,13 @@ const titleScreen = document.getElementById("title-screen");
 const hud = document.getElementById("hud");
 const shellScreen = document.getElementById("shell-screen");
 const encounterScreen = document.getElementById("encounter-screen");
+const encounterPanel = document.querySelector(".encounter-panel");
 const combatFlash = document.getElementById("combat-flash");
 const combatTypeEl = document.getElementById("combat-type");
+const actionCombatHud = document.getElementById("action-combat-hud");
+const actionEntityNameEl = document.getElementById("action-entity-name");
+const actionEnemyHpFill = document.getElementById("action-enemy-hp-fill");
+const actionAttackBtn = document.getElementById("action-attack-btn");
 const entityNameEl = document.getElementById("entity-name");
 const entityLineEl = document.getElementById("entity-line");
 const entityVisualEl = document.getElementById("entity-visual");
@@ -126,6 +140,13 @@ let glitch = 0;
 let activeEntity = null;
 let encounterLocked = false;
 let encounterCooldown = 0;
+let encounterPhase = null;
+let combatStyle = null;
+let encounterZoom = 1;
+let encounterCenter = { x: 0, y: 0 };
+let zoomTimer = 0;
+let actionCombat = null;
+let attackJustPressed = false;
 let saveTimer = 0;
 let lowHpVoiceTimer = 0;
 let currentMapRegion = "";
@@ -198,12 +219,17 @@ function triggerGameOver({ fromVoid = false } = {}) {
   if (state === "gameover") return;
   state = "gameover";
   encounterScreen.classList.add("hidden");
+  actionCombatHud.classList.add("hidden");
   shellScreen.classList.add("hidden");
   canvas.classList.add("hidden");
   hud.classList.add("hidden");
   gameoverScreen.classList.remove("hidden");
   activeEntity = null;
   encounterLocked = false;
+  encounterPhase = null;
+  encounterZoom = 1;
+  actionCombat = null;
+  combatStyle = null;
   saveSoul(soul);
 
   if (fromVoid) {
@@ -362,15 +388,88 @@ function submitFeed() {
   }
 }
 
-function showCombatFlash(style) {
+function showEncounterFlash() {
+  encounterScreen.classList.remove("hidden");
+  encounterScreen.classList.add("flash-only");
   combatFlash.classList.remove("hidden", "action", "rpg");
-  combatFlash.classList.add(style);
-  combatTypeEl.textContent =
-    style === "action" ? "COMBAT — ACTION (ZELDA)" : "COMBAT — RPG (DRAGON QUEST)";
+  combatFlash.classList.add("neutral");
+  combatTypeEl.textContent = "";
   setTimeout(() => {
     combatFlash.classList.add("hidden");
-    combatFlash.classList.remove(style);
-  }, 450);
+    combatFlash.classList.remove("neutral");
+    if (encounterPhase === "zoom-in") {
+      encounterScreen.classList.remove("flash-only");
+    }
+  }, 520);
+}
+
+function prepEncounterUI(entity) {
+  const def = ENTITY_DEFS[entity.type];
+  const motifMeta = MOTIF_META[entity.motif];
+  entityNameEl.textContent = motifMeta?.label ?? def.name;
+  entityLineEl.textContent = getEntityLine(entity);
+  entityVisualEl.src = entity.motif
+    ? `assets/icons/${getRegionArt(entity.regionId)}/${entity.motif}.png`
+    : "";
+  entityVisualEl.alt = motifMeta?.label ?? def.name;
+  entityVisualEl.style.filter = `drop-shadow(0 0 28px ${motifMeta?.glow ?? def.color}99)`;
+  actionEntityNameEl.textContent = motifMeta?.label ?? def.name;
+}
+
+function beginCombatAfterZoom() {
+  if (!activeEntity) return;
+  if (combatStyle === "rpg") {
+    encounterPhase = "rpg";
+    encounterScreen.classList.remove("flash-only");
+    encounterScreen.classList.add("zoom-backdrop");
+    encounterPanel?.classList.remove("hidden");
+    combatTypeEl.textContent = "COMBAT — RPG (DRAGON QUEST)";
+    choiceResultEl.textContent = "";
+    encounterCloseBtn.classList.add("hidden");
+    choiceButtons.forEach((b) => (b.disabled = false));
+  } else {
+    encounterPhase = "action";
+    encounterScreen.classList.add("hidden");
+    encounterScreen.classList.remove("flash-only", "zoom-backdrop");
+    actionCombat = createActionCombat(activeEntity, encounterCenter);
+    actionCombatHud.classList.remove("hidden");
+    actionEnemyHpFill.style.width = "100%";
+  }
+}
+
+function updateEncounterTransition(dt) {
+  if (encounterPhase === "zoom-in") {
+    zoomTimer += dt;
+    const t = Math.min(1, zoomTimer / ZOOM_IN_DURATION);
+    const eased = 1 - (1 - t) ** 3;
+    encounterZoom = 1 + (ENCOUNTER_ZOOM - 1) * eased;
+    if (t >= 1) beginCombatAfterZoom();
+    return;
+  }
+
+  if (encounterPhase === "zoom-out") {
+    zoomTimer += dt;
+    const t = Math.min(1, zoomTimer / ZOOM_OUT_DURATION);
+    const eased = 1 - (1 - t) ** 2;
+    encounterZoom = ENCOUNTER_ZOOM + (1 - ENCOUNTER_ZOOM) * eased;
+    if (t >= 1) finishEncounterClose();
+  }
+}
+
+function finishEncounterClose() {
+  encounterPhase = null;
+  encounterZoom = 1;
+  combatStyle = null;
+  zoomTimer = 0;
+  activeEntity = null;
+  encounterLocked = false;
+  encounterCooldown = 1.2;
+  actionCombat = null;
+  actionCombatHud.classList.add("hidden");
+  encounterScreen.classList.add("hidden");
+  encounterScreen.classList.remove("zoom-backdrop", "flash-only");
+  encounterPanel?.classList.remove("hidden");
+  combatTypeEl.textContent = "";
 }
 
 function openEncounter(entity) {
@@ -379,36 +478,82 @@ function openEncounter(entity) {
   activeEntity = entity;
   encounterLocked = true;
   tapTarget = null;
-  encounterScreen.classList.remove("hidden");
-  choiceResultEl.textContent = "";
-  encounterCloseBtn.classList.add("hidden");
-  choiceButtons.forEach((b) => (b.disabled = false));
+  combatStyle = randomCombatStyle();
+  encounterCenter = {
+    x: (player.x + entity.x) / 2,
+    y: (player.y + entity.y) / 2,
+  };
+  encounterPhase = "zoom-in";
+  encounterZoom = 1;
+  zoomTimer = 0;
 
-  const def = ENTITY_DEFS[entity.type];
-  const motifMeta = MOTIF_META[entity.motif];
-  const style = randomCombatStyle();
-  showCombatFlash(style);
-
-  entityNameEl.textContent = motifMeta?.label ?? def.name;
-  entityLineEl.textContent = getEntityLine(entity);
-  entityVisualEl.src = entity.motif
-    ? `assets/icons/${getRegionArt(entity.regionId)}/${entity.motif}.png`
-    : "";
-  entityVisualEl.alt = motifMeta?.label ?? def.name;
-  entityVisualEl.style.filter = `drop-shadow(0 0 28px ${motifMeta?.glow ?? def.color}99)`;
+  prepEncounterUI(entity);
+  showEncounterFlash();
   playVoice("encounter_open", { volume: 0.8 });
 }
 
 function closeEncounter() {
   encounterScreen.classList.add("hidden");
-  activeEntity = null;
-  encounterLocked = false;
-  encounterCooldown = 1.2;
-  combatTypeEl.textContent = "";
+  encounterScreen.classList.remove("zoom-backdrop", "flash-only");
+  encounterPanel?.classList.remove("hidden");
+  actionCombatHud.classList.add("hidden");
+
+  if (encounterPhase === "rpg" || encounterPhase === "action") {
+    encounterPhase = "zoom-out";
+    zoomTimer = 0;
+    actionCombat = null;
+    return;
+  }
+
+  finishEncounterClose();
+}
+
+function updateActionCombatFrame(dt) {
+  if (encounterPhase !== "action" || !actionCombat) return;
+
+  const input = {
+    attackJustPressed,
+    attackDirX: 0,
+    attackDirY: 0,
+  };
+  if (keys.has("ArrowLeft") || keys.has("KeyA")) input.attackDirX -= 1;
+  if (keys.has("ArrowRight") || keys.has("KeyD")) input.attackDirX += 1;
+  if (keys.has("ArrowUp") || keys.has("KeyW")) input.attackDirY -= 1;
+  if (keys.has("ArrowDown") || keys.has("KeyS")) input.attackDirY += 1;
+
+  const result = updateActionCombat(actionCombat, player, dt, input);
+  attackJustPressed = false;
+
+  actionEnemyHpFill.style.width = `${(actionCombat.enemyHp / actionCombat.enemyMaxHp) * 100}%`;
+
+  if (result.events?.playerHit) {
+    soul.hp = Math.max(0, (soul.hp ?? HP_MAX) - result.events.playerHit);
+    playVoice("low_hp", { volume: 0.5 });
+    refreshGauges();
+    if (isDead(soul)) {
+      closeEncounter();
+      triggerGameOverIfDead();
+      return;
+    }
+  }
+
+  if (result.events?.enemyHit) {
+    playClip(voiceForChoice(CHOICE.KILL), 0.35);
+  }
+
+  if (result.over) {
+    if (result.victory) {
+      const outcome = resolveChoice(activeEntity, CHOICE.KILL);
+      soul = applyEncounterChoice(soul, CHOICE.KILL, outcome);
+      refreshSoulUI();
+      if (soul.darkEntity > 85) glitch = 0.4;
+    }
+    setTimeout(() => closeEncounter(), 80);
+  }
 }
 
 function handleChoice(choiceKey) {
-  if (!activeEntity) return;
+  if (!activeEntity || encounterPhase !== "rpg") return;
   playVoice(voiceForChoice(choiceKey), { volume: 0.85 });
   const result = resolveChoice(activeEntity, choiceKey);
   soul = applyEncounterChoice(soul, choiceKey, result);
@@ -487,6 +632,7 @@ function bindViewport() {
 
 function drawTapMarker() {
   if (!tapTarget || mode !== "extrovert" || encounterLocked) return;
+  if (encounterPhase && encounterPhase !== "action") return;
   const sx = tapTarget.x - camera.x;
   const sy = tapTarget.y - camera.y;
   const pulse = 0.5 + Math.sin(dither * 6) * 0.2;
@@ -502,7 +648,8 @@ function drawTapMarker() {
 }
 
 function updatePlayer(dt) {
-  if (encounterLocked || isDead(soul)) return;
+  if (isDead(soul)) return;
+  if (encounterLocked && encounterPhase !== "action") return;
 
   const speed = getMoveSpeed(BASE_SPEED, soul);
   let dx = 0;
@@ -574,10 +721,20 @@ function updatePlayer(dt) {
   moodLabel.textContent = getMoodLabel(soul, { inVoid });
 
   const near = findNearby(entities, player.x, player.y);
-  if (near) openEncounter(near);
+  if (near && !encounterPhase) openEncounter(near);
 }
 
 function updateCamera() {
+  if (encounterPhase && encounterZoom > 1) {
+    const viewW = canvas.width / encounterZoom;
+    const viewH = canvas.height / encounterZoom;
+    camera.x = encounterCenter.x - viewW / 2;
+    camera.y = encounterCenter.y - viewH / 2;
+    camera.x = Math.max(0, Math.min(camera.x, world.width - viewW));
+    camera.y = Math.max(0, Math.min(camera.y, world.height - viewH));
+    return;
+  }
+
   const targetX = player.x - canvas.width / 2;
   const targetY = player.y - canvas.height / 2;
   camera.x = Math.max(0, Math.min(targetX, world.width - canvas.width));
@@ -812,9 +969,12 @@ function draw() {
   drawTapMarker();
   drawEntities();
   drawPlayer();
+  if (encounterPhase === "action" && actionCombat) {
+    drawActionCombat(ctx, actionCombat, player, camera, canvas, dither, ENTITY_DEFS, encounterZoom);
+  }
   drawGlitch();
   drawRedFrame();
-  drawMinimap();
+  if (!encounterPhase || encounterPhase === "action") drawMinimap();
 }
 
 function loop(time) {
@@ -860,6 +1020,8 @@ function loop(time) {
   }
 
   if (state === "play" && mode === "extrovert") {
+    if (encounterPhase) updateEncounterTransition(dt);
+    if (encounterPhase === "action") updateActionCombatFrame(dt);
     if (!encounterLocked) {
       updateEntities(entities, dt, world.tiles, TILE, (tiles, x, y, w, h) =>
         canMove(tiles, x, y, w, h)
@@ -889,7 +1051,17 @@ function bindInput() {
       return;
     }
 
-    if (mode === "extrovert" && !encounterLocked && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+    if (encounterPhase === "action" && (e.code === "Space" || e.code === "KeyZ" || e.code === "KeyJ")) {
+      e.preventDefault();
+      attackJustPressed = true;
+      return;
+    }
+
+    const allowMoveKeys =
+      mode === "extrovert" &&
+      (!encounterLocked || encounterPhase === "action") &&
+      ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"].includes(e.code);
+    if (allowMoveKeys) {
       e.preventDefault();
     }
     keys.add(e.code);
@@ -913,6 +1085,11 @@ function bindInput() {
   feedInput.addEventListener("input", updateFeedCharCount);
   encounterCloseBtn.addEventListener("click", closeEncounter);
 
+  actionAttackBtn?.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    if (encounterPhase === "action") attackJustPressed = true;
+  });
+
   choiceButtons.forEach((btn) => {
     btn.addEventListener("click", () => handleChoice(btn.dataset.choice));
   });
@@ -924,7 +1101,8 @@ function bindInput() {
   canvas.addEventListener(
     "pointerdown",
     (e) => {
-      if (mode !== "extrovert" || encounterLocked) return;
+      if (mode !== "extrovert") return;
+      if (encounterLocked && encounterPhase !== "action") return;
       if (isTouchDevice) {
         e.preventDefault();
         tapTarget = screenToWorld(e.clientX, e.clientY);
@@ -937,7 +1115,8 @@ function bindInput() {
     { passive: false }
   );
   canvas.addEventListener("pointermove", (e) => {
-    if (isTouchDevice || !touch.active || mode !== "extrovert" || encounterLocked) return;
+    if (isTouchDevice || !touch.active || mode !== "extrovert") return;
+    if (encounterLocked && encounterPhase !== "action") return;
     const dx = e.clientX - touch.originX;
     const dy = e.clientY - touch.originY;
     const m = 28;

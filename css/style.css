@@ -468,10 +468,29 @@ body {
   position: absolute;
   inset: 0;
   z-index: 8;
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(0, 0, 0, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto;
+}
+
+#encounter-screen.flash-only {
+  background: transparent;
+  pointer-events: none;
+}
+
+#encounter-screen.flash-only .encounter-panel {
+  display: none;
+}
+
+#encounter-screen.zoom-backdrop {
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+#encounter-screen.zoom-backdrop .encounter-panel {
+  pointer-events: auto;
 }
 
 #encounter-screen.hidden {
@@ -609,6 +628,116 @@ body {
   from { opacity: 0; }
   30% { opacity: 1; }
   to { opacity: 0; }
+}
+
+#action-combat-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+#action-combat-hud.hidden {
+  display: none;
+}
+
+#action-combat-hud .action-combat-brand {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #e50914;
+  font-size: 9px;
+  letter-spacing: 0.4em;
+}
+
+#action-combat-hud .combat-type {
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: #888;
+  letter-spacing: 0.2em;
+  margin: 0;
+  min-height: auto;
+}
+
+.action-entity-name {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #f2f2f2;
+}
+
+.action-hp-row {
+  position: absolute;
+  top: 78px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+}
+
+.action-enemy-hp {
+  width: 140px;
+}
+
+.action-combat-hint {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: #666;
+}
+
+.action-attack-btn {
+  display: none;
+  position: absolute;
+  bottom: 24px;
+  right: 20px;
+  pointer-events: auto;
+  border: 1px solid #e50914;
+  background: rgba(10, 10, 10, 0.85);
+  color: #e50914;
+  padding: 18px 28px;
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.action-attack-btn:active {
+  background: rgba(229, 9, 20, 0.2);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .action-combat-hint {
+    display: none;
+  }
+
+  .action-attack-btn {
+    display: block;
+  }
+}
+
+#combat-flash.neutral {
+  background: radial-gradient(circle at center, rgba(229, 9, 20, 0.35) 0%, transparent 65%);
+  animation: encounter-pulse 0.55s ease-out;
+}
+
+@keyframes encounter-pulse {
+  from { opacity: 0; transform: scale(1.08); }
+  40% { opacity: 1; }
+  to { opacity: 0; transform: scale(1); }
 }
 
 @media (max-width: 900px) {

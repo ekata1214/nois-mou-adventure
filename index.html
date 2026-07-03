@@ -48,6 +48,18 @@
       <button id="to-nou" type="button" class="mode-switch">NOUへ出る（エクストロバート）</button>
     </div>
 
+    <div id="action-combat-hud" class="hidden">
+      <p class="action-combat-brand">ENCOUNTER</p>
+      <p id="action-combat-type" class="combat-type">COMBAT — ACTION (ZELDA)</p>
+      <p id="action-entity-name" class="action-entity-name"></p>
+      <div class="action-hp-row">
+        <span class="gauge-label">敵</span>
+        <div class="meter-track action-enemy-hp"><div id="action-enemy-hp-fill" class="gauge-fill hp"></div></div>
+      </div>
+      <p id="action-combat-hint" class="action-combat-hint">Z / SPACE — 斬る</p>
+      <button id="action-attack-btn" type="button" class="action-attack-btn">斬る</button>
+    </div>
+
     <div id="encounter-screen" class="hidden">
       <div id="combat-flash" class="hidden"></div>
       <div class="encounter-panel">
