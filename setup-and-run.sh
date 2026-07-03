@@ -37,20 +37,24 @@ else
   echo "✗ assets/room/ に GLB がありません（this ver2.glb を置いてください）"
 fi
 
-if ls assets/muu/*.blend >/dev/null 2>&1; then
+if [ -f "assets/muu/speak_mou.glb" ]; then
+  size=$(du -h "assets/muu/speak_mou.glb" | cut -f1)
+  echo "✓ assets/muu/speak_mou.glb ($size)"
+  # 既に GLB があるなら修復だけ試す（失敗しても続行）
+  if bash scripts/repair-speak-mou.sh 2>/dev/null; then
+    : # repaired or kept existing
+  fi
+elif ls assets/muu/*.blend >/dev/null 2>&1; then
   echo ">> speak-mou.blend から GLB を生成..."
   if bash scripts/export-speak-mou.sh; then
     echo "✓ speak_mou.glb 生成完了"
   else
-    echo "△ export 失敗 — 既存 GLB の修復を試します"
-    bash scripts/repair-speak-mou.sh || true
+    echo "△ export 失敗"
+    bash scripts/repair-speak-mou.sh 2>/dev/null || true
   fi
 elif ls assets/muu/*.glb >/dev/null 2>&1; then
   echo ">> 既存 GLB を修復..."
   bash scripts/repair-speak-mou.sh || echo "△ GLB 修復失敗"
-elif [ -f "assets/muu/speak_mou.glb" ]; then
-  size=$(du -h "assets/muu/speak_mou.glb" | cut -f1)
-  echo "✓ assets/muu/speak_mou.glb ($size)"
 elif [ -f "assets/muu/speak_mou.GLB" ]; then
   size=$(du -h "assets/muu/speak_mou.GLB" | cut -f1)
   echo "✓ assets/muu/speak_mou.GLB ($size)"

@@ -2,25 +2,21 @@
 # speak-mou.blend → speak_mou.glb（検証が通るまでリトライ）
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=env-tools.sh
+source "$ROOT/scripts/env-tools.sh"
 MUU_DIR="$ROOT/assets/muu"
 EXPORT_PY="$ROOT/scripts/blender/export-speak-mou.py"
 OUT_GLB="$MUU_DIR/speak_mou.glb"
 SCRIPTS_DIR="$ROOT/scripts"
 
-BLENDER_BIN="${BLENDER_BIN:-}"
+BLENDER_BIN="$(find_blender || true)"
 if [ -z "$BLENDER_BIN" ]; then
-  if [ -x "$ROOT/tools/blender-4.4.3-linux-x64/blender" ]; then
-    BLENDER_BIN="$ROOT/tools/blender-4.4.3-linux-x64/blender"
-  elif command -v blender >/dev/null 2>&1; then
-    BLENDER_BIN="$(command -v blender)"
-  fi
-fi
-
-if [ -z "$BLENDER_BIN" ] || [ ! -x "$BLENDER_BIN" ]; then
   echo "✗ Blender が見つかりません"
-  echo "  Mac: Blender 4.x を入れるか BLENDER_BIN=/Applications/Blender.app/Contents/MacOS/Blender"
+  echo "  Mac: /Applications/Blender.app を入れるか"
+  echo "  BLENDER_BIN=/Applications/Blender.app/Contents/MacOS/Blender ./scripts/export-speak-mou.sh"
   exit 1
 fi
+echo "✓ Blender: $BLENDER_BIN"
 
 blend=""
 for f in "$MUU_DIR"/*.blend; do
@@ -31,20 +27,20 @@ done
 
 if [ -z "$blend" ]; then
   echo "✗ assets/muu/ に .blend がありません"
-  echo "  speak-mou.blend を assets/muu/ に置いてから再実行してください"
   exit 2
+fi
+
+HAS_NODE=0
+if ensure_npm_deps "$SCRIPTS_DIR"; then
+  HAS_NODE=1
+else
+  echo "△ Node なし → Blender export のみ（修復・検証はスキップ）"
 fi
 
 echo "=========================================="
 echo "  speak_mou GLB export"
 echo "  blend: $(basename "$blend")"
 echo "=========================================="
-
-cd "$SCRIPTS_DIR"
-if [ ! -d node_modules ]; then
-  echo ">> npm install (gltf tools)..."
-  npm install --silent
-fi
 
 ATTEMPTS=(
   '{"export_morph":false,"export_nla_strips":true,"single_action":true}'
@@ -64,10 +60,16 @@ for opts in "${ATTEMPTS[@]}"; do
     continue
   }
 
-  node "$SCRIPTS_DIR/fix-glb.mjs" "$OUT_GLB" "$OUT_GLB" || {
-    echo "✗ fix-glb failed (attempt $attempt)"
-    continue
-  }
+  if [ "$HAS_NODE" -eq 0 ]; then
+    rm -f "$MUU_DIR/.export-options.json"
+    size=$(du -h "$OUT_GLB" | cut -f1)
+    echo ""
+    echo "✓ export 完了（未検証）: $OUT_GLB ($size)"
+    echo "  修復するには: brew install node && ./scripts/repair-speak-mou.sh"
+    exit 0
+  fi
+
+  node "$SCRIPTS_DIR/fix-glb.mjs" "$OUT_GLB" "$OUT_GLB" || continue
 
   if node "$SCRIPTS_DIR/validate-glb.mjs" "$OUT_GLB"; then
     rm -f "$MUU_DIR/.export-options.json"
@@ -76,10 +78,9 @@ for opts in "${ATTEMPTS[@]}"; do
     echo "✓ 成功: $OUT_GLB ($size)"
     exit 0
   fi
-
-  echo "✗ validation failed (attempt $attempt) — retry..."
+  echo "✗ validation failed — retry..."
 done
 
-echo ""
-echo "✗ 全リトライ失敗。Blender で再生確認後、.blend を再配置してください。"
+rm -f "$MUU_DIR/.export-options.json"
+echo "✗ 全リトライ失敗"
 exit 1
