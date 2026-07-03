@@ -1,7 +1,21 @@
 ムー君 speak_mou — GLB 自動生成
 ========================
 
-## すでに GLB がある場合（いちばん早い）
+## いちばん早い（1コマンド）
+
+**Mac のターミナルでこれだけ:**
+
+```bash
+cd "/Users/takaearasaki/Desktop/MY GAMES/nois-mou-adventure"
+chmod +x scripts/upload-muu-from-mac.sh
+./scripts/upload-muu-from-mac.sh
+```
+
+→ GitHub に送る → **CI が有効な speak_mou.glb を自動生成** → `git pull` で取得
+
+※ 初回だけ: `brew install git-lfs`
+
+## すでに GLB がある場合（ローカル修復）
 
 Finder に `speak_mou.glb` や `re-speak2.glb` があるなら:
 

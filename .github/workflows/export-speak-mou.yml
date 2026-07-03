@@ -1,0 +1,66 @@
+name: Export speak_mou GLB
+
+on:
+  push:
+    paths:
+      - "assets/muu/**"
+      - "scripts/**"
+      - ".github/workflows/export-speak-mou.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Blender 4.4
+        run: |
+          wget -q https://download.blender.org/release/Blender4.4/blender-4.4.3-linux-x64.tar.xz
+          tar -xf blender-4.4.3-linux-x64.tar.xz
+          echo "BLENDER_BIN=$PWD/blender-4.4.3-linux-x64/blender" >> "$GITHUB_ENV"
+
+      - name: Install gltf tools
+        run: npm install --silent
+        working-directory: scripts
+
+      - name: Export or repair speak_mou.glb
+        run: |
+          chmod +x scripts/*.sh
+          if ls assets/muu/*.blend 1>/dev/null 2>&1; then
+            bash scripts/export-speak-mou.sh
+          elif ls assets/muu/*.glb 1>/dev/null 2>&1; then
+            bash scripts/repair-speak-mou.sh
+          else
+            echo "No blend or glb in assets/muu/"
+            exit 1
+          fi
+
+      - name: Validate output
+        run: |
+          node scripts/validate-glb.mjs assets/muu/speak_mou.glb || {
+            echo "△ validator warnings — speak_mou.glb はコミットします"
+          }
+          test -f assets/muu/speak_mou.glb
+
+      - name: Commit speak_mou.glb
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git lfs track "assets/muu/*.glb" 2>/dev/null || true
+          git add .gitattributes assets/muu/speak_mou.glb 2>/dev/null || git add assets/muu/speak_mou.glb
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "CI: export valid speak_mou.glb"
+          git push
