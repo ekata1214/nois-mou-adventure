@@ -1,25 +1,27 @@
 #!/usr/bin/env bash
-# Mac 用ワンショット — GLB 準備 + 起動チェック + サーバー起動
+# ムー君の冒険 — セットアップ + 起動チェック + サーバー
 set -e
 cd "$(dirname "$0")"
 PROJECT="$(pwd)"
 
+clear
 echo ""
-echo "=== ムー君の冒険 — セットアップ ==="
-echo "$PROJECT"
+echo "=========================================="
+echo "  ムー君の冒険"
+echo "  $PROJECT"
+echo "=========================================="
 echo ""
 
 mkdir -p assets/room
 
-# room right.glb → this.glb にリネーム（あれば）
-if [ -f "assets/room/room right.glb" ] && [ ! -f "assets/room/this.glb" ]; then
-  mv "assets/room/room right.glb" "assets/room/this.glb"
-  echo "✓ room right.glb → this.glb にリネームしました"
-fi
-if [ -f "assets/room/room right.GLB" ] && [ ! -f "assets/room/this.glb" ]; then
-  mv "assets/room/room right.GLB" "assets/room/this.glb"
-  echo "✓ room right.GLB → this.glb にリネームしました"
-fi
+# GLB ファイル名を this.glb に統一
+for src in "this.GLB" "room right.glb" "room right.GLB" "room right" "this"; do
+  if [ -f "assets/room/$src" ] && [ ! -f "assets/room/this.glb" ]; then
+    cp "assets/room/$src" "assets/room/this.glb" 2>/dev/null || mv "assets/room/$src" "assets/room/this.glb"
+    echo "✓ assets/room/$src → this.glb"
+    break
+  fi
+done
 
-chmod +x start-local.sh
+chmod +x start-local.sh 2>/dev/null || true
 exec ./start-local.sh "$@"

@@ -59,7 +59,9 @@ if [ "$ok" -eq 0 ]; then
   exit 1
 fi
 
-echo "  URL: http://localhost:${PORT}"
+echo ""
+echo "  開く: http://localhost:${PORT}"
+echo "  ※ ブラウザで Cmd+Shift+R（強制リロード）"
 echo "  止める: Ctrl+C"
 echo ""
 python3 -m http.server "$PORT"
