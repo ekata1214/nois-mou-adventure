@@ -145,6 +145,12 @@ let shellRoomLoading = false;
 
 function updateShellRoomStatus(view) {
   if (!shellRoomStatus) return;
+  if (view?.ready && view?.muuReady && view?.muu?.hasAnimations === false) {
+    shellRoomStatus.hidden = false;
+    shellRoomStatus.textContent =
+      "ムー君 GLB にアニメがありません。Blender でボーンにキーを付け、glTF Export の Animation をオンにして再 export してください。";
+    return;
+  }
   if (view?.ready && view?.muuReady) {
     shellRoomStatus.hidden = true;
     shellRoomStatus.textContent = "";

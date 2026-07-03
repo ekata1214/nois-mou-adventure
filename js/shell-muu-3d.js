@@ -127,17 +127,26 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu") 
   const idleClip = pickClip(clips, idleNames);
   const speakClip = pickClip(clips, speakNames) ?? clips[0] ?? null;
 
+  if (clips.length === 0) {
+    console.warn(
+      "[shell-muu] speak_mou.glb にアニメーションがありません。Blender export で Animation をオンにしてください。"
+    );
+  } else {
+    console.info("[shell-muu] animation clips:", clips.map((c) => c.name).join(", "));
+  }
+
   let idleAction = null;
   let speakAction = null;
 
   if (idleClip) {
     idleAction = mixer.clipAction(idleClip);
+    idleAction.setLoop(THREE.LoopRepeat);
     idleAction.play();
   } else if (speakClip) {
+    // idle が無い GLB は speak をループ待機にする（フレーム0で静止しない）
     idleAction = mixer.clipAction(speakClip);
+    idleAction.setLoop(THREE.LoopRepeat);
     idleAction.play();
-    idleAction.paused = true;
-    idleAction.time = 0;
   }
 
   function playIdle() {
@@ -185,6 +194,7 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu") 
     ready: true,
     modelName,
     clipNames: clips.map((c) => c.name),
+    hasAnimations: clips.length > 0,
     idleClip: idleClip?.name ?? speakClip?.name ?? null,
     speakClip: speakClip?.name ?? null,
     root: group,
