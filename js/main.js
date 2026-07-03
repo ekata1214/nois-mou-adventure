@@ -38,7 +38,7 @@ import {
   updateEntities,
   findNearby,
   drawEntity,
-  randomCombatStyle,
+  combatStyleForEntity,
   getEntityLine,
   resolveChoice,
 } from "./entities.js";
@@ -82,6 +82,7 @@ import {
 } from "./bgm.js";
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
+import { createShellRoomView } from "./shell-room.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -122,6 +123,8 @@ const fullResetBtn = document.getElementById("full-reset-btn");
 const toShellBtn = document.getElementById("to-shell");
 const toNouBtn = document.getElementById("to-nou");
 const shellMuu = document.getElementById("shell-muu");
+const shellRoomGl = document.getElementById("shell-room-gl");
+const shellRoomStatus = document.getElementById("shell-room-status");
 const choiceButtons = document.querySelectorAll(".choice-grid button");
 
 const BASE_SPEED = 255;
@@ -136,6 +139,21 @@ let mode = "extrovert";
 let world;
 let player;
 let sprites;
+let shellRoomView = null;
+let shellRoomLoading = false;
+
+function updateShellRoomStatus(view) {
+  if (!shellRoomStatus) return;
+  if (view?.ready) {
+    shellRoomStatus.hidden = true;
+    shellRoomStatus.textContent = "";
+    return;
+  }
+  shellRoomStatus.hidden = false;
+  const detail = view?.detail ? ` (${view.detail})` : "";
+  shellRoomStatus.textContent =
+    `部屋 GLB が読めません。assets/room/this.glb があるか確認してください。${detail}`;
+}
 let entityIcons;
 let entities;
 let props;
@@ -157,8 +175,22 @@ function clearMovementKeys() {
   keys.clear();
   tapTarget = null;
   touch.active = false;
+  touch.dragging = false;
   touch.x = 0;
   touch.y = 0;
+}
+
+function isMovementKeyDown() {
+  return (
+    keys.has("ArrowLeft") ||
+    keys.has("KeyA") ||
+    keys.has("ArrowRight") ||
+    keys.has("KeyD") ||
+    keys.has("ArrowUp") ||
+    keys.has("KeyW") ||
+    keys.has("ArrowDown") ||
+    keys.has("KeyS")
+  );
 }
 
 function canUseMovementKeys() {
@@ -168,10 +200,26 @@ function canUseMovementKeys() {
     (!encounterLocked || encounterPhase === "action")
   );
 }
+
+function shouldAcceptMovementKeys() {
+  if (canUseMovementKeys()) return true;
+  return (
+    state === "play" &&
+    mode === "extrovert" &&
+    encounterLocked &&
+    combatStyle === "action" &&
+    isTransitionPhase(encounterPhase)
+  );
+}
+
+function focusGameCanvas() {
+  if (canvas && typeof canvas.focus === "function") canvas.focus({ preventScroll: true });
+}
 const isTouchDevice =
   window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
 let tapTarget = null;
-let touch = { x: 0, y: 0, active: false, originX: 0, originY: 0 };
+const TOUCH_DRAG_THRESHOLD = 10;
+let touch = { x: 0, y: 0, active: false, dragging: false, originX: 0, originY: 0 };
 let lastTime = 0;
 let dither = 0;
 let glitch = 0;
@@ -192,6 +240,7 @@ let overworldSnapshot = null;
 let zoomTimer = 0;
 let actionCombat = null;
 let attackJustPressed = false;
+let encounterCloseQueued = false;
 let saveTimer = 0;
 let lowHpVoiceTimer = 0;
 let currentMapRegion = "";
@@ -214,6 +263,14 @@ function drawShellMuu() {
   const h = shellMuu.height;
   sctx.clearRect(0, 0, w, h);
 
+  if (!shellRoomView?.ready) {
+    const g = sctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, "#0a0810");
+    g.addColorStop(1, "#050508");
+    sctx.fillStyle = g;
+    sctx.fillRect(0, 0, w, h);
+  }
+
   const warmth = soul?.brainWarmth ?? 0;
   const width = SPRITE_W * SHELL_MUU_SCALE * (1 + warmth * 0.05);
   const height = SPRITE_H * SPRITE_SQUASH * SHELL_MUU_SCALE * (1 - warmth * 0.03);
@@ -224,6 +281,7 @@ function beginPlay() {
   unlockAudio();
   unlockBgm();
   startGame();
+  focusGameCanvas();
 }
 
 function initWorld() {
@@ -355,6 +413,10 @@ function enterShell() {
   mode = "introvert";
   shellScreen.classList.remove("hidden");
   canvas.classList.add("hidden");
+  hud.classList.add("hidden");
+  shellRoomView?.resize();
+  shellRoomView?.render(0);
+  if (!shellRoomView?.ready) loadShellRoomInBackground();
   encounterScreen.classList.add("hidden");
   presentShellQuestion();
   refreshSoulUI();
@@ -494,7 +556,7 @@ function beginCombatAfterZoom() {
     encounterScreen.classList.remove("flash-only");
     encounterScreen.classList.add("zoom-backdrop");
     encounterPanel?.classList.remove("hidden");
-    combatTypeEl.textContent = "COMBAT — RPG (DRAGON QUEST)";
+    combatTypeEl.textContent = "COMBAT — RPG";
     choiceResultEl.textContent = "";
     encounterCloseBtn.classList.add("hidden");
     choiceButtons.forEach((b) => (b.disabled = false));
@@ -506,6 +568,7 @@ function beginCombatAfterZoom() {
     actionCombat.arenaRadius = layout.radius;
     actionCombatHud.classList.remove("hidden");
     actionEnemyHpFill.style.width = "100%";
+    focusGameCanvas();
   }
 }
 
@@ -535,14 +598,20 @@ function updateEncounterTransition(dt) {
     battleScale = 1 + eased * 1.5;
     encounterBlackout = 0.4 * eased;
     encounterZoom = 1;
+    if (battleMorph < 0.45) {
+      const targetX = player.x - canvas.width / 2;
+      const targetY = player.y - canvas.height / 2;
+      camera.x = Math.max(0, Math.min(targetX, world.width - canvas.width));
+      camera.y = Math.max(0, Math.min(targetY, world.height - canvas.height));
+    }
     if (t >= 1) {
-      restoreOverworldPositions();
       finishEncounterClose();
     }
   }
 }
 
 function finishEncounterClose() {
+  restoreOverworldPositions();
   clearMovementKeys();
   encounterPhase = null;
   encounterZoom = 1;
@@ -558,6 +627,7 @@ function finishEncounterClose() {
   activeEntity = null;
   encounterLocked = false;
   encounterCooldown = 1.2;
+  encounterCloseQueued = false;
   actionCombat = null;
   actionCombatHud.classList.add("hidden");
   encounterScreen.classList.add("hidden");
@@ -566,13 +636,18 @@ function finishEncounterClose() {
   combatTypeEl.textContent = "";
 }
 
-function openEncounter(entity) {
+function openEncounter(entity, presetStyle = null) {
   if (encounterLocked || encounterCooldown > 0 || isDead(soul)) return;
 
   activeEntity = entity;
   encounterLocked = true;
-  clearMovementKeys();
-  combatStyle = randomCombatStyle();
+  encounterCloseQueued = false;
+  tapTarget = null;
+  touch.active = false;
+  touch.dragging = false;
+  touch.x = 0;
+  touch.y = 0;
+  combatStyle = presetStyle ?? combatStyleForEntity(entity);
   overworldSnapshot = {
     playerX: player.x,
     playerY: player.y,
@@ -599,12 +674,15 @@ function openEncounter(entity) {
 }
 
 function closeEncounter() {
+  if (!encounterPhase || encounterPhase === "zoom-out") return;
+
   encounterScreen.classList.add("hidden");
   encounterScreen.classList.remove("zoom-backdrop", "flash-only");
   encounterPanel?.classList.remove("hidden");
   actionCombatHud.classList.add("hidden");
 
   if (encounterPhase === "rpg" || encounterPhase === "action") {
+    restoreOverworldPositions();
     encounterPhase = "zoom-out";
     zoomTimer = 0;
     actionCombat = null;
@@ -648,13 +726,17 @@ function updateActionCombatFrame(dt) {
   }
 
   if (result.over) {
-    if (result.victory) {
+    if (result.victory && actionCombat && !actionCombat.rewardsApplied) {
+      actionCombat.rewardsApplied = true;
       const outcome = resolveChoice(activeEntity, CHOICE.KILL);
       soul = applyEncounterChoice(soul, CHOICE.KILL, outcome);
       refreshSoulUI();
       if (soul.darkEntity > 85) glitch = 0.4;
     }
-    setTimeout(() => closeEncounter(), 80);
+    if (!encounterCloseQueued) {
+      encounterCloseQueued = true;
+      setTimeout(() => closeEncounter(), 80);
+    }
   }
 }
 
@@ -761,7 +843,13 @@ function updatePlayer(dt) {
   let dx = 0;
   let dy = 0;
 
-  if (isTouchDevice && tapTarget) {
+  if (isMovementKeyDown()) {
+    if (keys.has("ArrowLeft") || keys.has("KeyA")) dx -= 1;
+    if (keys.has("ArrowRight") || keys.has("KeyD")) dx += 1;
+    if (keys.has("ArrowUp") || keys.has("KeyW")) dy -= 1;
+    if (keys.has("ArrowDown") || keys.has("KeyS")) dy += 1;
+    tapTarget = null;
+  } else if (isTouchDevice && tapTarget) {
     const dist = Math.hypot(tapTarget.x - player.x, tapTarget.y - player.y);
     if (dist < 14) {
       tapTarget = null;
@@ -769,16 +857,9 @@ function updatePlayer(dt) {
       dx = tapTarget.x - player.x;
       dy = tapTarget.y - player.y;
     }
-  } else {
-    if (keys.has("ArrowLeft") || keys.has("KeyA")) dx -= 1;
-    if (keys.has("ArrowRight") || keys.has("KeyD")) dx += 1;
-    if (keys.has("ArrowUp") || keys.has("KeyW")) dy -= 1;
-    if (keys.has("ArrowDown") || keys.has("KeyS")) dy += 1;
-
-    if (!isTouchDevice && touch.active) {
-      dx = touch.x;
-      dy = touch.y;
-    }
+  } else if (!isTouchDevice && touch.dragging) {
+    dx = touch.x;
+    dy = touch.y;
   }
 
   if (isMalfunctioning(soul) && Math.random() < 0.03) {
@@ -1090,7 +1171,7 @@ function draw() {
       ctx.globalAlpha = Math.max(0, 1 - battleMorph * 1.05);
       drawWorld();
       drawProps(ctx, props, camera, dither);
-      if (battleMorph < 0.4) {
+      if (battleMorph < 0.4 || encounterPhase === "zoom-out") {
         for (const e of entities) {
           if (e !== activeEntity) drawEntity(ctx, e, camera, dither, entityIcons);
         }
@@ -1102,7 +1183,7 @@ function draw() {
     ctx.save();
     ctx.globalAlpha = Math.min(1, battleMorph * 1.1);
     drawBattleField(ctx, canvas, battleField, dither, battleScale);
-    if (battleMorph > 0.32) {
+    if (battleMorph > 0.32 && encounterPhase !== "zoom-out") {
       if (activeEntity?.alive !== false) drawEntity(ctx, activeEntity, camera, dither, entityIcons);
       drawPlayer();
       drawBattleFieldForeground(ctx, canvas, battleField, dither, battleScale);
@@ -1187,6 +1268,8 @@ function loop(time) {
   }
 
   if (state === "play" && mode === "introvert") {
+    shellRoomView?.resize();
+    shellRoomView?.render(dt);
     refreshSoulUI();
     drawShellMuu();
   }
@@ -1229,18 +1312,22 @@ function bindInput() {
     if (encounterPhase === "action" && (e.code === "Space" || e.code === "KeyZ" || e.code === "KeyJ")) {
       e.preventDefault();
       attackJustPressed = true;
+      focusGameCanvas();
       return;
     }
 
     if (!MOVEMENT_KEYS.has(e.code)) return;
 
-    if (!canUseMovementKeys()) {
-      keys.delete(e.code);
-      return;
-    }
+    if (!shouldAcceptMovementKeys()) return;
 
     e.preventDefault();
     keys.add(e.code);
+    focusGameCanvas();
+    tapTarget = null;
+    touch.active = false;
+    touch.dragging = false;
+    touch.x = 0;
+    touch.y = 0;
   });
   window.addEventListener("keyup", (e) => keys.delete(e.code));
   window.addEventListener("blur", clearMovementKeys);
@@ -1286,8 +1373,11 @@ function bindInput() {
         return;
       }
       touch.active = true;
+      touch.dragging = false;
       touch.originX = e.clientX;
       touch.originY = e.clientY;
+      touch.x = 0;
+      touch.y = 0;
     },
     { passive: false }
   );
@@ -1296,6 +1386,8 @@ function bindInput() {
     if (encounterLocked && encounterPhase !== "action") return;
     const dx = e.clientX - touch.originX;
     const dy = e.clientY - touch.originY;
+    if (!touch.dragging && Math.hypot(dx, dy) < TOUCH_DRAG_THRESHOLD) return;
+    touch.dragging = true;
     const m = 28;
     touch.x = Math.max(-1, Math.min(1, dx / m));
     touch.y = Math.max(-1, Math.min(1, dy / m));
@@ -1303,6 +1395,7 @@ function bindInput() {
   const endTouch = () => {
     if (isTouchDevice) return;
     touch.active = false;
+    touch.dragging = false;
     touch.x = 0;
     touch.y = 0;
   };
@@ -1313,18 +1406,47 @@ function bindInput() {
   bindViewport();
 }
 
+async function loadShellRoomInBackground() {
+  if (!shellRoomGl || shellRoomLoading) return;
+  if (shellRoomView?.ready) return;
+  shellRoomLoading = true;
+  try {
+    shellRoomView = await createShellRoomView(shellRoomGl, "assets/room");
+    updateShellRoomStatus(shellRoomView);
+    if (shellRoomView?.ready && state === "play" && mode === "introvert") {
+      shellRoomView.resize();
+      shellRoomView.render(0);
+      drawShellMuu();
+    }
+  } catch (err) {
+    console.warn("shell room load failed:", err);
+    shellRoomView = { ready: false, resize() {}, render() {}, dispose() {} };
+    updateShellRoomStatus(shellRoomView);
+  } finally {
+    shellRoomLoading = false;
+  }
+}
+
 async function boot() {
   bindViewport();
   soul = loadSoul();
   initWorld();
   preloadVoices();
   preloadBgm();
-  sprites = await loadSprites("assets/muu");
-  entityIcons = await loadEntityIcons("assets/icons");
-  await loadScenery("assets/scenery");
   bindInput();
-  refreshSoulUI();
-  drawShellMuu();
+  requestAnimationFrame(loop);
+
+  try {
+    sprites = await loadSprites("assets/muu");
+    entityIcons = await loadEntityIcons("assets/icons");
+    await loadScenery("assets/scenery");
+    refreshSoulUI();
+    drawShellMuu();
+  } catch (err) {
+    console.error("asset load failed:", err);
+  }
+
+  loadShellRoomInBackground();
   if (new URLSearchParams(location.search).has("shot")) {
     window.__shot = {
       forceEncounter(style = "action") {
@@ -1332,8 +1454,7 @@ async function boot() {
         if (!entity) return false;
         player.x = entity.x;
         player.y = entity.y + 72;
-        combatStyle = style;
-        openEncounter(entity);
+        openEncounter(entity, style);
         return true;
       },
       setZoomProgress(t) {
@@ -1361,21 +1482,41 @@ async function boot() {
         const entity = entities.find((e) => e.alive && e.regionId === "nu") ?? entities.find((e) => e.alive);
         if (!entity) return false;
         entity.regionId = "nu";
-        combatStyle = "action";
         player.x = entity.x;
         player.y = entity.y + 72;
-        openEncounter(entity);
+        openEncounter(entity, "action");
         return true;
       },
-      swing() {
-        attackJustPressed = true;
+      winAction() {
+        if (!actionCombat) return false;
+        actionCombat.enemyHp = 0;
+        actionCombat.phase = "win";
+        actionCombat.winTimer = 999;
+        updateActionCombatFrame(0);
+        return true;
+      },
+      close() {
+        closeEncounter();
       },
       get phase() {
         return encounterPhase;
       },
+      getState() {
+        return {
+          phase: encounterPhase,
+          combatStyle,
+          encounterLocked,
+          canMove: canUseMovementKeys(),
+          keys: [...keys],
+          player: { x: player.x, y: player.y },
+          camera: { x: camera.x, y: camera.y },
+          snapshot: overworldSnapshot ? { ...overworldSnapshot } : null,
+          touchActive: touch.active,
+          touchDragging: touch.dragging,
+        };
+      },
     };
   }
-  requestAnimationFrame(loop);
 }
 
 boot();

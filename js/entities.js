@@ -209,8 +209,11 @@ export function drawEntity(ctx, e, camera, dither, icons) {
   drawEntityIcon(ctx, icons, e, camera, dither);
 }
 
-export function randomCombatStyle() {
-  return Math.random() < 0.5 ? "action" : "rpg";
+/** 怒・哀のマップ → アクション、喜・楽など → RPG */
+const ACTION_REGION_IDS = new Set(["nu", "ai"]);
+
+export function combatStyleForEntity(entity) {
+  return ACTION_REGION_IDS.has(entity?.regionId) ? "action" : "rpg";
 }
 
 export function getEntityLine(entity) {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>ムー君の冒険 — NOU</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=20260703i" />
 </head>
 <body>
   <div id="app">
@@ -13,15 +13,19 @@
       <img id="title-art" src="assets/title.png" alt="ムー君の冒険" />
       <p class="start-hint">CLICK / SPACE / TAP to enter NOU</p>
       <p class="start-hint mobile-hint">MOBILE — TAP map to move</p>
-      <p class="credit">Nois Mou — World Scale Prototype</p>
+      <p class="credit">Nois Mou — World Scale Prototype · v20260703i</p>
     </div>
-    <canvas id="game" width="1280" height="720"></canvas>
+    <canvas id="game" width="1280" height="720" tabindex="0"></canvas>
 
     <div id="shell-screen" class="hidden">
       <p class="shell-brand">INTROVERT — 殻（カラ）</p>
       <div class="shell-layout">
         <div class="shell-visual">
-          <canvas id="shell-muu" width="696" height="424" aria-label="ムー君"></canvas>
+          <div class="shell-scene">
+            <canvas id="shell-room-gl" aria-hidden="true"></canvas>
+            <canvas id="shell-muu" width="696" height="424" aria-label="ムー君"></canvas>
+          </div>
+          <p id="shell-room-status" class="shell-room-status" hidden></p>
           <p id="muu-speech">……</p>
         </div>
         <div class="shell-panel">
@@ -29,7 +33,7 @@
           <label for="feed-input">答え（100文字以上）</label>
           <textarea id="feed-input" rows="8" placeholder="100文字以上、正直に書いて……"></textarea>
           <p id="feed-char-count" class="feed-char-count">0 / 100</p>
-          <button id="feed-btn" type="button">答える</button>
+          <button id="feed-btn" type="button">餌をあげる</button>
           <div id="dark-meter">
             <span>闇の思念体</span>
             <div class="meter-track"><div id="dark-fill"></div></div>
@@ -50,7 +54,7 @@
 
     <div id="action-combat-hud" class="hidden">
       <p class="action-combat-brand">ENCOUNTER</p>
-      <p id="action-combat-type" class="combat-type">COMBAT — ACTION (ZELDA)</p>
+      <p id="action-combat-type" class="combat-type">COMBAT — ACTION</p>
       <p id="action-entity-name" class="action-entity-name"></p>
       <div class="action-hp-row">
         <span class="gauge-label">敵</span>
@@ -107,6 +111,14 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.170.0",
+        "three/addons/": "https://esm.sh/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="js/main.js?v=20260703i"></script>
 </body>
 </html>

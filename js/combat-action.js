@@ -39,6 +39,7 @@ export function createActionCombat(entity, arenaCenter) {
     arenaCenter: { ...arenaCenter },
     arenaRadius: ARENA_RADIUS,
     outcomeMessage: "",
+    rewardsApplied: false,
   };
 }
 

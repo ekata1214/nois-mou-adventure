@@ -121,6 +121,10 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+#game:focus {
+  outline: none;
+}
+
 #game.hidden {
   display: none;
 }
@@ -315,12 +319,41 @@ body {
   min-height: 0;
 }
 
+.shell-scene {
+  position: relative;
+  width: min(696px, 100%);
+  aspect-ratio: 696 / 424;
+  max-height: min(56vh, 424px);
+}
+
+#shell-room-gl,
+#shell-muu {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#shell-room-gl {
+  background: #050508;
+}
+
+#shell-muu {
+  pointer-events: none;
+  z-index: 1;
+}
+
 .shell-visual {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  min-height: 0;
+  background: #050508;
+  border: 1px solid rgba(229, 9, 20, 0.18);
 }
 
 #shell-muu {
@@ -334,6 +367,16 @@ body {
 #shell-muu.speaking {
   filter: drop-shadow(0 4px 28px rgba(229, 9, 20, 0.45));
   transform: scale(1.02);
+}
+
+.shell-room-status {
+  margin-top: 8px;
+  max-width: 520px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #e50914;
+  letter-spacing: 0.06em;
 }
 
 #muu-speech {

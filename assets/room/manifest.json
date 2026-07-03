@@ -1,0 +1,12 @@
+{
+  "model": "this.glb",
+  "models": ["this.glb"],
+  "camera": {
+    "fov": 42
+  },
+  "cameraDistance": 1.35,
+  "ambient": 0.7,
+  "keyLight": 1.15,
+  "fillLight": 0.5,
+  "backgroundColor": "#050508"
+}
