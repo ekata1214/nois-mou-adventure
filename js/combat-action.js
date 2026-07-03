@@ -1,7 +1,6 @@
 /** ゼルダ風トップダウン・アクション戦闘 */
 
 export const ENCOUNTER_ZOOM = 2.45;
-export const ZOOM_IN_DURATION = 0.8;
 export const ZOOM_OUT_DURATION = 0.55;
 export const ARENA_RADIUS = 250;
 

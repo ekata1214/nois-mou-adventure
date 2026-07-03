@@ -47,9 +47,15 @@ import {
   updateActionCombat,
   drawActionCombat,
   ENCOUNTER_ZOOM,
-  ZOOM_IN_DURATION,
   ZOOM_OUT_DURATION,
 } from "./combat-action.js";
+import {
+  stepEncounterTransition,
+  drawEncounterTransition,
+  isTransitionPhase,
+  ENCOUNTER_PHASE,
+  ZOOM_COMBAT,
+} from "./encounter-transition.js";
 import {
   unlockAudio,
   preloadVoices,
@@ -144,6 +150,9 @@ let encounterPhase = null;
 let combatStyle = null;
 let encounterZoom = 1;
 let encounterCenter = { x: 0, y: 0 };
+let encounterBlackout = 0;
+let encounterFlash = 0;
+let encounterStripe = 0;
 let zoomTimer = 0;
 let actionCombat = null;
 let attackJustPressed = false;
@@ -228,6 +237,9 @@ function triggerGameOver({ fromVoid = false } = {}) {
   encounterLocked = false;
   encounterPhase = null;
   encounterZoom = 1;
+  encounterBlackout = 0;
+  encounterFlash = 0;
+  encounterStripe = 0;
   actionCombat = null;
   combatStyle = null;
   saveSoul(soul);
@@ -389,18 +401,7 @@ function submitFeed() {
 }
 
 function showEncounterFlash() {
-  encounterScreen.classList.remove("hidden");
-  encounterScreen.classList.add("flash-only");
-  combatFlash.classList.remove("hidden", "action", "rpg");
-  combatFlash.classList.add("neutral");
   combatTypeEl.textContent = "";
-  setTimeout(() => {
-    combatFlash.classList.add("hidden");
-    combatFlash.classList.remove("neutral");
-    if (encounterPhase === "zoom-in") {
-      encounterScreen.classList.remove("flash-only");
-    }
-  }, 520);
 }
 
 function prepEncounterUI(entity) {
@@ -438,12 +439,18 @@ function beginCombatAfterZoom() {
 }
 
 function updateEncounterTransition(dt) {
-  if (encounterPhase === "zoom-in") {
-    zoomTimer += dt;
-    const t = Math.min(1, zoomTimer / ZOOM_IN_DURATION);
-    const eased = 1 - (1 - t) ** 3;
-    encounterZoom = 1 + (ENCOUNTER_ZOOM - 1) * eased;
-    if (t >= 1) beginCombatAfterZoom();
+  if (isTransitionPhase(encounterPhase)) {
+    const step = stepEncounterTransition(encounterPhase, zoomTimer, dt);
+    encounterZoom = step.zoom;
+    encounterBlackout = step.blackout;
+    encounterFlash = step.flash;
+    encounterStripe = step.stripe;
+    zoomTimer = step.timer;
+    if (step.phase === "done") {
+      beginCombatAfterZoom();
+      return;
+    }
+    if (step.phase !== encounterPhase) encounterPhase = step.phase;
     return;
   }
 
@@ -451,7 +458,8 @@ function updateEncounterTransition(dt) {
     zoomTimer += dt;
     const t = Math.min(1, zoomTimer / ZOOM_OUT_DURATION);
     const eased = 1 - (1 - t) ** 2;
-    encounterZoom = ENCOUNTER_ZOOM + (1 - ENCOUNTER_ZOOM) * eased;
+    encounterZoom = ZOOM_COMBAT + (1 - ZOOM_COMBAT) * eased;
+    encounterBlackout = 0.35 * (1 - eased);
     if (t >= 1) finishEncounterClose();
   }
 }
@@ -459,6 +467,9 @@ function updateEncounterTransition(dt) {
 function finishEncounterClose() {
   encounterPhase = null;
   encounterZoom = 1;
+  encounterBlackout = 0;
+  encounterFlash = 0;
+  encounterStripe = 0;
   combatStyle = null;
   zoomTimer = 0;
   activeEntity = null;
@@ -483,8 +494,11 @@ function openEncounter(entity) {
     x: (player.x + entity.x) / 2,
     y: (player.y + entity.y) / 2,
   };
-  encounterPhase = "zoom-in";
+  encounterPhase = ENCOUNTER_PHASE.BLACKOUT;
   encounterZoom = 1;
+  encounterBlackout = 0;
+  encounterFlash = 0;
+  encounterStripe = 0;
   zoomTimer = 0;
 
   prepEncounterUI(entity);
@@ -725,7 +739,7 @@ function updatePlayer(dt) {
 }
 
 function updateCamera() {
-  if (encounterPhase && encounterZoom > 1) {
+  if (encounterPhase) {
     const viewW = canvas.width / encounterZoom;
     const viewH = canvas.height / encounterZoom;
     camera.x = encounterCenter.x - viewW / 2;
@@ -972,9 +986,18 @@ function draw() {
   if (encounterPhase === "action" && actionCombat) {
     drawActionCombat(ctx, actionCombat, player, camera, canvas, dither, ENTITY_DEFS, encounterZoom);
   }
+  if (isTransitionPhase(encounterPhase)) {
+    drawEncounterTransition(ctx, canvas, encounterCenter, camera, {
+      phase: encounterPhase,
+      timer: zoomTimer,
+      blackout: encounterBlackout,
+      flash: encounterFlash,
+      stripe: encounterStripe,
+    });
+  }
   drawGlitch();
   drawRedFrame();
-  if (!encounterPhase || encounterPhase === "action") drawMinimap();
+  if (!encounterPhase || encounterPhase === "action" || encounterPhase === "rpg") drawMinimap();
 }
 
 function loop(time) {
@@ -1161,10 +1184,22 @@ async function boot() {
       },
       setZoomProgress(t) {
         if (!encounterPhase) return;
-        zoomTimer = t * ZOOM_IN_DURATION;
-        const eased = 1 - (1 - Math.min(1, t)) ** 3;
-        encounterZoom = 1 + (ENCOUNTER_ZOOM - 1) * eased;
-        if (t >= 1 && encounterPhase === "zoom-in") beginCombatAfterZoom();
+        if (t < 0.12) {
+          encounterPhase = ENCOUNTER_PHASE.BLACKOUT;
+          zoomTimer = t / 0.12 * 0.26;
+        } else if (t < 0.55) {
+          encounterPhase = ENCOUNTER_PHASE.ZOOM_IN;
+          zoomTimer = ((t - 0.12) / 0.43) * 0.48;
+        } else if (t < 1) {
+          encounterPhase = ENCOUNTER_PHASE.WIDEN;
+          zoomTimer = ((t - 0.55) / 0.45) * 0.55;
+        }
+        const step = stepEncounterTransition(encounterPhase, zoomTimer, 0);
+        encounterZoom = step.zoom;
+        encounterBlackout = step.blackout;
+        encounterFlash = step.flash;
+        encounterStripe = step.stripe;
+        if (t >= 1 && isTransitionPhase(encounterPhase)) beginCombatAfterZoom();
       },
       swing() {
         attackJustPressed = true;

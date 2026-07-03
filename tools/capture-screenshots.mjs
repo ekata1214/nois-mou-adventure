@@ -54,14 +54,28 @@ async function capture(name, setup, viewport = { width: 1280, height: 720 }) {
   console.log("saved", path);
 }
 
-await capture("01-encounter-zoom", async (page) => {
+await capture("01-encounter-blackout", async (page) => {
   await page.evaluate(() => {
     window.__shot.forceEncounter("action");
-    window.__shot.setZoomProgress(0.55);
+    window.__shot.setZoomProgress(0.06);
   });
 });
 
-await capture("02-action-combat-desktop", async (page) => {
+await capture("02-encounter-zoom-in", async (page) => {
+  await page.evaluate(() => {
+    window.__shot.forceEncounter("action");
+    window.__shot.setZoomProgress(0.35);
+  });
+});
+
+await capture("03-encounter-widen", async (page) => {
+  await page.evaluate(() => {
+    window.__shot.forceEncounter("action");
+    window.__shot.setZoomProgress(0.78);
+  });
+});
+
+await capture("04-action-combat-desktop", async (page) => {
   await page.evaluate(() => {
     window.__shot.forceEncounter("action");
     window.__shot.setZoomProgress(1);
@@ -70,14 +84,14 @@ await capture("02-action-combat-desktop", async (page) => {
   await sleep(200);
 });
 
-await capture("03-rpg-combat-desktop", async (page) => {
+await capture("05-rpg-combat-desktop", async (page) => {
   await page.evaluate(() => {
     window.__shot.forceEncounter("rpg");
     window.__shot.setZoomProgress(1);
   });
 });
 
-await capture("04-action-combat-mobile", async (page) => {
+await capture("06-action-combat-mobile", async (page) => {
   await page.evaluate(() => {
     window.__shot.forceEncounter("action");
     window.__shot.setZoomProgress(1);
