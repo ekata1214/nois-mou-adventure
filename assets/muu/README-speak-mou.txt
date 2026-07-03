@@ -1,7 +1,20 @@
 ムー君 speak_mou — GLB 自動生成
 ========================
 
-## やること（1回だけ）
+## すでに GLB がある場合（いちばん早い）
+
+Finder に `speak_mou.glb` や `re-speak2.glb` があるなら:
+
+```bash
+cd "/Users/takaearasaki/Desktop/MY GAMES/nois-mou-adventure"
+git pull
+./scripts/repair-speak-mou.sh
+./setup-and-run.sh
+```
+
+修復内容: ウェイト正規化・骨重複修正・HumGenモーフ削除
+
+## blend から生成する場合
 
 1. `speak-mou.blend` をこのフォルダに置く:
    ```

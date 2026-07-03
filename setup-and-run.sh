@@ -42,8 +42,12 @@ if ls assets/muu/*.blend >/dev/null 2>&1; then
   if bash scripts/export-speak-mou.sh; then
     echo "✓ speak_mou.glb 生成完了"
   else
-    echo "△ speak_mou.glb 生成失敗 — 手動 export または scripts/export-speak-mou.sh"
+    echo "△ export 失敗 — 既存 GLB の修復を試します"
+    bash scripts/repair-speak-mou.sh || true
   fi
+elif ls assets/muu/*.glb >/dev/null 2>&1; then
+  echo ">> 既存 GLB を修復..."
+  bash scripts/repair-speak-mou.sh || echo "△ GLB 修復失敗"
 elif [ -f "assets/muu/speak_mou.glb" ]; then
   size=$(du -h "assets/muu/speak_mou.glb" | cut -f1)
   echo "✓ assets/muu/speak_mou.glb ($size)"
