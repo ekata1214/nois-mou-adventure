@@ -1148,6 +1148,32 @@ async function boot() {
   bindInput();
   refreshSoulUI();
   drawShellMuu();
+  if (new URLSearchParams(location.search).has("shot")) {
+    window.__shot = {
+      forceEncounter(style = "action") {
+        const entity = entities.find((e) => e.alive);
+        if (!entity) return false;
+        player.x = entity.x;
+        player.y = entity.y + 72;
+        combatStyle = style;
+        openEncounter(entity);
+        return true;
+      },
+      setZoomProgress(t) {
+        if (!encounterPhase) return;
+        zoomTimer = t * ZOOM_IN_DURATION;
+        const eased = 1 - (1 - Math.min(1, t)) ** 3;
+        encounterZoom = 1 + (ENCOUNTER_ZOOM - 1) * eased;
+        if (t >= 1 && encounterPhase === "zoom-in") beginCombatAfterZoom();
+      },
+      swing() {
+        attackJustPressed = true;
+      },
+      get phase() {
+        return encounterPhase;
+      },
+    };
+  }
   requestAnimationFrame(loop);
 }
 
