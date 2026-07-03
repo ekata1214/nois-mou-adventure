@@ -31,8 +31,8 @@ else
   ok=0
 fi
 
-if grep -q "v20260703j" index.html 2>/dev/null; then
-  echo "✓ 最新バージョン (v20260703j)"
+if grep -q "v20260703k" index.html 2>/dev/null; then
+  echo "✓ 最新バージョン (v20260703k)"
 else
   echo "✗ コードが古い → git pull してください"
   ok=0

@@ -255,7 +255,7 @@ export function getAreaName(px, py, tiles) {
 }
 
 export const PALETTE = {
-  [T.VOID]: { base: "#050508", accent: "#0a0812" },
+  [T.VOID]: { base: "#000000", accent: "#0a0812" },
   [T.GROUND]: { base: "#1a1428", accent: "#2a1f3d" },
   [T.PATH]: { base: "#4a2830", accent: "#6b3540" },
   [T.RIDGE]: { base: "#2d4a3a", accent: "#1e3328" },

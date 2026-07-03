@@ -83,6 +83,7 @@ import {
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
 import { createShellRoomView } from "./shell-room.js";
+import { drawVoidCosmosBackground, drawVoidTileCosmos } from "./void-cosmos.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -945,8 +946,7 @@ function updateCamera() {
 }
 
 function drawVoidGrain() {
-  ctx.fillStyle = "#050508";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawVoidCosmosBackground(ctx, canvas.width, canvas.height, camera.x, camera.y, dither);
 }
 
 function drawTile(x, y, tile, tx, ty) {
@@ -957,17 +957,16 @@ function drawTile(x, y, tile, tx, ty) {
   const py = y - camera.y;
 
   ctx.fillStyle = pal.base;
-  ctx.fillRect(px, py, TILE, TILE);
+  if (tile !== T.VOID) {
+    ctx.fillRect(px, py, TILE, TILE);
+  }
 
   if (tile === T.VOID) {
-    ctx.strokeStyle = "rgba(229, 9, 20, 0.07)";
+    drawVoidTileCosmos(ctx, px, py, TILE, tx, ty, dither);
+    ctx.strokeStyle = "rgba(229, 9, 20, 0.05)";
     ctx.lineWidth = 1;
-    if ((tx + ty) % 3 === 0) {
+    if ((tx + ty) % 5 === 0) {
       ctx.strokeRect(px + 2, py + 2, TILE - 4, TILE - 4);
-    }
-    if ((tx * 5 + ty * 3) % 7 === 0) {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-      ctx.fillRect(px + 14, py + 14, 2, 2);
     }
   }
 
@@ -1032,7 +1031,7 @@ function drawDarkEntity() {
 
 function drawVoidHazard() {
   if (mode !== "extrovert" || !isInVoid(world.tiles, player.x, player.y)) return;
-  const pulse = 0.1 + Math.sin(dither * 4) * 0.04;
+  const pulse = 0.04 + Math.sin(dither * 4) * 0.02;
   ctx.fillStyle = `rgba(0, 0, 0, ${pulse})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = `rgba(229, 9, 20, ${0.22 + Math.sin(dither * 5) * 0.1})`;
