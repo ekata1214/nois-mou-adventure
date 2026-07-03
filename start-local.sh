@@ -84,4 +84,8 @@ echo "  開く: http://localhost:${PORT}"
 echo "  ※ ブラウザで Cmd+Shift+R（強制リロード）"
 echo "  止める: Ctrl+C"
 echo ""
-python3 -m http.server "$PORT"
+if [ -f "serve.py" ]; then
+  python3 serve.py "$PORT"
+else
+  python3 -m http.server "$PORT"
+fi

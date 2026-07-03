@@ -12,17 +12,23 @@ if ! command -v git >/dev/null; then
   exit 1
 fi
 
-if ! command -v git-lfs >/dev/null 2>&1; then
-  echo ">> git-lfs を入れてください: brew install git-lfs"
-  exit 1
+USE_LFS=0
+if command -v git-lfs >/dev/null 2>&1; then
+  git lfs install
+  USE_LFS=1
+  echo "✓ git-lfs"
+else
+  echo "△ git-lfs なし — 通常の git で push します（100MB 未満なら OK）"
+  echo "  推奨: brew install git-lfs"
+  echo "  ※ brew install だけでは git-lfs は入りません。検索結果に出ても"
+  echo "    パッケージ名は git-lfs です: brew install git-lfs"
 fi
-
-git lfs install
 
 has=0
 for f in assets/muu/speak-mou.blend assets/muu/speak_mou.glb assets/muu/re-speak2.glb assets/muu/re-speak.glb; do
   if [ -f "$f" ]; then
-    echo "✓ $f"
+    size=$(du -h "$f" | cut -f1)
+    echo "✓ $f ($size)"
     has=1
   fi
 done
@@ -32,7 +38,17 @@ if [ "$has" -eq 0 ]; then
   exit 1
 fi
 
-git add .gitattributes assets/muu/
+if [ "$USE_LFS" -eq 1 ]; then
+  git add .gitattributes assets/muu/
+else
+  # LFS フィルタなしで実ファイルを add（git-lfs 未インストール時）
+  git -c filter.lfs.smudge= \
+      -c filter.lfs.clean= \
+      -c filter.lfs.process= \
+      -c filter.lfs.required=false \
+      add .gitattributes assets/muu/
+fi
+
 git status
 
 if git diff --staged --quiet; then
@@ -43,7 +59,13 @@ fi
 
 echo ""
 echo ">> push 中..."
-git push -u origin "$(git branch --show-current)"
+if ! git push -u origin "$(git branch --show-current)"; then
+  echo ""
+  echo "✗ push 失敗"
+  echo "  ファイルが 100MB 超なら: brew install git-lfs && git lfs install"
+  echo "  その後このスクリプトを再実行"
+  exit 1
+fi
 
 echo ""
 echo "=========================================="
