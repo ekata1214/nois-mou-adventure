@@ -13,7 +13,8 @@ chmod +x scripts/upload-muu-from-mac.sh
 
 → GitHub に送る → **CI が有効な speak_mou.glb を自動生成** → `git pull` で取得
 
-※ git-lfs は推奨（`brew install git-lfs`）だが、なくても 55MB なら push 可能
+※ git-lfs なし → GLB のみ push（55MB OK）
+※ speak-mou.blend (166MB) は git-lfs 必須: `brew install git-lfs`
 
 ## すでに GLB がある場合（ローカル修復）
 
