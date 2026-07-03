@@ -8,5 +8,7 @@
   "ambient": 0.7,
   "keyLight": 1.15,
   "fillLight": 0.5,
-  "backgroundColor": "#050508"
+  "backgroundColor": "#000000",
+  "starCount": 2800,
+  "brightStarCount": 48
 }

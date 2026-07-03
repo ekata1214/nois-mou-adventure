@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>ムー君の冒険 — NOU</title>
-  <link rel="stylesheet" href="css/style.css?v=20260703i" />
+  <link rel="stylesheet" href="css/style.css?v=20260703j" />
 </head>
 <body>
   <div id="app">
@@ -13,7 +13,7 @@
       <img id="title-art" src="assets/title.png" alt="ムー君の冒険" />
       <p class="start-hint">CLICK / SPACE / TAP to enter NOU</p>
       <p class="start-hint mobile-hint">MOBILE — TAP map to move</p>
-      <p class="credit">Nois Mou — World Scale Prototype · v20260703i</p>
+      <p class="credit">Nois Mou — World Scale Prototype · v20260703j</p>
     </div>
     <canvas id="game" width="1280" height="720" tabindex="0"></canvas>
 
@@ -22,8 +22,9 @@
       <div class="shell-layout">
         <div class="shell-visual">
           <div class="shell-scene">
-            <canvas id="shell-room-gl" aria-hidden="true"></canvas>
+            <canvas id="shell-room-gl" aria-label="殻の部屋（ドラッグで見回す）"></canvas>
             <canvas id="shell-muu" width="696" height="424" aria-label="ムー君"></canvas>
+            <p class="shell-orbit-hint">DRAG — 見回す · SCROLL — ズーム</p>
           </div>
           <p id="shell-room-status" class="shell-room-status" hidden></p>
           <p id="muu-speech">……</p>
@@ -119,6 +120,6 @@
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=20260703i"></script>
+  <script type="module" src="js/main.js?v=20260703j"></script>
 </body>
 </html>

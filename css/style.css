@@ -336,7 +336,14 @@ body {
 }
 
 #shell-room-gl {
-  background: #050508;
+  background: #000;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+#shell-room-gl:active {
+  cursor: grabbing;
 }
 
 #shell-muu {
@@ -352,8 +359,19 @@ body {
   justify-content: center;
   overflow: hidden;
   min-height: 0;
-  background: #050508;
+  background: #000;
   border: 1px solid rgba(229, 9, 20, 0.18);
+}
+
+.shell-orbit-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  z-index: 2;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
 }
 
 #shell-muu {
