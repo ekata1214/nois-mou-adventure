@@ -36,3 +36,22 @@
 【3D 部屋が真っ黒なとき】
   assets/room/this.glb があるか確認
   （room right.glb があるだけなら setup-and-run.sh がコピーします）
+
+
+【git pull が止まったとき（local changes would be overwritten）】
+
+  Mac 上の js/main.js が古いまま残っていて、最新とぶつかっています。
+  いったん退避してから pull してください:
+
+  cd "/Users/takaearasaki/Desktop/MY GAMES/nois-mou-adventure"
+  cp js/main.js js/main.js.backup
+  git checkout -- js/main.js
+  git pull
+  ./setup-and-run.sh
+
+  ※ 自分で直した main.js を残したい場合は backup をあとで比較してください。
+  最新版を優先するなら backup は不要です:
+
+  git checkout -- js/main.js
+  git pull
+  ./setup-and-run.sh
