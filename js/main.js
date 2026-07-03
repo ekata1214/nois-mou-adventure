@@ -773,7 +773,7 @@ function updatePlayer(dt) {
     if (keys.has("ArrowLeft") || keys.has("KeyA")) dx -= 1;
     if (keys.has("ArrowRight") || keys.has("KeyD")) dx += 1;
     if (keys.has("ArrowUp") || keys.has("KeyW")) dy -= 1;
-    if (keys.has("ArrowDown") || keys.has("KeyS")) dy -= 1;
+    if (keys.has("ArrowDown") || keys.has("KeyS")) dy += 1;
 
     if (!isTouchDevice && touch.active) {
       dx = touch.x;
