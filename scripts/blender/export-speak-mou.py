@@ -95,13 +95,16 @@ def meshes_for_armature(armature):
     for obj in bpy.data.objects:
         if obj.type != "MESH":
             continue
+        if re.search(r"brain", obj.name, re.I):
+            print(f"[info] skip mesh (no GLB export): {obj.name}")
+            continue
         for mod in obj.modifiers:
             if mod.type == "ARMATURE" and mod.object == armature:
                 meshes.append(obj)
                 break
     if meshes:
         return meshes
-    return [obj for obj in bpy.data.objects if obj.type == "MESH"]
+    return [obj for obj in bpy.data.objects if obj.type == "MESH" and not re.search(r"brain", obj.name, re.I)]
 
 
 def rename_active_action(armature, target_name="speak_mou"):
@@ -125,10 +128,31 @@ def select_export_set(armature, meshes):
         mesh.select_set(True)
 
 
+def gltf_export_kwargs(**kwargs):
+    """Blender バージョン差を吸収（4.4 で rename された引数など）。"""
+    aliases = {
+        "export_anim_single_armature_action": "export_anim_single_armature",
+    }
+    normalized = {}
+    for key, value in kwargs.items():
+        normalized[aliases.get(key, key)] = value
+
+    try:
+        valid = {prop.identifier for prop in bpy.ops.export_scene.gltf.get_rna_type().properties}
+    except Exception:
+        valid = set(normalized.keys())
+
+    filtered = {k: v for k, v in normalized.items() if k in valid}
+    skipped = sorted(set(normalized) - set(filtered))
+    if skipped:
+        print(f"[info] skip unsupported glTF export opts: {', '.join(skipped)}")
+    return filtered
+
+
 def export_glb(opts):
     os.makedirs(MUU_DIR, exist_ok=True)
     export_morph = bool(opts.get("export_morph", False))
-    bpy.ops.export_scene.gltf(
+    kwargs = gltf_export_kwargs(
         filepath=OUT_GLB,
         export_format="GLB",
         use_selection=True,
@@ -140,7 +164,7 @@ def export_glb(opts):
         export_optimize_animation_size=False,
         export_anim_slide_to_zero=False,
         export_bake_animation=True,
-        export_anim_single_armature_action=bool(opts.get("single_action", True)),
+        export_anim_single_armature=bool(opts.get("single_action", True)),
         export_reset_pose_bones=True,
         export_skins=True,
         export_morph=export_morph,
@@ -151,6 +175,7 @@ def export_glb(opts):
         export_lights=False,
         export_image_format="AUTO",
     )
+    bpy.ops.export_scene.gltf(**kwargs)
     print(f"[ok] exported -> {OUT_GLB}")
 
 
