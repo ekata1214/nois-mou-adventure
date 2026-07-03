@@ -142,6 +142,32 @@ let props;
 let soul;
 let camera = { x: 0, y: 0 };
 let keys = new Set();
+const MOVEMENT_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "KeyW",
+  "KeyA",
+  "KeyS",
+  "KeyD",
+]);
+
+function clearMovementKeys() {
+  keys.clear();
+  tapTarget = null;
+  touch.active = false;
+  touch.x = 0;
+  touch.y = 0;
+}
+
+function canUseMovementKeys() {
+  return (
+    state === "play" &&
+    mode === "extrovert" &&
+    (!encounterLocked || encounterPhase === "action")
+  );
+}
 const isTouchDevice =
   window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
 let tapTarget = null;
@@ -236,6 +262,7 @@ function startGame() {
 
 function triggerGameOver({ fromVoid = false } = {}) {
   if (state === "gameover") return;
+  clearMovementKeys();
   state = "gameover";
   encounterScreen.classList.add("hidden");
   actionCombatHud.classList.add("hidden");
@@ -323,6 +350,7 @@ function updateFeedCharCount() {
 
 function enterShell() {
   if (activeEntity) return;
+  clearMovementKeys();
   const fromNou = mode === "extrovert";
   mode = "introvert";
   shellScreen.classList.remove("hidden");
@@ -344,6 +372,7 @@ function enterNou() {
     muuSpeech.textContent = "……";
     return;
   }
+  clearMovementKeys();
   mode = "extrovert";
   shellScreen.classList.add("hidden");
   canvas.classList.remove("hidden");
@@ -514,6 +543,7 @@ function updateEncounterTransition(dt) {
 }
 
 function finishEncounterClose() {
+  clearMovementKeys();
   encounterPhase = null;
   encounterZoom = 1;
   encounterBlackout = 0;
@@ -541,7 +571,7 @@ function openEncounter(entity) {
 
   activeEntity = entity;
   encounterLocked = true;
-  tapTarget = null;
+  clearMovementKeys();
   combatStyle = randomCombatStyle();
   overworldSnapshot = {
     playerX: player.x,
@@ -1180,7 +1210,10 @@ function loop(time) {
 
 function bindInput() {
   window.addEventListener("keydown", (e) => {
+    if (e.repeat && MOVEMENT_KEYS.has(e.code)) return;
+
     if (state === "title" && (e.code === "Space" || e.code === "Enter")) {
+      e.preventDefault();
       beginPlay();
       return;
     }
@@ -1199,16 +1232,18 @@ function bindInput() {
       return;
     }
 
-    const allowMoveKeys =
-      mode === "extrovert" &&
-      (!encounterLocked || encounterPhase === "action") &&
-      ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"].includes(e.code);
-    if (allowMoveKeys) {
-      e.preventDefault();
+    if (!MOVEMENT_KEYS.has(e.code)) return;
+
+    if (!canUseMovementKeys()) {
+      keys.delete(e.code);
+      return;
     }
+
+    e.preventDefault();
     keys.add(e.code);
   });
   window.addEventListener("keyup", (e) => keys.delete(e.code));
+  window.addEventListener("blur", clearMovementKeys);
 
   titleScreen.addEventListener("click", beginPlay);
   titleScreen.addEventListener(
