@@ -12,7 +12,7 @@ echo "  $PROJECT"
 echo "=========================================="
 echo ""
 
-mkdir -p assets/room
+mkdir -p assets/room assets/muu
 
 # GLB: this ver2 を優先（なければ this.glb へフォールバック）
 ROOM_GLB=""
@@ -35,6 +35,16 @@ if [ -n "$ROOM_GLB" ]; then
   fi
 else
   echo "✗ assets/room/ に GLB がありません（this ver2.glb を置いてください）"
+fi
+
+if [ -f "assets/muu/speak_mou.glb" ]; then
+  size=$(du -h "assets/muu/speak_mou.glb" | cut -f1)
+  echo "✓ assets/muu/speak_mou.glb ($size)"
+elif [ -f "assets/muu/speak_mou.GLB" ]; then
+  size=$(du -h "assets/muu/speak_mou.GLB" | cut -f1)
+  echo "✓ assets/muu/speak_mou.GLB ($size)"
+else
+  echo "△ assets/muu/speak_mou.glb なし（殻は2Dムー君にフォールバック）"
 fi
 
 chmod +x start-local.sh 2>/dev/null || true

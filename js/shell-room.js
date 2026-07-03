@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { attachShellMuu3d } from "./shell-muu-3d.js";
 
 const GLB_FALLBACK_FILES = ["this ver2.glb", "this ver2.GLB", "this.glb", "this.GLB"];
 
@@ -256,6 +257,19 @@ export async function createShellRoomView(canvas, basePath = "assets/room") {
   roomRoot.add(gltf.scene);
   const fit = fitModel(roomRoot, camera, manifest);
 
+  let muu = {
+    ready: false,
+    update() {},
+    playSpeak() {},
+    playIdle() {},
+    dispose() {},
+  };
+  try {
+    muu = await attachShellMuu3d(scene, fit, "assets/muu");
+  } catch (err) {
+    console.warn("shell muu load failed:", err);
+  }
+
   const controls = new OrbitControls(camera, canvas);
   controls.target.copy(fit.lookAt);
   controls.enableDamping = true;
@@ -279,6 +293,8 @@ export async function createShellRoomView(canvas, basePath = "assets/room") {
     roomRoot,
     manifest,
     modelName,
+    muu,
+    muuReady: muu.ready,
     time: 0,
     userOrbit: false,
     error: null,
@@ -304,13 +320,23 @@ export async function createShellRoomView(canvas, basePath = "assets/room") {
     if (manifest?.rotate && !state.userOrbit) {
       roomRoot.rotation.y += dt * (manifest.rotateSpeed ?? 0.08);
     }
+    muu.update(dt);
     starfield.update(state.time);
     controls.update();
     renderer.render(scene, camera);
   }
 
+  function playMuuSpeak() {
+    muu.playSpeak();
+  }
+
+  function playMuuIdle() {
+    muu.playIdle();
+  }
+
   function dispose() {
     controls.dispose();
+    muu.dispose();
     starfield.dispose();
     renderer.dispose();
     roomRoot.traverse((obj) => {
@@ -325,5 +351,5 @@ export async function createShellRoomView(canvas, basePath = "assets/room") {
   resize();
   window.addEventListener("resize", resize);
 
-  return { ...state, resize, render, dispose };
+  return { ...state, resize, render, dispose, playMuuSpeak, playMuuIdle };
 }

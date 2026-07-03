@@ -1,0 +1,12 @@
+{
+  "model": "speak_mou.glb",
+  "models": ["speak_mou.glb", "speak_mou.GLB"],
+  "targetHeight": 1.35,
+  "scale": 1,
+  "position": [0, -0.15, 0.55],
+  "rotation": [0, 0, 0],
+  "animations": {
+    "idle": ["idle", "Idle", "rest"],
+    "speak": ["speak_mou", "speak", "Speak", "speak mou", "Speak_mou"]
+  }
+}

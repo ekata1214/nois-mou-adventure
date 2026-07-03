@@ -31,8 +31,8 @@ else
   ok=0
 fi
 
-if grep -q "v20260703l" index.html 2>/dev/null; then
-  echo "✓ 最新バージョン (v20260703l)"
+if grep -q "v20260703m" index.html 2>/dev/null; then
+  echo "✓ 最新バージョン (v20260703m)"
 else
   echo "✗ コードが古い → git pull してください"
   ok=0
@@ -52,6 +52,16 @@ else
   echo "  Blender から this ver2.glb で export して assets/room/ に置いてください"
   ls -la "assets/room/" 2>/dev/null || true
   ok=0
+fi
+
+if [ -f "assets/muu/speak_mou.glb" ]; then
+  size=$(du -h "assets/muu/speak_mou.glb" | cut -f1)
+  echo "✓ assets/muu/speak_mou.glb ($size)"
+elif [ -f "assets/muu/speak_mou.GLB" ]; then
+  size=$(du -h "assets/muu/speak_mou.GLB" | cut -f1)
+  echo "✓ assets/muu/speak_mou.GLB ($size)"
+else
+  echo "△ assets/muu/speak_mou.glb なし（殻は2Dムー君）"
 fi
 
 if [ ! -f "assets/void/void-stars.png" ]; then

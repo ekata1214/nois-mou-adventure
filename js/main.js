@@ -145,6 +145,18 @@ let shellRoomLoading = false;
 
 function updateShellRoomStatus(view) {
   if (!shellRoomStatus) return;
+  if (view?.ready && view?.muuReady) {
+    shellRoomStatus.hidden = true;
+    shellRoomStatus.textContent = "";
+    return;
+  }
+  if (view?.ready && !view?.muuReady) {
+    shellRoomStatus.hidden = false;
+    const detail = view?.muu?.detail ? ` (${view.muu.detail})` : "";
+    shellRoomStatus.textContent =
+      `部屋は読み込み済み。ムー君 GLB が見つかりません。assets/muu/speak_mou.glb を置いてください。${detail}`;
+    return;
+  }
   if (view?.ready) {
     shellRoomStatus.hidden = true;
     shellRoomStatus.textContent = "";
@@ -153,7 +165,13 @@ function updateShellRoomStatus(view) {
   shellRoomStatus.hidden = false;
   const detail = view?.detail ? ` (${view.detail})` : "";
   shellRoomStatus.textContent =
-    `部屋 GLB が読めません。assets/room/this.glb があるか確認してください。${detail}`;
+    `部屋 GLB が読めません。assets/room/this ver2.glb があるか確認してください。${detail}`;
+}
+
+function syncShellMuuLayer() {
+  if (!shellMuu) return;
+  const use3d = Boolean(shellRoomView?.muuReady);
+  shellMuu.classList.toggle("muu-3d-active", use3d);
 }
 let entityIcons;
 let entities;
@@ -252,17 +270,24 @@ let currentShellQuestion = "";
 const STEP_INTERVAL = 30;
 
 function pulseMuu(ms = 500) {
+  shellRoomView?.playMuuSpeak?.();
   if (!shellMuu) return;
+  if (shellRoomView?.muuReady) return;
   shellMuu.classList.add("speaking");
   setTimeout(() => shellMuu.classList.remove("speaking"), ms);
 }
 
 function drawShellMuu() {
-  if (!shellMuu || !sprites?.front) return;
+  syncShellMuuLayer();
+  if (!shellMuu) return;
   const sctx = shellMuu.getContext("2d");
   const w = shellMuu.width;
   const h = shellMuu.height;
   sctx.clearRect(0, 0, w, h);
+
+  if (shellRoomView?.muuReady) return;
+
+  if (!sprites?.front) return;
 
   if (!shellRoomView?.ready) {
     const g = sctx.createLinearGradient(0, 0, 0, h);
@@ -418,6 +443,7 @@ function enterShell() {
   shellRoomView?.resize();
   shellRoomView?.render(0);
   if (!shellRoomView?.ready) loadShellRoomInBackground();
+  syncShellMuuLayer();
   encounterScreen.classList.add("hidden");
   presentShellQuestion();
   refreshSoulUI();
@@ -1412,9 +1438,11 @@ async function loadShellRoomInBackground() {
   try {
     shellRoomView = await createShellRoomView(shellRoomGl, "assets/room");
     updateShellRoomStatus(shellRoomView);
+    syncShellMuuLayer();
     if (shellRoomView?.ready && state === "play" && mode === "introvert") {
       shellRoomView.resize();
       shellRoomView.render(0);
+      if (shellRoomView.muuReady) shellRoomView.playMuuIdle?.();
       drawShellMuu();
     }
   } catch (err) {

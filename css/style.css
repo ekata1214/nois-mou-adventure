@@ -387,6 +387,11 @@ body {
   transform: scale(1.02);
 }
 
+#shell-muu.muu-3d-active {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .shell-room-status {
   margin-top: 8px;
   max-width: 520px;
