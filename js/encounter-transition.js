@@ -37,6 +37,8 @@ export function stepEncounterTransition(phase, timer, dt) {
       blackout: Math.max(flash, easeOutCubic(t)),
       flash,
       stripe: 0,
+      battleMorph: 0,
+      battleScale: 2.5,
     };
   }
 
@@ -48,9 +50,11 @@ export function stepEncounterTransition(phase, timer, dt) {
       phase: t >= 1 ? ENCOUNTER_PHASE.WIDEN : phase,
       timer: t >= 1 ? 0 : timer,
       zoom: 1 + (ZOOM_PEAK - 1) * eased,
-      blackout: 0.88 - eased * 0.28,
+      blackout: 0.92 - eased * 0.35,
       flash: 0,
       stripe: eased,
+      battleMorph: 0,
+      battleScale: 2.5,
     };
   }
 
@@ -61,21 +65,23 @@ export function stepEncounterTransition(phase, timer, dt) {
     return {
       phase: t >= 1 ? "done" : phase,
       timer: t >= 1 ? 0 : timer,
-      zoom: ZOOM_PEAK + (ZOOM_COMBAT - ZOOM_PEAK) * eased,
-      blackout: 0.6 * (1 - eased),
+      zoom: ZOOM_PEAK + (ZOOM_COMBAT - ZOOM_PEAK) * (1 - eased * 0.35),
+      blackout: 0.55 * (1 - eased),
       flash: 0,
       stripe: 1 - eased,
+      battleMorph: eased,
+      battleScale: 2.45 + (1 - 2.45) * eased,
     };
   }
 
-  return { phase, timer, zoom: 1, blackout: 0, flash: 0, stripe: 0 };
+  return { phase, timer, zoom: 1, blackout: 0, flash: 0, stripe: 0, battleMorph: 0, battleScale: 1 };
 }
 
-export function drawEncounterTransition(ctx, canvas, center, camera, { phase, timer, blackout, flash, stripe }) {
+export function drawEncounterTransition(ctx, canvas, center, camera, { phase, timer, blackout, flash, stripe, battleMorph = 0 }) {
   const cx = center.x - camera.x;
   const cy = center.y - camera.y;
 
-  if (phase === ENCOUNTER_PHASE.ZOOM_IN && stripe > 0) {
+  if (phase === ENCOUNTER_PHASE.ZOOM_IN && stripe > 0 && battleMorph < 0.15) {
     const t = Math.min(1, timer / ZOOM_IN_DURATION);
     const bars = 7;
     const barH = Math.max(10, canvas.height * 0.09);
@@ -91,11 +97,11 @@ export function drawEncounterTransition(ctx, canvas, center, camera, { phase, ti
     ctx.restore();
   }
 
-  if (phase === ENCOUNTER_PHASE.WIDEN) {
+  if (phase === ENCOUNTER_PHASE.WIDEN && battleMorph < 0.72) {
     const t = Math.min(1, timer / WIDEN_DURATION);
     const eased = easeOutQuad(t);
-    const radius = (0.06 + eased * 1.05) * Math.hypot(canvas.width, canvas.height) * 0.55;
-    const alpha = (1 - eased) * 0.92;
+    const radius = (0.04 + eased * 0.55) * Math.hypot(canvas.width, canvas.height) * 0.5;
+    const alpha = (1 - battleMorph) * 0.75;
     if (alpha > 0.02) {
       ctx.save();
       ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
@@ -104,6 +110,15 @@ export function drawEncounterTransition(ctx, canvas, center, camera, { phase, ti
       ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
       ctx.fill("evenodd");
       ctx.restore();
+    }
+  }
+
+  if (phase === ENCOUNTER_PHASE.WIDEN && battleMorph >= 0.72) {
+    // battle field takes over — light edge fade only
+    const fade = (1 - battleMorph) * 0.35;
+    if (fade > 0.01) {
+      ctx.fillStyle = `rgba(0, 0, 0, ${fade})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
   }
 
@@ -117,7 +132,7 @@ export function drawEncounterTransition(ctx, canvas, center, camera, { phase, ti
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  if (phase === ENCOUNTER_PHASE.ZOOM_IN || phase === ENCOUNTER_PHASE.WIDEN) {
+  if (phase === ENCOUNTER_PHASE.ZOOM_IN && battleMorph < 0.1) {
     const pulse = 0.25 + Math.sin(timer * 10) * 0.08;
     ctx.strokeStyle = `rgba(229, 9, 20, ${pulse * (1 - stripe * 0.5)})`;
     ctx.lineWidth = 2;

@@ -147,28 +147,41 @@ export function updateActionCombat(combat, player, dt, input) {
   return { over: false, victory: false, events };
 }
 
-export function drawActionCombat(ctx, combat, player, camera, canvas, dither, entityDefs, encounterZoom) {
+export function drawActionCombat(ctx, combat, player, camera, canvas, dither, entityDefs, onBattleField = false) {
   const e = combat.entity;
   const def = entityDefs[e.type];
-  const cx = combat.arenaCenter.x - camera.x;
-  const cy = combat.arenaCenter.y - camera.y;
-  const screenR = combat.arenaRadius * encounterZoom;
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(0, 0, canvas.width, canvas.height);
-  ctx.arc(cx, cy, screenR * 0.92, 0, Math.PI * 2, true);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.62)";
-  ctx.fill("evenodd");
+  if (!onBattleField) {
+    const cx = combat.arenaCenter.x - camera.x;
+    const cy = combat.arenaCenter.y - camera.y;
+    const screenR = combat.arenaRadius * (camera.zoom ?? 2.45);
 
-  ctx.strokeStyle = `rgba(229, 9, 20, ${0.35 + Math.sin(dither * 3) * 0.12})`;
-  ctx.lineWidth = 2;
-  ctx.setLineDash([8, 6]);
-  ctx.beginPath();
-  ctx.arc(cx, cy, screenR * 0.9, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, canvas.width, canvas.height);
+    ctx.arc(cx, cy, screenR * 0.92, 0, Math.PI * 2, true);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.62)";
+    ctx.fill("evenodd");
+
+    ctx.strokeStyle = `rgba(229, 9, 20, ${0.35 + Math.sin(dither * 3) * 0.12})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, screenR * 0.9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.strokeStyle = `rgba(229, 9, 20, ${0.18 + Math.sin(dither * 3) * 0.06})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([10, 8]);
+    ctx.beginPath();
+    ctx.ellipse(canvas.width / 2, canvas.height / 2, canvas.width * 0.34, canvas.height * 0.36, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
 
   if (combat.swingPhase > 0) {
     const px = player.x - camera.x;

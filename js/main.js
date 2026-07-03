@@ -46,16 +46,22 @@ import {
   createActionCombat,
   updateActionCombat,
   drawActionCombat,
-  ENCOUNTER_ZOOM,
-  ZOOM_OUT_DURATION,
 } from "./combat-action.js";
 import {
   stepEncounterTransition,
   drawEncounterTransition,
   isTransitionPhase,
   ENCOUNTER_PHASE,
-  ZOOM_COMBAT,
+  ZOOM_OUT_DURATION,
 } from "./encounter-transition.js";
+import {
+  createBattleField,
+  enterBattleField,
+  canMoveBattleField,
+  drawBattleField,
+  drawBattleFieldForeground,
+  getBattleAreaLabel,
+} from "./battle-field.js";
 import {
   unlockAudio,
   preloadVoices,
@@ -153,6 +159,10 @@ let encounterCenter = { x: 0, y: 0 };
 let encounterBlackout = 0;
 let encounterFlash = 0;
 let encounterStripe = 0;
+let battleMorph = 0;
+let battleScale = 1;
+let battleField = null;
+let overworldSnapshot = null;
 let zoomTimer = 0;
 let actionCombat = null;
 let attackJustPressed = false;
@@ -240,6 +250,10 @@ function triggerGameOver({ fromVoid = false } = {}) {
   encounterBlackout = 0;
   encounterFlash = 0;
   encounterStripe = 0;
+  battleMorph = 0;
+  battleScale = 1;
+  battleField = null;
+  overworldSnapshot = null;
   actionCombat = null;
   combatStyle = null;
   saveSoul(soul);
@@ -417,8 +431,35 @@ function prepEncounterUI(entity) {
   actionEntityNameEl.textContent = motifMeta?.label ?? def.name;
 }
 
+function isBattleView() {
+  return (
+    battleMorph > 0 ||
+    encounterPhase === "action" ||
+    encounterPhase === "rpg" ||
+    encounterPhase === "zoom-out"
+  );
+}
+
+function restoreOverworldPositions() {
+  if (!overworldSnapshot) return;
+  player.x = overworldSnapshot.playerX;
+  player.y = overworldSnapshot.playerY;
+  if (activeEntity) {
+    activeEntity.x = overworldSnapshot.entityX;
+    activeEntity.y = overworldSnapshot.entityY;
+  }
+}
+
 function beginCombatAfterZoom() {
-  if (!activeEntity) return;
+  if (!activeEntity || !battleField) return;
+
+  const layout = enterBattleField(battleField, player, activeEntity);
+  encounterCenter = layout.center;
+  battleMorph = 1;
+  battleScale = 1;
+  camera.x = 0;
+  camera.y = 0;
+
   if (combatStyle === "rpg") {
     encounterPhase = "rpg";
     encounterScreen.classList.remove("flash-only");
@@ -432,7 +473,8 @@ function beginCombatAfterZoom() {
     encounterPhase = "action";
     encounterScreen.classList.add("hidden");
     encounterScreen.classList.remove("flash-only", "zoom-backdrop");
-    actionCombat = createActionCombat(activeEntity, encounterCenter);
+    actionCombat = createActionCombat(activeEntity, layout.center);
+    actionCombat.arenaRadius = layout.radius;
     actionCombatHud.classList.remove("hidden");
     actionEnemyHpFill.style.width = "100%";
   }
@@ -445,6 +487,8 @@ function updateEncounterTransition(dt) {
     encounterBlackout = step.blackout;
     encounterFlash = step.flash;
     encounterStripe = step.stripe;
+    battleMorph = step.battleMorph ?? battleMorph;
+    battleScale = step.battleScale ?? battleScale;
     zoomTimer = step.timer;
     if (step.phase === "done") {
       beginCombatAfterZoom();
@@ -457,10 +501,15 @@ function updateEncounterTransition(dt) {
   if (encounterPhase === "zoom-out") {
     zoomTimer += dt;
     const t = Math.min(1, zoomTimer / ZOOM_OUT_DURATION);
-    const eased = 1 - (1 - t) ** 2;
-    encounterZoom = ZOOM_COMBAT + (1 - ZOOM_COMBAT) * eased;
-    encounterBlackout = 0.35 * (1 - eased);
-    if (t >= 1) finishEncounterClose();
+    const eased = t * t;
+    battleMorph = 1 - eased;
+    battleScale = 1 + eased * 1.5;
+    encounterBlackout = 0.4 * eased;
+    encounterZoom = 1;
+    if (t >= 1) {
+      restoreOverworldPositions();
+      finishEncounterClose();
+    }
   }
 }
 
@@ -470,6 +519,10 @@ function finishEncounterClose() {
   encounterBlackout = 0;
   encounterFlash = 0;
   encounterStripe = 0;
+  battleMorph = 0;
+  battleScale = 1;
+  battleField = null;
+  overworldSnapshot = null;
   combatStyle = null;
   zoomTimer = 0;
   activeEntity = null;
@@ -490,6 +543,15 @@ function openEncounter(entity) {
   encounterLocked = true;
   tapTarget = null;
   combatStyle = randomCombatStyle();
+  overworldSnapshot = {
+    playerX: player.x,
+    playerY: player.y,
+    entityX: entity.x,
+    entityY: entity.y,
+  };
+  battleField = createBattleField(entity.regionId);
+  battleMorph = 0;
+  battleScale = 2.5;
   encounterCenter = {
     x: (player.x + entity.x) / 2,
     y: (player.y + entity.y) / 2,
@@ -708,13 +770,18 @@ function updatePlayer(dt) {
 
   const prevX = player.x;
   const prevY = player.y;
+  const inBattleAction = encounterPhase === "action" && battleField;
 
   const nx = player.x + dx * speed * dt;
-  if (canMove(world.tiles, nx - player.w / 2, player.y - player.h, player.w, player.h)) {
+  const moveFn = inBattleAction
+    ? (x, y, w, h) => canMoveBattleField(battleField, x, y, w, h)
+    : (x, y, w, h) => canMove(world.tiles, x, y, w, h);
+
+  if (moveFn(nx - player.w / 2, player.y - player.h, player.w, player.h)) {
     player.x = nx;
   }
   const ny = player.y + dy * speed * dt;
-  if (canMove(world.tiles, player.x - player.w / 2, ny - player.h, player.w, player.h)) {
+  if (moveFn(player.x - player.w / 2, ny - player.h, player.w, player.h)) {
     player.y = ny;
   }
 
@@ -730,16 +797,27 @@ function updatePlayer(dt) {
     stepDistance = 0;
   }
 
-  const inVoid = isInVoid(world.tiles, player.x, player.y);
-  areaLabel.textContent = `${getAreaName(player.x, player.y, world.tiles)} / ${getMoodLabel(soul, { inVoid })}`;
-  moodLabel.textContent = getMoodLabel(soul, { inVoid });
+  if (battleField && isBattleView()) {
+    areaLabel.textContent = `${getBattleAreaLabel(battleField)} / ${getMoodLabel(soul)}`;
+    moodLabel.textContent = getMoodLabel(soul);
+  } else {
+    const inVoid = isInVoid(world.tiles, player.x, player.y);
+    areaLabel.textContent = `${getAreaName(player.x, player.y, world.tiles)} / ${getMoodLabel(soul, { inVoid })}`;
+    moodLabel.textContent = getMoodLabel(soul, { inVoid });
+  }
 
   const near = findNearby(entities, player.x, player.y);
   if (near && !encounterPhase) openEncounter(near);
 }
 
 function updateCamera() {
-  if (encounterPhase) {
+  if (isBattleView() && battleMorph >= 0.45) {
+    camera.x = 0;
+    camera.y = 0;
+    return;
+  }
+
+  if (encounterPhase && (isTransitionPhase(encounterPhase) || encounterPhase === "zoom-out")) {
     const viewW = canvas.width / encounterZoom;
     const viewH = canvas.height / encounterZoom;
     camera.x = encounterCenter.x - viewW / 2;
@@ -975,17 +1053,51 @@ function drawRegionAmbience() {
 
 function draw() {
   drawVoidGrain();
-  drawWorld();
-  drawProps(ctx, props, camera, dither);
-  drawDarkEntity();
-  drawVoidHazard();
-  drawRegionAmbience();
-  drawTapMarker();
-  drawEntities();
-  drawPlayer();
-  if (encounterPhase === "action" && actionCombat) {
-    drawActionCombat(ctx, actionCombat, player, camera, canvas, dither, ENTITY_DEFS, encounterZoom);
+
+  if (isBattleView() && battleField) {
+    if (battleMorph < 1 || encounterPhase === "zoom-out") {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - battleMorph * 1.05);
+      drawWorld();
+      drawProps(ctx, props, camera, dither);
+      if (battleMorph < 0.4) {
+        for (const e of entities) {
+          if (e !== activeEntity) drawEntity(ctx, e, camera, dither, entityIcons);
+        }
+        drawPlayer();
+      }
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, battleMorph * 1.1);
+    drawBattleField(ctx, canvas, battleField, dither, battleScale);
+    if (battleMorph > 0.32) {
+      if (activeEntity?.alive !== false) drawEntity(ctx, activeEntity, camera, dither, entityIcons);
+      drawPlayer();
+      drawBattleFieldForeground(ctx, canvas, battleField, dither, battleScale);
+    }
+    ctx.restore();
+  } else if (isTransitionPhase(encounterPhase)) {
+    drawWorld();
+    drawProps(ctx, props, camera, dither);
+    drawEntities();
+    drawPlayer();
+  } else {
+    drawWorld();
+    drawProps(ctx, props, camera, dither);
+    drawDarkEntity();
+    drawVoidHazard();
+    drawRegionAmbience();
+    drawTapMarker();
+    drawEntities();
+    drawPlayer();
   }
+
+  if (encounterPhase === "action" && actionCombat) {
+    drawActionCombat(ctx, actionCombat, player, camera, canvas, dither, ENTITY_DEFS, true);
+  }
+
   if (isTransitionPhase(encounterPhase)) {
     drawEncounterTransition(ctx, canvas, encounterCenter, camera, {
       phase: encounterPhase,
@@ -993,11 +1105,18 @@ function draw() {
       blackout: encounterBlackout,
       flash: encounterFlash,
       stripe: encounterStripe,
+      battleMorph,
     });
   }
+
+  if (encounterPhase === "zoom-out" && encounterBlackout > 0.02) {
+    ctx.fillStyle = `rgba(0, 0, 0, ${encounterBlackout})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
   drawGlitch();
   drawRedFrame();
-  if (!encounterPhase || encounterPhase === "action" || encounterPhase === "rpg") drawMinimap();
+  if (!encounterPhase) drawMinimap();
 }
 
 function loop(time) {
@@ -1199,7 +1318,19 @@ async function boot() {
         encounterBlackout = step.blackout;
         encounterFlash = step.flash;
         encounterStripe = step.stripe;
+        battleMorph = step.battleMorph ?? battleMorph;
+        battleScale = step.battleScale ?? battleScale;
         if (t >= 1 && isTransitionPhase(encounterPhase)) beginCombatAfterZoom();
+      },
+      forceAutumnAction() {
+        const entity = entities.find((e) => e.alive && e.regionId === "nu") ?? entities.find((e) => e.alive);
+        if (!entity) return false;
+        entity.regionId = "nu";
+        combatStyle = "action";
+        player.x = entity.x;
+        player.y = entity.y + 72;
+        openEncounter(entity);
+        return true;
       },
       swing() {
         attackJustPressed = true;

@@ -68,16 +68,16 @@ await capture("02-encounter-zoom-in", async (page) => {
   });
 });
 
-await capture("03-encounter-widen", async (page) => {
+await capture("03-battle-field-autumn", async (page) => {
   await page.evaluate(() => {
-    window.__shot.forceEncounter("action");
-    window.__shot.setZoomProgress(0.78);
+    window.__shot.forceAutumnAction();
+    window.__shot.setZoomProgress(1);
   });
 });
 
-await capture("04-action-combat-desktop", async (page) => {
+await capture("04-action-combat-autumn", async (page) => {
   await page.evaluate(() => {
-    window.__shot.forceEncounter("action");
+    window.__shot.forceAutumnAction();
     window.__shot.setZoomProgress(1);
     window.__shot.swing();
   });

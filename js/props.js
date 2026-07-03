@@ -46,6 +46,10 @@ export async function loadScenery(basePath) {
   return images;
 }
 
+export function getSceneryImage(art, type) {
+  return sceneryImages?.[`${art}:${type}`] ?? null;
+}
+
 export function spawnProps(world, TILE, isWalkable) {
   const props = [];
   let id = 0;
