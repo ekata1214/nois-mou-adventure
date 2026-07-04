@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-const GLB_FALLBACK_FILES = ["speak_mou.glb", "speak-mou.glb", "speak_mou.GLB"];
+const GLB_FALLBACK_FILES = ["speak-mou2.glb", "speak_mou.glb", "speak-mou.glb", "speak_mou.GLB"];
 
 function modelUrl(basePath, name) {
   return `${basePath}/${encodeURIComponent(name)}`;

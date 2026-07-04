@@ -18,6 +18,7 @@ if ! ensure_npm_deps "$SCRIPTS_DIR"; then
 fi
 
 CANDIDATES=(
+  "$MUU_DIR/speak-mou2.glb"
   "$MUU_DIR/speak_mou.glb"
   "$MUU_DIR/speak-mou.glb"
   "$MUU_DIR/re-speak2.glb"
