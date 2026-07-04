@@ -1,0 +1,50 @@
+Blender 4.4 — speak-mou2.glb 書き出し（見た目＋アニメ）
+================================================
+
+## 重要：Animation の Mode
+
+Blender 4.4 では Animation ✓ だけでは足りません。
+NLA に speak-mou がある場合:
+
+  Export ダイアログ → Animation タブ
+  → Mode: **NLA Tracks**  ← これ！
+
+「Actions」のままだと T-pose（アニメ無し）になります。
+
+## 手順
+
+1. Outliner で **speak-mou（アーマチュア）** をクリック
+2. 右クリック → **Select Hierarchy**（子メッシュ全部選択）
+3. File → Export → glTF 2.0 (.glb)
+
+### 設定
+
+| 項目 | 値 |
+|------|-----|
+| Format | glTF Binary (.glb) |
+| Include | Selected Objects ✓ |
+| +Y Up | ✓ |
+| Data → Armature | ✓ |
+| Animation | ✓ |
+| **Animation → Mode** | **NLA Tracks** |
+| Morph | ✗ |
+
+4. 保存: assets/muu/speak-mou2.glb
+
+5. ターミナル:
+   cp -f assets/muu/speak-mou2.glb assets/muu/speak_mou.glb
+   ./setup-and-run.sh
+
+## テクスチャが切れる（Brain 等）
+
+Brain は Geometry Nodes 由来のことが多く、GLB では UV/テクスチャが崩れやすい。
+- ゲーム内ではとりあえず形＋アニメ優先
+- きれいな Brain テクスチャが必要なら Blender で Image Texture を Bake してから export
+
+## 確認
+
+ブラウザ Console (Cmd+Option+I):
+
+  [shell-muu] animation clips: speak-mou, ...
+
+0 本なら Mode が NLA Tracks になっていない。

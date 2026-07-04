@@ -255,6 +255,7 @@ def export_glb(opts):
         export_apply=False,
         export_yup=True,
         export_animations=True,
+        export_animation_mode=opts.get("animation_mode", "NLA_TRACKS"),
         export_nla_strips=bool(opts.get("export_nla_strips", True)),
         export_def_bones=True,
         export_optimize_animation_size=False,
