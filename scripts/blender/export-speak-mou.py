@@ -38,6 +38,57 @@ def load_export_opts():
         return json.load(f)
 
 
+def settle_scene():
+    """HumGen が blend 読み込み後に体型を反映するまで待つ。"""
+    scene = bpy.context.scene
+    for _ in range(3):
+        scene.frame_set(scene.frame_current)
+        bpy.context.view_layer.update()
+    try:
+        bpy.context.evaluated_depsgraph_get().update()
+    except Exception:
+        pass
+
+
+def try_bake_humgen_live_keys(armature):
+    """HumGen Live Keys（数値いじり）をメッシュに焼く。失敗しても export は続行。"""
+    try:
+        from HumGen3D import Human
+        from HumGen3D.human.process.apply_modifiers import apply_modifiers, refresh_modapply
+    except ImportError:
+        print("[warn] HumGen3D API なし — Blender で Pre-bake が必要かも")
+        return False
+
+    human = Human.from_existing(armature, strict_check=False)
+    if not human:
+        print("[warn] HumGen human が見つかりません")
+        return False
+
+    context = bpy.context
+    rig = human.objects.rig
+    context.view_layer.objects.active = rig
+    rig.select_set(True)
+
+    try:
+        refresh_modapply(None, context)
+        col = context.scene.modapply_col
+        for item in col:
+            if item.mod_type == "ARMATURE":
+                item.enabled = False
+            elif item.mod_type in {"PARTICLE_SYSTEM", "DECIMATE"}:
+                item.enabled = False
+            else:
+                item.enabled = True
+        apply_modifiers(human, context=context)
+        print("[info] HumGen Live Keys baked via apply_modifiers")
+        return True
+    except Exception as err:
+        print(f"[warn] HumGen apply_modifiers failed: {err}")
+        return False
+    finally:
+        rig.select_set(False)
+
+
 def log_shape_keys(obj):
     if obj.type != "MESH" or not obj.data.shape_keys:
         return
@@ -243,11 +294,21 @@ def main():
 
     print(f"[info] open {blend_path}")
     bpy.ops.wm.open_mainfile(filepath=blend_path)
+    settle_scene()
 
     armature = find_armature()
     if not armature:
         print("[error] armature not found", file=sys.stderr)
         sys.exit(3)
+
+    if opts.get("humgen_bake", True):
+        baked = try_bake_humgen_live_keys(armature)
+        if not baked:
+            print(
+                "[warn] HumGen 体型が export に乗らない場合 → Blender で Pre-bake してから再実行:"
+            )
+            print("       HumGen パネル → Process → Apply Modifiers（Armature 以外）→ Save")
+        settle_scene()
 
     meshes = meshes_for_armature(armature)
     print(f"[info] armature={armature.name} meshes={[m.name for m in meshes]}")
