@@ -1,15 +1,15 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-const GLB_FALLBACK_FILES = ["speak_mou.glb", "speak-mou.glb", "speak_mou.GLB"];
+const GLB_FALLBACK_FILES = ["speak-mou2.glb", "speak_mou.glb", "speak-mou.glb", "speak_mou.GLB"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260704a`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260704a`);
     if (!res.ok) return null;
     return await res.json();
   } catch {

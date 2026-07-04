@@ -1,6 +1,6 @@
 {
-  "model": "speak_mou.glb",
-  "models": ["speak_mou.glb", "speak-mou.glb", "speak_mou.GLB"],
+  "model": "speak-mou2.glb",
+  "models": ["speak-mou2.glb", "speak_mou.glb", "speak-mou.glb", "speak_mou.GLB"],
   "targetHeight": 1.35,
   "scale": 1,
   "position": [0, -0.15, 0.55],

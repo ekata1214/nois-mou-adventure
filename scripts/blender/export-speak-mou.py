@@ -6,7 +6,6 @@ import re
 import sys
 
 import bpy
-from mathutils import Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 MUU_DIR = os.path.join(ROOT, "assets", "muu")
@@ -39,11 +38,108 @@ def load_export_opts():
         return json.load(f)
 
 
-def reset_shape_keys(obj):
+def settle_scene():
+    """HumGen が blend 読み込み後に体型を反映するまで待つ。"""
+    scene = bpy.context.scene
+    for _ in range(3):
+        scene.frame_set(scene.frame_current)
+        bpy.context.view_layer.update()
+    try:
+        bpy.context.evaluated_depsgraph_get().update()
+    except Exception:
+        pass
+
+
+def try_bake_humgen_live_keys(armature):
+    """HumGen Live Keys（数値いじり）をメッシュに焼く。失敗しても export は続行。"""
+    try:
+        from HumGen3D import Human
+        from HumGen3D.human.process.apply_modifiers import apply_modifiers, refresh_modapply
+    except ImportError:
+        print("[warn] HumGen3D API なし — Blender で Pre-bake が必要かも")
+        return False
+
+    human = Human.from_existing(armature, strict_check=False)
+    if not human:
+        print("[warn] HumGen human が見つかりません")
+        return False
+
+    context = bpy.context
+    rig = human.objects.rig
+    context.view_layer.objects.active = rig
+    rig.select_set(True)
+
+    try:
+        refresh_modapply(None, context)
+        col = context.scene.modapply_col
+        for item in col:
+            if item.mod_type == "ARMATURE":
+                item.enabled = False
+            elif item.mod_type in {"PARTICLE_SYSTEM", "DECIMATE"}:
+                item.enabled = False
+            else:
+                item.enabled = True
+        apply_modifiers(human, context=context)
+        print("[info] HumGen Live Keys baked via apply_modifiers")
+        return True
+    except Exception as err:
+        print(f"[warn] HumGen apply_modifiers failed: {err}")
+        return False
+    finally:
+        rig.select_set(False)
+
+
+def log_shape_keys(obj):
     if obj.type != "MESH" or not obj.data.shape_keys:
         return
-    for block in obj.data.shape_keys.key_blocks:
-        block.value = 0.0
+    active = [(kb.name, round(kb.value, 4)) for kb in obj.data.shape_keys.key_blocks if abs(kb.value) > 1e-5]
+    if active:
+        preview = ", ".join(f"{n}={v}" for n, v in active[:8])
+        extra = f" (+{len(active) - 8} more)" if len(active) > 8 else ""
+        print(f"[info] shape keys kept on {obj.name}: {preview}{extra}")
+    else:
+        print(f"[info] shape keys on {obj.name}: all at 0 (base mesh — HumGen default?)")
+
+
+def bake_viewport_mesh(obj):
+    """Viewport の見た目（HumGen シェイプキー・モディファイア）をメッシュ頂点に焼き付ける。"""
+    if obj.type != "MESH":
+        return
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    obj_eval = obj.evaluated_get(depsgraph)
+    baked = bpy.data.meshes.new_from_object(
+        obj_eval,
+        preserve_all_data_layers=True,
+        depsgraph=depsgraph,
+    )
+    old = obj.data
+    obj.data = baked
+    if old.users <= 1:
+        bpy.data.meshes.remove(old, do_unlink=True)
+    print(f"[info] baked viewport mesh: {obj.name} ({len(baked.vertices)} verts)")
+
+
+def apply_non_armature_modifiers(obj):
+    """Armature 以外のモディファイアを適用（HumGen 等）。"""
+    if obj.type != "MESH":
+        return
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    for mod in list(obj.modifiers):
+        if mod.type == "ARMATURE":
+            continue
+        if mod.type == "PARTICLE_SYSTEM":
+            try:
+                obj.modifiers.remove(mod)
+            except Exception:
+                pass
+            continue
+        try:
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+            print(f"[info] applied modifier {mod.name} on {obj.name}")
+        except Exception as err:
+            print(f"[warn] could not apply {mod.name} on {obj.name}: {err}")
+    obj.select_set(False)
 
 
 def clamp_materials():
@@ -95,13 +191,16 @@ def meshes_for_armature(armature):
     for obj in bpy.data.objects:
         if obj.type != "MESH":
             continue
+        if re.search(r"brain", obj.name, re.I):
+            print(f"[info] skip mesh (no GLB export): {obj.name}")
+            continue
         for mod in obj.modifiers:
             if mod.type == "ARMATURE" and mod.object == armature:
                 meshes.append(obj)
                 break
     if meshes:
         return meshes
-    return [obj for obj in bpy.data.objects if obj.type == "MESH"]
+    return [obj for obj in bpy.data.objects if obj.type == "MESH" and not re.search(r"brain", obj.name, re.I)]
 
 
 def rename_active_action(armature, target_name="speak_mou"):
@@ -125,10 +224,31 @@ def select_export_set(armature, meshes):
         mesh.select_set(True)
 
 
+def gltf_export_kwargs(**kwargs):
+    """Blender バージョン差を吸収（4.4 で rename された引数など）。"""
+    aliases = {
+        "export_anim_single_armature_action": "export_anim_single_armature",
+    }
+    normalized = {}
+    for key, value in kwargs.items():
+        normalized[aliases.get(key, key)] = value
+
+    try:
+        valid = {prop.identifier for prop in bpy.ops.export_scene.gltf.get_rna_type().properties}
+    except Exception:
+        valid = set(normalized.keys())
+
+    filtered = {k: v for k, v in normalized.items() if k in valid}
+    skipped = sorted(set(normalized) - set(filtered))
+    if skipped:
+        print(f"[info] skip unsupported glTF export opts: {', '.join(skipped)}")
+    return filtered
+
+
 def export_glb(opts):
     os.makedirs(MUU_DIR, exist_ok=True)
     export_morph = bool(opts.get("export_morph", False))
-    bpy.ops.export_scene.gltf(
+    kwargs = gltf_export_kwargs(
         filepath=OUT_GLB,
         export_format="GLB",
         use_selection=True,
@@ -140,7 +260,7 @@ def export_glb(opts):
         export_optimize_animation_size=False,
         export_anim_slide_to_zero=False,
         export_bake_animation=True,
-        export_anim_single_armature_action=bool(opts.get("single_action", True)),
+        export_anim_single_armature=bool(opts.get("single_action", True)),
         export_reset_pose_bones=True,
         export_skins=True,
         export_morph=export_morph,
@@ -151,7 +271,18 @@ def export_glb(opts):
         export_lights=False,
         export_image_format="AUTO",
     )
+    bpy.ops.export_scene.gltf(**kwargs)
     print(f"[ok] exported -> {OUT_GLB}")
+
+
+def prepare_mesh_for_export(mesh, opts):
+    """HumGen のカスタム体型を維持したまま export 用に整える。"""
+    log_shape_keys(mesh)
+    if opts.get("apply_modifiers", True):
+        apply_non_armature_modifiers(mesh)
+    if opts.get("bake_viewport", True):
+        bake_viewport_mesh(mesh)
+    normalize_mesh_weights(mesh, limit=int(opts.get("weight_limit", 4)))
 
 
 def main():
@@ -163,18 +294,27 @@ def main():
 
     print(f"[info] open {blend_path}")
     bpy.ops.wm.open_mainfile(filepath=blend_path)
+    settle_scene()
 
     armature = find_armature()
     if not armature:
         print("[error] armature not found", file=sys.stderr)
         sys.exit(3)
 
+    if opts.get("humgen_bake", True):
+        baked = try_bake_humgen_live_keys(armature)
+        if not baked:
+            print(
+                "[warn] HumGen 体型が export に乗らない場合 → Blender で Pre-bake してから再実行:"
+            )
+            print("       HumGen パネル → Process → Apply Modifiers（Armature 以外）→ Save")
+        settle_scene()
+
     meshes = meshes_for_armature(armature)
     print(f"[info] armature={armature.name} meshes={[m.name for m in meshes]}")
 
     for mesh in meshes:
-        reset_shape_keys(mesh)
-        normalize_mesh_weights(mesh, limit=int(opts.get("weight_limit", 4)))
+        prepare_mesh_for_export(mesh, opts)
 
     clamp_materials()
     rename_active_action(armature, opts.get("animation_name", "speak_mou"))
