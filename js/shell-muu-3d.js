@@ -56,8 +56,24 @@ function pickBestClip(clips, preferNames) {
   );
 }
 
+function meshBounds(root) {
+  const box = new THREE.Box3();
+  let init = false;
+  root.traverse((obj) => {
+    if (!obj.isMesh && !obj.isSkinnedMesh) return;
+    const b = new THREE.Box3().setFromObject(obj);
+    if (!init) {
+      box.copy(b);
+      init = true;
+    } else {
+      box.union(b);
+    }
+  });
+  return init ? box : new THREE.Box3().setFromObject(root);
+}
+
 function fitMuuRoot(root, manifest, roomFit) {
-  const box = new THREE.Box3().setFromObject(root);
+  const box = meshBounds(root);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
 
@@ -72,13 +88,13 @@ function fitMuuRoot(root, manifest, roomFit) {
   root.scale.multiplyScalar(scale);
 
   root.updateMatrixWorld(true);
-  const grounded = new THREE.Box3().setFromObject(root);
+  const grounded = meshBounds(root);
   root.position.y -= grounded.min.y;
 
   const group = new THREE.Group();
   group.add(root);
 
-  const roomFloorY = roomFit?.size?.y ? -roomFit.size.y * 0.5 : 0;
+  const roomFloorY = roomFit?.floorY ?? (roomFit?.size?.y ? -roomFit.size.y * 0.5 : 0);
   const footOffset = manifest?.footOffset ?? 0;
   const pos = manifest?.position ?? [0, 0, (roomFit?.dist ?? 2) * 0.28];
 
@@ -88,6 +104,8 @@ function fitMuuRoot(root, manifest, roomFit) {
     const [x, y, z] = manifest.rotation;
     group.rotation.set(x, y, z);
   }
+
+  console.info("[shell-muu] floorY:", roomFloorY.toFixed(3), "footOffset:", footOffset);
 
   return { group, size, floorY: roomFloorY + footOffset };
 }

@@ -26,6 +26,31 @@ function modelCandidates(manifest) {
   return [...new Set([...files, ...GLB_FALLBACK_FILES])];
 }
 
+function estimateFloorY(root, manifest) {
+  const ys = [];
+  const v = new THREE.Vector3();
+  root.updateMatrixWorld(true);
+  root.traverse((obj) => {
+    if (!obj.isMesh) return;
+    const pos = obj.geometry?.attributes?.position;
+    if (!pos) return;
+    const step = Math.max(1, Math.floor(pos.count / 6000));
+    for (let i = 0; i < pos.count; i += step) {
+      v.fromBufferAttribute(pos, i);
+      v.applyMatrix4(obj.matrixWorld);
+      ys.push(v.y);
+    }
+  });
+  if (ys.length === 0) {
+    return new THREE.Box3().setFromObject(root).min.y;
+  }
+  ys.sort((a, b) => a - b);
+  const idx = Math.min(ys.length - 1, Math.floor(ys.length * 0.28));
+  const floorY = ys[idx];
+  const raise = manifest?.floorRaise ?? 0;
+  return floorY + raise;
+}
+
 function fitModel(root, camera, manifest) {
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
@@ -53,7 +78,9 @@ function fitModel(root, camera, manifest) {
 
   camera.lookAt(lookAt);
 
-  return { size, dist, lookAt };
+  const floorY = estimateFloorY(root, manifest);
+
+  return { size, dist, lookAt, floorY };
 }
 
 function makeFlareTexture() {
