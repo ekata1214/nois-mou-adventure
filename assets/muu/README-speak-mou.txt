@@ -1,6 +1,24 @@
 ムー君 speak_mou — GLB 自動生成
 ========================
 
+## Blender 手動 export（見た目＋アニメ）
+
+1. `speak-mou` アーマチュ + 体 + Brain 等を **選択**
+2. **File → Export → glTF 2.0**
+3. 設定:
+   - Format: **glTF Binary (.glb)**
+   - **Selected Objects** ✓
+   - **Animation** ✓（必須！オフだと T-pose）
+   - Morph ✗
+4. 保存: `assets/muu/speak-mou2.glb`
+5. ターミナル:
+   ```bash
+   cp -f assets/muu/speak-mou2.glb assets/muu/speak_mou.glb
+   ./setup-and-run.sh
+   ```
+
+※ NLA に `speak_mou` ストリップがあることを確認（Animation エディタ下部）
+
 ## いちばん早い（1コマンド）
 
 **Mac のターミナルでこれだけ:**

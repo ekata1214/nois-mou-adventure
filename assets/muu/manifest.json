@@ -7,6 +7,6 @@
   "rotation": [0, 0, 0],
   "animations": {
     "idle": ["idle", "Idle", "rest"],
-    "speak": ["speak_mou", "speak-mou", "speak", "Speak", "speak mou", "Speak_mou"]
+    "speak": ["speak_mou", "speak-mou", "speak", "Speak", "mixamo", "Layer0", "remap", "NLA"]
   }
 }
