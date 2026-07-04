@@ -81,7 +81,7 @@ import {
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
 import { createShellRoomView } from "./shell-room.js?v=20260704o";
-import { drawVoidCosmosBackground, drawVoidTileCosmos, preloadVoidCosmos } from "./void-cosmos.js";
+import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -314,9 +314,10 @@ function drawShellMuu() {
   drawSprite(sctx, sprites.front, w / 2, h * 0.96, width, height);
 }
 
-function beginPlay() {
+async function beginPlay() {
   unlockAudio();
   unlockBgm();
+  await tryLockLandscape();
   startGame();
   focusGameCanvas();
 }
@@ -352,7 +353,7 @@ function startGame() {
   pendingMapRegion = "";
   regionStableTimer = 0;
   refreshSoulUI();
-  fitCanvas();
+  refreshLayout();
 }
 
 function triggerGameOver({ fromVoid = false } = {}) {
@@ -467,17 +468,18 @@ function enterShell() {
   drawShellMuu();
 }
 
-function enterNou() {
+async function enterNou() {
   if (isDead(soul)) {
     muuSpeech.textContent = "……";
     return;
   }
+  await tryLockLandscape();
   clearMovementKeys();
   mode = "extrovert";
   shellScreen.classList.add("hidden");
   canvas.classList.remove("hidden");
   refreshSoulUI();
-  fitCanvas();
+  refreshLayout();
   setBgmEnabled(true);
   currentMapRegion = "";
   pendingMapRegion = "";
@@ -835,8 +837,7 @@ function screenToWorld(clientX, clientY) {
 }
 
 function fitCanvas() {
-  const vw = window.visualViewport?.width ?? window.innerWidth;
-  const vh = window.visualViewport?.height ?? window.innerHeight;
+  const { vw, vh } = getViewportSize();
   const aspect = canvas.width / canvas.height;
   let w;
   let h;
@@ -851,11 +852,14 @@ function fitCanvas() {
   canvas.style.height = `${Math.floor(h)}px`;
 }
 
-function bindViewport() {
+function refreshLayout() {
   fitCanvas();
-  window.addEventListener("resize", fitCanvas);
-  window.visualViewport?.addEventListener("resize", fitCanvas);
-  window.addEventListener("orientationchange", () => setTimeout(fitCanvas, 100));
+  shellRoomView?.resize?.();
+}
+
+function bindViewport() {
+  bindMobileViewport(refreshLayout);
+  refreshLayout();
 }
 
 function drawTapMarker() {
