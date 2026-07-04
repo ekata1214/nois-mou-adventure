@@ -3,18 +3,16 @@ import {
   COLS,
   ROWS,
   T,
-  PALETTE,
   createWorld,
   canMove,
   getAreaName,
   getRegionAt,
   REGION_TINT,
-  getTilePalette,
   isWalkable,
   isInVoid,
   VOID_REALM,
 } from "./world.js";
-import { drawSprite, loadSprites } from "./sprites.js";
+import { drawFieldTile, getFieldMinimapColor } from "./field-art.js";
 import { loadEntityIcons, MOTIF_META, getRegionArt } from "./entity-icons.js";
 import {
   loadSoul,
@@ -993,14 +991,8 @@ function drawVoidGrain() {
 function drawTile(x, y, tile, tx, ty) {
   const region = getRegionAt(tx, ty);
   const regionId = region?.id;
-  const pal = getTilePalette(tile, regionId);
   const px = x - camera.x;
   const py = y - camera.y;
-
-  ctx.fillStyle = pal.base;
-  if (tile !== T.VOID) {
-    ctx.fillRect(px, py, TILE, TILE);
-  }
 
   if (tile === T.VOID) {
     drawVoidTileCosmos(ctx, px, py, TILE, tx, ty);
@@ -1009,39 +1001,14 @@ function drawTile(x, y, tile, tx, ty) {
     if ((tx + ty) % 5 === 0) {
       ctx.strokeRect(px + 2, py + 2, TILE - 4, TILE - 4);
     }
+    return;
   }
 
-  if (tile !== T.VOID && regionId && REGION_TINT[regionId]) {
-    ctx.fillStyle = REGION_TINT[regionId];
+  drawFieldTile(ctx, px, py, tile, regionId, tx, ty, dither, TILE);
+
+  if (regionId && REGION_TINT[regionId]) {
+    ctx.fillStyle = REGION_TINT[regionId].replace(/[\d.]+\)$/, "0.06)");
     ctx.fillRect(px, py, TILE, TILE);
-  }
-
-  const stripe = (tx + ty + Math.floor(dither * 2)) % 3 === 0;
-  if (stripe && tile !== T.VOID) {
-    ctx.fillStyle = pal.accent;
-    ctx.fillRect(px, py + 8, TILE, 3);
-  }
-
-  if (tile === T.FLUID) {
-    const pulse = 0.2 + Math.sin(dither * 2 + tx * 0.4 + ty * 0.3) * 0.1;
-    if (regionId === "ai") {
-      ctx.fillStyle = `rgba(120, 200, 235, ${pulse})`;
-    } else {
-      ctx.fillStyle = `rgba(200, 40, 60, ${pulse})`;
-    }
-    ctx.fillRect(px + 4, py + 6, TILE - 8, TILE - 10);
-  }
-
-  if (tile === T.RIDGE) {
-    ctx.fillStyle = pal.accent;
-    ctx.beginPath();
-    ctx.arc(px + TILE / 2, py + TILE / 2, TILE / 2 - 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  if (tile !== T.VOID && (tx * 7 + ty * 13) % 5 === 0) {
-    ctx.fillStyle = "rgba(255,255,255,0.04)";
-    ctx.fillRect(px + 10, py + 14, 2, 2);
   }
 }
 
@@ -1140,8 +1107,8 @@ function drawMinimap() {
     for (let col = 0; col < COLS; col += 2) {
       const tile = world.tiles[row][col];
       if (tile === T.VOID) continue;
-      const pal = PALETTE[tile] ?? PALETTE[T.GROUND];
-      ctx.fillStyle = pal.base;
+      const region = getRegionAt(col, row);
+      ctx.fillStyle = getFieldMinimapColor(tile, region?.id);
       ctx.fillRect(mx + col * sx, my + row * sy, sx * 2 + 1, sy * 2 + 1);
     }
   }
