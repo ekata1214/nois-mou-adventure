@@ -80,7 +80,7 @@ import {
 } from "./bgm.js";
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js?v=20260704o";
+import { createShellRoomView } from "./shell-room.js?v=20260704pages";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 
 const canvas = document.getElementById("game");
@@ -161,11 +161,22 @@ function updateShellRoomStatus(view) {
     shellRoomStatus.textContent = "";
     return;
   }
+  if (view?.ready && view?.roomMissing && !view?.muuReady) {
+    shellRoomStatus.hidden = false;
+    shellRoomStatus.textContent =
+      "部屋・ムー君 GLB が GitHub に未アップロードです。Mac で ./scripts/upload-for-pages.sh を実行してください。";
+    return;
+  }
+  if (view?.ready && view?.roomMissing) {
+    shellRoomStatus.hidden = false;
+    shellRoomStatus.textContent =
+      "部屋 GLB が GitHub に未アップロードです（星野のみ表示）。Mac で ./scripts/upload-for-pages.sh を実行してください。";
+    return;
+  }
   if (view?.ready && !view?.muuReady) {
     shellRoomStatus.hidden = false;
-    const detail = view?.muu?.detail ? ` (${view.muu.detail})` : "";
     shellRoomStatus.textContent =
-      `部屋は読み込み済み。ムー君 GLB が見つかりません。assets/muu/speak_mou.glb を置いてください。${detail}`;
+      "部屋は読み込み済み。ムー君 GLB が見つかりません。Mac で ./scripts/upload-for-pages.sh を実行してください。";
     return;
   }
   if (view?.ready) {
@@ -174,9 +185,7 @@ function updateShellRoomStatus(view) {
     return;
   }
   shellRoomStatus.hidden = false;
-  const detail = view?.detail ? ` (${view.detail})` : "";
-  shellRoomStatus.textContent =
-    `部屋 GLB が読めません。assets/room/this ver2.glb があるか確認してください。${detail}`;
+  shellRoomStatus.textContent = "殻の部屋を読み込めませんでした。";
 }
 
 function syncShellMuuLayer() {

@@ -199,6 +199,16 @@ function createStarfield(scene, manifest) {
   };
 }
 
+function defaultRoomFit(manifest) {
+  const lookAt = new THREE.Vector3(0, 0.85, 0);
+  return {
+    size: new THREE.Vector3(4, 3, 4),
+    dist: (manifest?.cameraDistance ?? 1.35) * 2.8,
+    lookAt,
+    floorY: 0,
+  };
+}
+
 async function loadGlbModel(basePath, manifest) {
   const loader = new GLTFLoader();
   const errors = [];
@@ -219,18 +229,8 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
 
   const manifest = await readManifest(basePath);
   const loaded = await loadGlbModel(basePath, manifest);
-  if (!loaded.gltf) {
-    return {
-      ready: false,
-      error: "glb_not_found",
-      detail: loaded.errors?.join(" | ") ?? "no candidates",
-      resize() {},
-      render() {},
-      dispose() {},
-    };
-  }
+  const roomMissing = !loaded.gltf;
 
-  const { gltf, name: modelName } = loaded;
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
@@ -257,8 +257,19 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
 
   const roomRoot = new THREE.Group();
   scene.add(roomRoot);
-  roomRoot.add(gltf.scene);
-  const fit = fitModel(roomRoot, camera, manifest);
+
+  let fit;
+  let modelName = null;
+  if (roomMissing) {
+    fit = defaultRoomFit(manifest);
+    camera.position.set(0, fit.lookAt.y + 0.35, fit.dist);
+    camera.lookAt(fit.lookAt);
+  } else {
+    const { gltf, name } = loaded;
+    modelName = name;
+    roomRoot.add(gltf.scene);
+    fit = fitModel(roomRoot, camera, manifest);
+  }
 
   let muu = {
     ready: false,
@@ -289,6 +300,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
 
   const state = {
     ready: true,
+    roomMissing,
     canvas,
     renderer,
     scene,
@@ -302,7 +314,8 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
     muuReady: muu.ready,
     time: 0,
     userOrbit: false,
-    error: null,
+    error: roomMissing ? "glb_not_found" : null,
+    detail: roomMissing ? loaded.errors?.join(" | ") ?? "no candidates" : null,
   };
 
   controls.addEventListener("start", () => {
@@ -322,7 +335,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   function render(dt = 0) {
     if (!state.ready) return;
     state.time += dt;
-    if (manifest?.rotate && !state.userOrbit) {
+    if (!roomMissing && manifest?.rotate && !state.userOrbit) {
       roomRoot.rotation.y += dt * (manifest.rotateSpeed ?? 0.08);
     }
     muu.update(dt);
