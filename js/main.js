@@ -7,7 +7,6 @@ import {
   canMove,
   getAreaName,
   getRegionAt,
-  REGION_TINT,
   isWalkable,
   isInVoid,
   VOID_REALM,
@@ -1006,11 +1005,6 @@ function drawTile(x, y, tile, tx, ty) {
   }
 
   drawFieldTile(ctx, px, py, tile, regionId, tx, ty, dither, TILE);
-
-  if (regionId && REGION_TINT[regionId]) {
-    ctx.fillStyle = REGION_TINT[regionId].replace(/[\d.]+\)$/, "0.03)");
-    ctx.fillRect(px, py, TILE, TILE);
-  }
 }
 
 function drawWorld() {
