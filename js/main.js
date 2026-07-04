@@ -153,8 +153,9 @@ function updateShellRoomStatus(view) {
   }
   if (view?.ready && view?.muuReady && view?.muu?.clipNames?.length) {
     shellRoomStatus.hidden = false;
-    shellRoomStatus.textContent =
-      `ムー君 GLB: ${view.muu.modelName} / アニメ: ${view.muu.clipNames.join(", ")}`;
+    const loop = view.muu.loopClipName ?? view.muu.loopClip;
+    const animLabel = loop ? `ループ: ${loop}` : view.muu.clipNames.join(", ");
+    shellRoomStatus.textContent = `ムー君 GLB: ${view.muu.modelName} / ${animLabel}`;
     return;
   }
   if (view?.ready && view?.muuReady) {

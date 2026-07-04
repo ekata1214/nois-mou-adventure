@@ -51,10 +51,57 @@ function pickBestClip(clips, preferNames) {
   const named = pickClip(clips, preferNames);
   if (named) return named;
   if (!clips?.length) return null;
-  // 最長クリップ（Mixamo/NLA は often longest）
   return clips.reduce((best, clip) =>
     !best || clip.duration > best.duration ? clip : best
   );
+}
+
+function clipsMatching(allClips, patterns) {
+  if (!allClips?.length || !patterns?.length) return [];
+  const lowered = patterns.map((p) => p.toLowerCase());
+  return allClips.filter((clip) => {
+    const name = clip.name.toLowerCase();
+    return lowered.some((pat) => {
+      if (name === pat) return true;
+      if (name.endsWith(`|${pat}`)) return true;
+      if (name.split("|").pop() === pat) return true;
+      return name.includes(pat);
+    });
+  });
+}
+
+function pickNamedLoopClip(allClips, patterns) {
+  const matches = clipsMatching(allClips, patterns);
+  return pickBestClip(matches, patterns);
+}
+
+async function loadExtraAnimationClips(basePath, manifest) {
+  const sources = manifest?.animationClips ?? ["good-mou.glb", "good_mou.glb"];
+  const loader = new GLTFLoader();
+  const extra = [];
+  for (const name of sources) {
+    try {
+      const gltf = await loader.loadAsync(modelUrl(basePath, name));
+      if (gltf.animations?.length) {
+        extra.push(...gltf.animations);
+        console.info(`[shell-muu] extra clips from ${name}:`, gltf.animations.map((c) => c.name).join(", "));
+      }
+    } catch {
+      // optional file
+    }
+  }
+  return extra;
+}
+
+function buildShellLoopPool(allClips, manifest) {
+  const speakPatterns = manifest?.animations?.speak ?? ["speak_mou", "speak-mou"];
+  const goodPatterns = manifest?.animations?.good ?? ["good_mou", "good-mou"];
+  const pool = [];
+  const speak = pickNamedLoopClip(allClips, speakPatterns);
+  const good = pickNamedLoopClip(allClips, goodPatterns);
+  if (speak) pool.push(speak);
+  if (good && good !== speak) pool.push(good);
+  return pool;
 }
 
 function meshBounds(root, { excludeBrain = true } = {}) {
@@ -210,22 +257,11 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
   scene.add(group);
 
   const mixer = new THREE.AnimationMixer(mixerRoot);
-  const clips = gltf.animations ?? [];
-  const idleNames = manifest?.animations?.idle ?? ["idle", "Idle", "rest", "mixamo", "Layer0"];
-  const speakNames = manifest?.animations?.speak ?? [
-    "speak_mou",
-    "speak-mou",
-    "speak mou",
-    "speak",
-    "Speak",
-    "mixamo",
-    "Layer0",
-    "remap",
-    "NLA",
-  ];
-
-  const idleClip = pickClip(clips, idleNames);
-  const speakClip = pickBestClip(clips, speakNames) ?? clips[0] ?? null;
+  const extraClips = await loadExtraAnimationClips(basePath, manifest);
+  const clips = [...(gltf.animations ?? []), ...extraClips];
+  const speakNames = manifest?.animations?.speak ?? ["speak_mou", "speak-mou", "speak mou", "speak", "Speak"];
+  const speakClip = pickNamedLoopClip(clips, speakNames) ?? pickBestClip(clips, speakNames) ?? clips[0] ?? null;
+  const shellLoopPool = buildShellLoopPool(clips, manifest);
 
   if (clips.length === 0) {
     console.warn(
@@ -233,30 +269,48 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
     );
   } else {
     console.info("[shell-muu] animation clips:", clips.map((c) => c.name).join(", "));
-    console.info("[shell-muu] using speak clip:", speakClip?.name ?? "(none)", "mixer root:", mixerRoot.name || mixerRoot.type);
+    console.info(
+      "[shell-muu] shell loop pool:",
+      shellLoopPool.map((c) => c.name).join(" | ") || "(none)",
+      "/ speak:",
+      speakClip?.name ?? "(none)"
+    );
   }
 
-  let idleAction = null;
+  let loopAction = null;
   let speakAction = null;
+  let loopClip = null;
 
-  if (idleClip) {
-    idleAction = mixer.clipAction(idleClip);
-    idleAction.setLoop(THREE.LoopRepeat);
-    idleAction.play();
-  } else if (speakClip) {
-    idleAction = mixer.clipAction(speakClip);
-    idleAction.setLoop(THREE.LoopRepeat);
-    idleAction.play();
+  function pickRandomShellLoop() {
+    if (shellLoopPool.length) {
+      return shellLoopPool[Math.floor(Math.random() * shellLoopPool.length)];
+    }
+    return speakClip;
   }
 
-  function playIdle() {
-    if (!idleAction) return;
+  function startShellLoop({ fade = 0.15 } = {}) {
+    const next = pickRandomShellLoop();
+    if (!next) return;
+
+    if (loopAction) loopAction.fadeOut(fade);
     if (speakAction) {
-      speakAction.fadeOut(0.15);
+      speakAction.fadeOut(fade);
       speakAction = null;
     }
-    idleAction.reset().fadeIn(0.15).play();
-    idleAction.paused = false;
+
+    loopClip = next;
+    loopAction = mixer.clipAction(next);
+    loopAction.reset();
+    loopAction.setLoop(THREE.LoopRepeat);
+    loopAction.clampWhenFinished = false;
+    loopAction.fadeIn(fade).play();
+    console.info("[shell-muu] shell loop →", next.name);
+  }
+
+  startShellLoop({ fade: 0 });
+
+  function playIdle() {
+    startShellLoop();
   }
 
   function playSpeak() {
@@ -275,9 +329,7 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
     speakAction.setLoop(THREE.LoopOnce, 1);
     speakAction.clampWhenFinished = true;
 
-    if (idleAction && idleClip && idleClip !== speakClip) {
-      idleAction.fadeOut(0.12);
-    }
+    if (loopAction) loopAction.fadeOut(0.12);
 
     speakAction.fadeIn(0.12).play();
 
@@ -295,7 +347,10 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
     modelName,
     clipNames: clips.map((c) => c.name),
     hasAnimations: clips.length > 0,
-    idleClip: idleClip?.name ?? speakClip?.name ?? null,
+    loopClip: loopClip?.name ?? null,
+    get loopClipName() {
+      return loopClip?.name ?? null;
+    },
     speakClip: speakClip?.name ?? null,
     root: group,
     mixer,
