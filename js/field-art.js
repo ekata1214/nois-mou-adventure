@@ -1,46 +1,42 @@
 import { T } from "./world.js";
 
-/** 感情エリア — 色が一目でわかるフラット草地 */
+/** 感情エリア — 暗め・低彩度（オブジェクト視認性優先） */
 const EMOTION = {
   hub: {
     label: "交差点",
-    ground: { base: "#526858", speck: ["#506658", "#546a5c", "#586e60"] },
-    path: { base: "#908878", speck: ["#8e8676", "#928c7c", "#969280"] },
-    tint: null,
-    minimap: { ground: "#586e60", path: "#908878" },
+    ground: { base: "#343a38", speck: ["#323836", "#363c3a", "#3a403e"] },
+    path: { base: "#4a4844", speck: ["#484642", "#4c4a46", "#504e4a"] },
+    minimap: { ground: "#3a403e", path: "#504e4a" },
   },
   ki: {
     label: "喜 — 夏",
-    ground: { base: "#9cb828", speck: ["#98b424", "#a0bc2c", "#a8c434", "#b0cc3c"] },
-    path: { base: "#d4b840", speck: ["#d0b43c", "#d8bc44", "#e0c44c"] },
-    tint: "rgba(255, 228, 80, 0.14)",
-    minimap: { ground: "#a8c434", path: "#d8bc44" },
+    ground: { base: "#4a4a30", speck: ["#48482e", "#4c4c32", "#505034", "#545438"] },
+    path: { base: "#5a5838", speck: ["#585636", "#5c5a3a", "#605e3e"] },
+    minimap: { ground: "#505034", path: "#5c5a3a" },
   },
   nu: {
     label: "怒 — 秋",
-    ground: { base: "#a03828", speck: ["#9c3424", "#a83c2c", "#b44434", "#c04c3c"] },
-    path: { base: "#c84830", speck: ["#c4442c", "#cc4c34", "#d4543c"] },
-    tint: "rgba(240, 80, 50, 0.14)",
-    minimap: { ground: "#b44434", path: "#cc4c34" },
+    ground: { base: "#4a2c28", speck: ["#482a26", "#4c2e2a", "#50302c", "#543430"] },
+    path: { base: "#5a3830", speck: ["#58362e", "#5c3a32", "#603c34"] },
+    minimap: { ground: "#50302c", path: "#5c3a32" },
   },
   ai: {
     label: "哀 — 梅雨",
-    ground: { base: "#3a7888", speck: ["#367484", "#3e7c8c", "#468494", "#4e8c9c"] },
-    path: { base: "#4a8898", speck: ["#468494", "#508c9c", "#5894a4"] },
-    tint: "rgba(120, 200, 240, 0.16)",
-    minimap: { ground: "#468494", path: "#508c9c" },
+    ground: { base: "#2c4048", speck: ["#2a3e46", "#2e424a", "#32464e", "#364a52"] },
+    path: { base: "#384850", speck: ["#36464e", "#3a4a52", "#3e4e56"] },
+    minimap: { ground: "#32464e", path: "#3a4a52" },
   },
   raku: {
     label: "楽 — 夕方",
-    ground: { base: "#b87828", speck: ["#b47424", "#bc7c2c", "#c48434", "#cc8c3c"] },
-    path: { base: "#d89040", speck: ["#d48c3c", "#dc943c", "#e49c48"] },
-    tint: "rgba(255, 140, 60, 0.14)",
-    minimap: { ground: "#c48434", path: "#dc943c" },
+    ground: { base: "#4a3c28", speck: ["#483a26", "#4c3e2a", "#50422e", "#544632"] },
+    path: { base: "#5a4830", speck: ["#58462e", "#5c4a32", "#604e36"] },
+    minimap: { ground: "#50422e", path: "#5c4a32" },
   },
 };
 
 const PATTERN_SIZE = 128;
 const SPECK = 4;
+const FIELD_DARKEN = "rgba(0, 0, 0, 0.18)";
 const canvasCache = new Map();
 
 function hash(x, y, s = 17) {
@@ -53,7 +49,6 @@ function pick(arr, n) {
   return arr[n % arr.length];
 }
 
-/** フラット＋細かい斑点（立体感なし） */
 function paintFlatFine(ctx, size, palette, seed) {
   ctx.fillStyle = palette.base;
   ctx.fillRect(0, 0, size, size);
@@ -98,15 +93,12 @@ function pathCanvas(regionId) {
   });
 }
 
-function ridgeCanvas(regionId) {
-  const emotion = EMOTION[regionId] ?? EMOTION.hub;
-  return getTextureCanvas(`r:${regionId}`, (pctx, size) => {
+function ridgeCanvas() {
+  return getTextureCanvas("ridge", (pctx, size) => {
     paintFlatFine(pctx, size, {
-      base: "#505850",
-      speck: ["#4e564e", "#525a52", "#565e56"],
+      base: "#383c38",
+      speck: ["#363a36", "#3a3e3a", "#3e423e"],
     }, 300);
-    pctx.fillStyle = emotion.tint ?? "rgba(0,0,0,0.08)";
-    pctx.fillRect(0, 0, size, size);
   });
 }
 
@@ -116,12 +108,9 @@ function drawWorldTexture(ctx, canvas, px, py, tx, ty, tileSize) {
   ctx.drawImage(canvas, ox, oy, tileSize, tileSize, px, py, tileSize, tileSize);
 }
 
-function applyEmotionTint(ctx, px, py, tileSize, regionId) {
-  const tint = EMOTION[regionId]?.tint;
-  if (tint) {
-    ctx.fillStyle = tint;
-    ctx.fillRect(px, py, tileSize, tileSize);
-  }
+function finishFieldTile(ctx, px, py, tileSize) {
+  ctx.fillStyle = FIELD_DARKEN;
+  ctx.fillRect(px, py, tileSize, tileSize);
 }
 
 export function prewarmFieldCache() {
@@ -129,8 +118,8 @@ export function prewarmFieldCache() {
   for (const region of ["hub", "ki", "nu", "ai", "raku"]) {
     groundCanvas(region);
     pathCanvas(region);
-    ridgeCanvas(region);
   }
+  ridgeCanvas();
 }
 
 export function drawFieldTile(ctx, px, py, tile, regionId, tx, ty, dither, tileSize = 32) {
@@ -141,31 +130,34 @@ export function drawFieldTile(ctx, px, py, tile, regionId, tx, ty, dither, tileS
   switch (tile) {
     case T.GROUND:
       drawWorldTexture(ctx, groundCanvas(region), px, py, tx, ty, tileSize);
-      applyEmotionTint(ctx, px, py, tileSize, region);
+      finishFieldTile(ctx, px, py, tileSize);
       break;
     case T.PATH:
       drawWorldTexture(ctx, pathCanvas(region), px, py, tx, ty, tileSize);
-      applyEmotionTint(ctx, px, py, tileSize, region);
+      finishFieldTile(ctx, px, py, tileSize);
       break;
     case T.RIDGE:
-      drawWorldTexture(ctx, ridgeCanvas(region), px, py, tx, ty, tileSize);
+      drawWorldTexture(ctx, ridgeCanvas(), px, py, tx, ty, tileSize);
+      finishFieldTile(ctx, px, py, tileSize);
       break;
     case T.BONE:
       drawWorldTexture(ctx, pathCanvas(region), px, py, tx, ty, tileSize);
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillStyle = "rgba(255,255,255,0.04)";
       ctx.fillRect(px, py, tileSize, tileSize);
+      finishFieldTile(ctx, px, py, tileSize);
       break;
     case T.FLUID: {
       drawWorldTexture(ctx, groundCanvas(region), px, py, tx, ty, tileSize);
       const isRain = region === "ai";
-      const pulse = 0.45 + Math.sin(dither * 1.2 + tx * 0.25 + ty * 0.2) * 0.05;
-      ctx.fillStyle = isRain ? `rgba(80, 170, 220, ${pulse})` : `rgba(200, 50, 70, ${pulse})`;
+      const pulse = 0.28 + Math.sin(dither * 1.2 + tx * 0.25 + ty * 0.2) * 0.04;
+      ctx.fillStyle = isRain ? `rgba(50, 100, 130, ${pulse})` : `rgba(120, 40, 50, ${pulse})`;
       ctx.fillRect(px + 3, py + 5, tileSize - 6, tileSize - 10);
+      finishFieldTile(ctx, px, py, tileSize);
       break;
     }
     default:
       drawWorldTexture(ctx, groundCanvas(region), px, py, tx, ty, tileSize);
-      applyEmotionTint(ctx, px, py, tileSize, region);
+      finishFieldTile(ctx, px, py, tileSize);
       break;
   }
 
@@ -176,8 +168,8 @@ export function getFieldMinimapColor(tile, regionId) {
   const emotion = EMOTION[regionId ?? "hub"] ?? EMOTION.hub;
   if (tile === T.PATH) return emotion.minimap.path;
   if (tile === T.GROUND || tile === T.BONE) return emotion.minimap.ground;
-  if (tile === T.FLUID) return regionId === "ai" ? "#5894a4" : "#c4543c";
-  if (tile === T.RIDGE) return "#565e56";
+  if (tile === T.FLUID) return regionId === "ai" ? "#3e4e56" : "#603c34";
+  if (tile === T.RIDGE) return "#3e423e";
   return emotion.minimap.ground;
 }
 

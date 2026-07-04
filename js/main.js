@@ -1151,14 +1151,14 @@ function drawRegionAmbience() {
 
   if (key === "ki") {
     const g = ctx.createRadialGradient(canvas.width * 0.5, 0, 0, canvas.width * 0.5, 0, canvas.height * 0.7);
-    g.addColorStop(0, "rgba(255, 220, 60, 0.03)");
-    g.addColorStop(1, "rgba(255, 220, 60, 0)");
+    g.addColorStop(0, "rgba(200, 190, 80, 0.015)");
+    g.addColorStop(1, "rgba(200, 190, 80, 0)");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
   if (key === "nu") {
-    ctx.fillStyle = "rgba(200, 60, 40, 0.015)";
+    ctx.fillStyle = "rgba(120, 50, 40, 0.008)";
     for (let i = 0; i < 8; i++) {
       const x = (i * 97 + dither * 30) % canvas.width;
       const y = (i * 61 + dither * 20) % (canvas.height * 0.6);

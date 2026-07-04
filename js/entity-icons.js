@@ -87,17 +87,17 @@ export function drawEntityIcon(ctx, icons, e, camera) {
   const meta = MOTIF_META[e.motif];
 
   ctx.save();
-  ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
   ctx.beginPath();
-  ctx.ellipse(sx, sy + 8, size * 0.34, size * 0.1, 0, 0, Math.PI * 2);
+  ctx.ellipse(sx, sy + 8, size * 0.36, size * 0.11, 0, 0, Math.PI * 2);
   ctx.fill();
 
   if (meta?.glow) {
     ctx.shadowColor = meta.glow;
-    ctx.shadowBlur = 14;
+    ctx.shadowBlur = 18;
   }
 
-  ctx.filter = "brightness(1.15) contrast(1.2) saturate(1.15)";
+  ctx.filter = "brightness(1.3) contrast(1.25) saturate(0.9)";
   ctx.drawImage(keyed, sx - size / 2, drawY - size / 2, size, size);
   ctx.restore();
 }

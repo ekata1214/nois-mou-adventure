@@ -121,13 +121,13 @@ export function drawProps(ctx, props, camera, time) {
     const h = size;
 
     ctx.save();
-    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.62)";
     ctx.beginPath();
-    ctx.ellipse(sx, footY + (p.kind === "tree" ? 8 : 4), w * 0.32, w * 0.09, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx, footY + (p.kind === "tree" ? 8 : 4), w * 0.34, w * 0.1, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.globalAlpha = 1;
-    ctx.filter = "brightness(1.12) contrast(1.15) saturate(1.1)";
+    ctx.filter = "brightness(1.28) contrast(1.22) saturate(0.95)";
     ctx.drawImage(keyed, sx - w / 2, footY - h, w, h);
     ctx.restore();
   }
