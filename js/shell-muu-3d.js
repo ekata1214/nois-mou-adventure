@@ -6,12 +6,12 @@ import { raycastFloorY } from "./shell-floor.js";
 const GLB_FALLBACK_FILES = ["speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb", "speak_mou.glb", "speak-mou.glb"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260704n`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260704o`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260704n`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260704o`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -88,30 +88,146 @@ function pickNamedLoopClip(allClips, patterns) {
   return pickBestClip(matches, patterns);
 }
 
-function retargetClips(clips, sourceScene, targetRoot) {
-  const targetMesh = findSkinnedMesh(targetRoot);
-  const sourceMesh = findSkinnedMesh(sourceScene);
-  if (!targetMesh || !sourceMesh) {
-    console.warn("[shell-muu] retarget skip (missing skinned mesh)", {
-      target: Boolean(targetMesh),
-      source: Boolean(sourceMesh),
-    });
-    return clips;
+function trackBoneName(trackName) {
+  const dot = trackName.lastIndexOf(".");
+  if (dot === -1) return null;
+  const nodePath = trackName.slice(0, dot);
+  const nodesMatch = nodePath.match(/^nodes\[(\d+)\]$/);
+  if (nodesMatch) return null;
+  const parts = nodePath.split(/[./]/).filter(Boolean);
+  return parts[parts.length - 1] ?? null;
+}
+
+function trackProperty(trackName) {
+  const dot = trackName.lastIndexOf(".");
+  return dot === -1 ? null : trackName.slice(dot + 1);
+}
+
+function buildBonePathLookup(referenceClip) {
+  const map = new Map();
+  if (!referenceClip?.tracks?.length) return map;
+  for (const track of referenceClip.tracks) {
+    const boneName = trackBoneName(track.name);
+    const property = trackProperty(track.name);
+    if (!boneName || !property || map.has(boneName)) continue;
+    map.set(boneName, track.name.slice(0, track.name.lastIndexOf(".")));
+  }
+  return map;
+}
+
+function buildBonePathMap(mixerRoot) {
+  const map = new Map();
+
+  function pathFromTo(root, target) {
+    if (target === root) return "";
+    const parts = [];
+    let cur = target;
+    while (cur && cur !== root) {
+      parts.unshift(cur.name);
+      cur = cur.parent;
+    }
+    return cur === root ? parts.join(".") : null;
   }
 
-  return clips.map((clip) => {
-    try {
-      const retargeted = SkeletonUtils.retargetClip(targetMesh, sourceMesh, clip);
-      retargeted.name = clip.name;
-      return retargeted;
-    } catch (err) {
-      console.warn("[shell-muu] retarget failed:", clip.name, err?.message ?? err);
-      return clip;
+  mixerRoot.traverse((obj) => {
+    const path = pathFromTo(mixerRoot, obj);
+    if (path != null) map.set(obj.name, path);
+  });
+
+  const skinned = findSkinnedMesh(mixerRoot);
+  if (skinned?.skeleton?.bones) {
+    for (const bone of skinned.skeleton.bones) {
+      const path = pathFromTo(mixerRoot, bone);
+      if (path != null) map.set(bone.name, path);
     }
+  }
+
+  return map;
+}
+
+function buildGltfNodeIndex(scene) {
+  const nodes = [];
+  scene.traverse((obj) => nodes.push(obj));
+  return nodes;
+}
+
+function resolveTrackBoneName(trackName, sourceNodes) {
+  const nodesMatch = trackName.match(/^nodes\[(\d+)\]\./);
+  if (nodesMatch) {
+    const node = sourceNodes[Number(nodesMatch[1])];
+    return node?.name ?? null;
+  }
+  return trackBoneName(trackName);
+}
+
+function cloneTrack(track, newName) {
+  const TrackCtor = track.constructor;
+  return new TrackCtor(newName, track.times.slice(), track.values.slice());
+}
+
+function remapClipTracks(clip, { referenceClip = null, mixerRoot = null, sourceNodes = null } = {}) {
+  const pathByBone = referenceClip ? buildBonePathLookup(referenceClip) : new Map();
+  const fallbackPaths = mixerRoot ? buildBonePathMap(mixerRoot) : new Map();
+  const newTracks = [];
+  let matched = 0;
+
+  for (const track of clip.tracks) {
+    const property = trackProperty(track.name);
+    if (!property) continue;
+
+    const boneName = sourceNodes
+      ? resolveTrackBoneName(track.name, sourceNodes)
+      : trackBoneName(track.name);
+    if (!boneName) continue;
+
+    const targetPath = pathByBone.get(boneName) ?? fallbackPaths.get(boneName);
+    if (targetPath == null) continue;
+
+    matched += 1;
+    newTracks.push(cloneTrack(track, `${targetPath}.${property}`));
+  }
+
+  return { clip: new THREE.AnimationClip(clip.name, clip.duration, newTracks), matched, total: clip.tracks.length };
+}
+
+function retargetClips(clips, sourceScene, targetRoot, referenceClip = null) {
+  const targetMesh = findSkinnedMesh(targetRoot);
+  const sourceMesh = findSkinnedMesh(sourceScene);
+  const sourceNodes = buildGltfNodeIndex(sourceScene);
+
+  return clips.map((clip) => {
+    const remapped = remapClipTracks(clip, {
+      referenceClip,
+      mixerRoot: findMixerRoot(targetRoot),
+      sourceNodes,
+    });
+
+    console.info(
+      `[shell-muu] remap ${clip.name}: ${remapped.matched}/${remapped.total} tracks` +
+        (referenceClip ? ` (ref: ${referenceClip.name})` : "")
+    );
+
+    if (remapped.matched > 0) {
+      return remapped.clip;
+    }
+
+    if (targetMesh && sourceMesh) {
+      try {
+        const retargeted = SkeletonUtils.retargetClip(targetMesh, sourceMesh, clip);
+        retargeted.name = clip.name;
+        console.info(`[shell-muu] skeleton retarget ${clip.name}: ${retargeted.tracks.length} tracks`);
+        if (retargeted.tracks.length > 0) return retargeted;
+      } catch (err) {
+        console.warn("[shell-muu] skeleton retarget failed:", clip.name, err?.message ?? err);
+      }
+    }
+
+    console.warn(`[shell-muu] could not remap ${clip.name}; motion may not play`);
+    return clip;
   });
 }
 
-async function loadExtraAnimationClips(basePath, manifest, targetRoot) {
+async function loadExtraAnimationClips(basePath, manifest, targetRoot, referenceClip = null) {
   const sources = manifest?.animationClips ?? ["good-mou.glb", "good_mou.glb"];
   const loader = new GLTFLoader();
   const extra = [];
@@ -124,7 +240,7 @@ async function loadExtraAnimationClips(basePath, manifest, targetRoot) {
         console.warn(`[shell-muu] ${name}: animations なし`);
         continue;
       }
-      const retargeted = retargetClips(gltf.animations, gltf.scene, targetRoot);
+      const retargeted = retargetClips(gltf.animations, gltf.scene, targetRoot, referenceClip);
       extra.push(...retargeted);
       loadedAny = true;
       console.info(
@@ -317,10 +433,13 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
   scene.add(group);
 
   const mixer = new THREE.AnimationMixer(mixerRoot);
-  const extraClips = await loadExtraAnimationClips(basePath, manifest, modelRoot);
-  const clips = [...(gltf.animations ?? []), ...extraClips];
   const speakNames = manifest?.animations?.speak ?? ["speak_mou", "speak-mou", "speak mou", "speak", "Speak"];
-  const speakClip = pickNamedLoopClip(clips, speakNames) ?? pickBestClip(clips, speakNames) ?? clips[0] ?? null;
+  const mainClips = gltf.animations ?? [];
+  const speakClipFromMain =
+    pickNamedLoopClip(mainClips, speakNames) ?? pickBestClip(mainClips, speakNames) ?? mainClips[0] ?? null;
+  const extraClips = await loadExtraAnimationClips(basePath, manifest, modelRoot, speakClipFromMain);
+  const clips = [...mainClips, ...extraClips];
+  const speakClip = pickNamedLoopClip(clips, speakNames) ?? speakClipFromMain ?? clips[0] ?? null;
   const shellLoopPool = buildShellLoopPool(clips, manifest);
 
   if (clips.length === 0) {

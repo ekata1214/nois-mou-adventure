@@ -25,6 +25,7 @@ FILES=(
   js/shell-room.js
   index.html
   assets/muu/manifest.json
+  scripts/apply-good-mou-update.sh
 )
 
 for f in "${FILES[@]}"; do
