@@ -111,6 +111,37 @@ function disposeObject3D(root) {
   });
 }
 
+function fixGltfMaterials(root) {
+  let texCount = 0;
+  let plainCount = 0;
+  root.traverse((obj) => {
+    if (!obj.isMesh || !obj.material) return;
+    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+    for (const mat of mats) {
+      if (!mat) continue;
+      mat.needsUpdate = true;
+      const colorMaps = ["map", "emissiveMap"];
+      const dataMaps = ["normalMap", "roughnessMap", "metalnessMap", "aoMap"];
+      for (const key of colorMaps) {
+        const tex = mat[key];
+        if (tex?.isTexture) {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          texCount += 1;
+        }
+      }
+      for (const key of dataMaps) {
+        const tex = mat[key];
+        if (tex?.isTexture) {
+          tex.colorSpace = THREE.LinearSRGBColorSpace;
+          texCount += 1;
+        }
+      }
+      if (!mat.map && !mat.emissiveMap) plainCount += 1;
+    }
+  });
+  console.info(`[shell-muu] texture maps: ${texCount}, plain materials: ${plainCount}`);
+}
+
 export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu") {
   const manifest = await readManifest(basePath);
   const loaded = await loadGlb(basePath, manifest);
