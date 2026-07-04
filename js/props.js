@@ -117,10 +117,18 @@ export function drawProps(ctx, props, camera, time) {
     const bob = Math.sin(time * 0.7 + p.phase) * (p.kind === "tree" ? 1.2 : 2.8);
     const keyed = getKeyed(img);
     const footY = sy + bob;
+    const w = size;
+    const h = size;
 
     ctx.save();
-    ctx.globalAlpha = p.kind === "tree" ? 0.94 : 0.88;
-    ctx.drawImage(keyed, sx - size / 2, footY - size, size, size);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.beginPath();
+    ctx.ellipse(sx, footY + (p.kind === "tree" ? 8 : 4), w * 0.32, w * 0.09, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+    ctx.filter = "brightness(1.12) contrast(1.15) saturate(1.1)";
+    ctx.drawImage(keyed, sx - w / 2, footY - h, w, h);
     ctx.restore();
   }
 }

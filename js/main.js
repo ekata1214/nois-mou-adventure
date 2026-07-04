@@ -1008,7 +1008,7 @@ function drawTile(x, y, tile, tx, ty) {
   drawFieldTile(ctx, px, py, tile, regionId, tx, ty, dither, TILE);
 
   if (regionId && REGION_TINT[regionId]) {
-    ctx.fillStyle = REGION_TINT[regionId].replace(/[\d.]+\)$/, "0.06)");
+    ctx.fillStyle = REGION_TINT[regionId].replace(/[\d.]+\)$/, "0.03)");
     ctx.fillRect(px, py, TILE, TILE);
   }
 }

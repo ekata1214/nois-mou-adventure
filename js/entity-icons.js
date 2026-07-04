@@ -84,12 +84,20 @@ export function drawEntityIcon(ctx, icons, e, camera) {
   const size = ENTITY_ICON_BASE * scale * pulse;
   const keyed = keyBlack(img, 36);
   const drawY = sy - floatY;
+  const meta = MOTIF_META[e.motif];
 
   ctx.save();
-  ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
   ctx.beginPath();
-  ctx.ellipse(sx, sy + 6, size * 0.3, size * 0.08, 0, 0, Math.PI * 2);
+  ctx.ellipse(sx, sy + 8, size * 0.34, size * 0.1, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  if (meta?.glow) {
+    ctx.shadowColor = meta.glow;
+    ctx.shadowBlur = 14;
+  }
+
+  ctx.filter = "brightness(1.15) contrast(1.2) saturate(1.15)";
   ctx.drawImage(keyed, sx - size / 2, drawY - size / 2, size, size);
   ctx.restore();
 }
