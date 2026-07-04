@@ -13,6 +13,7 @@ import {
   VOID_REALM,
 } from "./world.js";
 import { drawFieldTile, getFieldMinimapColor } from "./field-art.js";
+import { drawSprite, loadSprites } from "./sprites.js";
 import { loadEntityIcons, MOTIF_META, getRegionArt } from "./entity-icons.js";
 import {
   loadSoul,
