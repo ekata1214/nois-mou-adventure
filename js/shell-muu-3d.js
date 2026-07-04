@@ -9,7 +9,7 @@ function modelUrl(basePath, name) {
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260704c`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260704d`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -135,6 +135,15 @@ function fixGltfMaterials(root) {
           tex.colorSpace = THREE.LinearSRGBColorSpace;
           texCount += 1;
         }
+      }
+      const isBlack =
+        mat.color &&
+        mat.color.r < 0.05 &&
+        mat.color.g < 0.05 &&
+        mat.color.b < 0.05 &&
+        !mat.map;
+      if (isBlack) {
+        console.warn(`[shell-muu] black material (no texture): mesh=${obj.name} mat=${mat.name || "(unnamed)"}`);
       }
       if (!mat.map && !mat.emissiveMap) plainCount += 1;
     }
