@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { attachShellMuu3d } from "./shell-muu-3d.js";
+import { estimateRoomFloorY } from "./shell-floor.js";
 
 const GLB_FALLBACK_FILES = ["this ver2.glb", "this ver2.GLB", "this.glb", "this.GLB"];
 
@@ -53,7 +54,9 @@ function fitModel(root, camera, manifest) {
 
   camera.lookAt(lookAt);
 
-  return { size, dist, lookAt };
+  const floorY = estimateRoomFloorY(root, manifest);
+
+  return { size, dist, lookAt, floorY };
 }
 
 function makeFlareTexture() {
@@ -265,7 +268,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room") {
     dispose() {},
   };
   try {
-    muu = await attachShellMuu3d(scene, fit, "assets/muu");
+    muu = await attachShellMuu3d(scene, fit, "assets/muu", roomRoot, manifest);
   } catch (err) {
     console.warn("shell muu load failed:", err);
   }

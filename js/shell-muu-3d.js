@@ -1,15 +1,16 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { raycastFloorY } from "./shell-floor.js";
 
 const GLB_FALLBACK_FILES = ["speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb", "speak_mou.glb", "speak-mou.glb"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260704h`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260704l`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260704h`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260704l`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -56,8 +57,25 @@ function pickBestClip(clips, preferNames) {
   );
 }
 
-function fitMuuRoot(root, manifest, roomFit) {
-  const box = new THREE.Box3().setFromObject(root);
+function meshBounds(root, { excludeBrain = true } = {}) {
+  const box = new THREE.Box3();
+  let init = false;
+  root.traverse((obj) => {
+    if (!obj.isMesh && !obj.isSkinnedMesh) return;
+    if (excludeBrain && /brain/i.test(obj.name)) return;
+    const b = new THREE.Box3().setFromObject(obj);
+    if (!init) {
+      box.copy(b);
+      init = true;
+    } else {
+      box.union(b);
+    }
+  });
+  return init ? box : new THREE.Box3().setFromObject(root);
+}
+
+function fitMuuRoot(root, manifest, roomFit, roomRoot = null, roomManifest = null) {
+  const box = meshBounds(root);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
 
@@ -72,24 +90,36 @@ function fitMuuRoot(root, manifest, roomFit) {
   root.scale.multiplyScalar(scale);
 
   root.updateMatrixWorld(true);
-  const grounded = new THREE.Box3().setFromObject(root);
+  const grounded = meshBounds(root);
   root.position.y -= grounded.min.y;
 
   const group = new THREE.Group();
   group.add(root);
 
-  const roomFloorY = roomFit?.size?.y ? -roomFit.size.y * 0.5 : 0;
-  const footOffset = manifest?.footOffset ?? 0;
   const pos = manifest?.position ?? [0, 0, (roomFit?.dist ?? 2) * 0.28];
+  const footOffset = manifest?.footOffset ?? 0.02;
+  let floorY = roomFit?.floorY ?? 0;
 
-  group.position.set(pos[0] ?? 0, roomFloorY + (pos[1] ?? 0) + footOffset, pos[2] ?? 0);
+  group.position.set(pos[0] ?? 0, floorY + (pos[1] ?? 0), pos[2] ?? 0);
+
+  if (roomRoot) {
+    const snapped = raycastFloorY(roomRoot, group.position.x, group.position.z, roomManifest);
+    if (snapped != null) {
+      floorY = snapped;
+      group.position.y = floorY + (pos[1] ?? 0) + footOffset;
+    }
+  } else {
+    group.position.y += footOffset;
+  }
 
   if (manifest?.rotation) {
     const [x, y, z] = manifest.rotation;
     group.rotation.set(x, y, z);
   }
 
-  return { group, size, floorY: roomFloorY + footOffset };
+  console.info("[shell-muu] floorY:", floorY.toFixed(3), "footOffset:", footOffset, "worldY:", group.position.y.toFixed(3));
+
+  return { group, size, floorY: group.position.y };
 }
 
 async function loadGlb(basePath, manifest) {
@@ -157,7 +187,7 @@ function fixGltfMaterials(root) {
   console.info(`[shell-muu] texture maps: ${texCount}, plain materials: ${plainCount}`);
 }
 
-export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu") {
+export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", roomRoot = null, roomManifest = null) {
   const manifest = await readManifest(basePath);
   const loaded = await loadGlb(basePath, manifest);
   if (!loaded.gltf) {
@@ -176,7 +206,7 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu") 
   const modelRoot = gltf.scene;
   fixGltfMaterials(modelRoot);
   const mixerRoot = findMixerRoot(modelRoot);
-  const { group } = fitMuuRoot(modelRoot, manifest, roomFit);
+  const { group } = fitMuuRoot(modelRoot, manifest, roomFit, roomRoot, roomManifest);
   scene.add(group);
 
   const mixer = new THREE.AnimationMixer(mixerRoot);
