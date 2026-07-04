@@ -592,13 +592,15 @@ function beginCombatAfterZoom() {
 
   if (combatStyle === "rpg") {
     encounterPhase = "rpg";
-    encounterScreen.classList.remove("flash-only");
+    actionCombatHud.classList.add("hidden");
+    encounterScreen.classList.remove("hidden", "flash-only");
     encounterScreen.classList.add("zoom-backdrop");
     encounterPanel?.classList.remove("hidden");
     combatTypeEl.textContent = "COMBAT — RPG";
     choiceResultEl.textContent = "";
     encounterCloseBtn.classList.add("hidden");
     choiceButtons.forEach((b) => (b.disabled = false));
+    focusGameCanvas();
   } else {
     encounterPhase = "action";
     encounterScreen.classList.add("hidden");
