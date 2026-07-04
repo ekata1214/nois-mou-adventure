@@ -2,9 +2,13 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>ムー君の冒険 — NOU</title>
-  <link rel="stylesheet" href="css/style.css?v=20260703p" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="css/style.css?v=20260704mobile" />
 </head>
 <body>
   <div id="app">
@@ -13,7 +17,7 @@
       <img id="title-art" src="assets/title.png" alt="ムー君の冒険" />
       <p class="start-hint">CLICK / SPACE / TAP to enter NOU</p>
       <p class="start-hint mobile-hint">MOBILE — TAP map to move</p>
-      <p class="credit">Nois Mou — World Scale Prototype · v20260703p</p>
+      <p class="credit">Nois Mou — World Scale Prototype · v20260704mobile</p>
     </div>
     <canvas id="game" width="1280" height="720" tabindex="0"></canvas>
 
@@ -120,6 +124,6 @@
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=20260704k"></script>
+  <script type="module" src="js/main.js?v=20260704mobile"></script>
 </body>
 </html>

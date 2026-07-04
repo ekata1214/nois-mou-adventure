@@ -3,17 +3,15 @@ import {
   COLS,
   ROWS,
   T,
-  PALETTE,
   createWorld,
   canMove,
   getAreaName,
   getRegionAt,
-  REGION_TINT,
-  getTilePalette,
   isWalkable,
   isInVoid,
   VOID_REALM,
 } from "./world.js";
+import { drawFieldTile, getFieldMinimapColor, prewarmFieldCache } from "./field-art.js";
 import { drawSprite, loadSprites } from "./sprites.js";
 import { loadEntityIcons, MOTIF_META, getRegionArt } from "./entity-icons.js";
 import {
@@ -82,8 +80,8 @@ import {
 } from "./bgm.js";
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js";
-import { drawVoidCosmosBackground, drawVoidTileCosmos, preloadVoidCosmos } from "./void-cosmos.js";
+import { createShellRoomView } from "./shell-room.js?v=20260704o";
+import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -153,8 +151,9 @@ function updateShellRoomStatus(view) {
   }
   if (view?.ready && view?.muuReady && view?.muu?.clipNames?.length) {
     shellRoomStatus.hidden = false;
-    shellRoomStatus.textContent =
-      `ムー君 GLB: ${view.muu.modelName} / アニメ: ${view.muu.clipNames.join(", ")}`;
+    const loop = view.muu.loopClipName ?? view.muu.loopClip;
+    const animLabel = loop ? `ループ: ${loop}` : view.muu.clipNames.join(", ");
+    shellRoomStatus.textContent = `ムー君 GLB: ${view.muu.modelName} / ${animLabel}`;
     return;
   }
   if (view?.ready && view?.muuReady) {
@@ -315,9 +314,10 @@ function drawShellMuu() {
   drawSprite(sctx, sprites.front, w / 2, h * 0.96, width, height);
 }
 
-function beginPlay() {
+async function beginPlay() {
   unlockAudio();
   unlockBgm();
+  await tryLockLandscape();
   startGame();
   focusGameCanvas();
 }
@@ -353,7 +353,7 @@ function startGame() {
   pendingMapRegion = "";
   regionStableTimer = 0;
   refreshSoulUI();
-  fitCanvas();
+  refreshLayout();
 }
 
 function triggerGameOver({ fromVoid = false } = {}) {
@@ -468,17 +468,18 @@ function enterShell() {
   drawShellMuu();
 }
 
-function enterNou() {
+async function enterNou() {
   if (isDead(soul)) {
     muuSpeech.textContent = "……";
     return;
   }
+  await tryLockLandscape();
   clearMovementKeys();
   mode = "extrovert";
   shellScreen.classList.add("hidden");
   canvas.classList.remove("hidden");
   refreshSoulUI();
-  fitCanvas();
+  refreshLayout();
   setBgmEnabled(true);
   currentMapRegion = "";
   pendingMapRegion = "";
@@ -836,8 +837,7 @@ function screenToWorld(clientX, clientY) {
 }
 
 function fitCanvas() {
-  const vw = window.visualViewport?.width ?? window.innerWidth;
-  const vh = window.visualViewport?.height ?? window.innerHeight;
+  const { vw, vh } = getViewportSize();
   const aspect = canvas.width / canvas.height;
   let w;
   let h;
@@ -852,11 +852,14 @@ function fitCanvas() {
   canvas.style.height = `${Math.floor(h)}px`;
 }
 
-function bindViewport() {
+function refreshLayout() {
   fitCanvas();
-  window.addEventListener("resize", fitCanvas);
-  window.visualViewport?.addEventListener("resize", fitCanvas);
-  window.addEventListener("orientationchange", () => setTimeout(fitCanvas, 100));
+  shellRoomView?.resize?.();
+}
+
+function bindViewport() {
+  bindMobileViewport(refreshLayout);
+  refreshLayout();
 }
 
 function drawTapMarker() {
@@ -992,14 +995,8 @@ function drawVoidGrain() {
 function drawTile(x, y, tile, tx, ty) {
   const region = getRegionAt(tx, ty);
   const regionId = region?.id;
-  const pal = getTilePalette(tile, regionId);
   const px = x - camera.x;
   const py = y - camera.y;
-
-  ctx.fillStyle = pal.base;
-  if (tile !== T.VOID) {
-    ctx.fillRect(px, py, TILE, TILE);
-  }
 
   if (tile === T.VOID) {
     drawVoidTileCosmos(ctx, px, py, TILE, tx, ty);
@@ -1008,40 +1005,10 @@ function drawTile(x, y, tile, tx, ty) {
     if ((tx + ty) % 5 === 0) {
       ctx.strokeRect(px + 2, py + 2, TILE - 4, TILE - 4);
     }
+    return;
   }
 
-  if (tile !== T.VOID && regionId && REGION_TINT[regionId]) {
-    ctx.fillStyle = REGION_TINT[regionId];
-    ctx.fillRect(px, py, TILE, TILE);
-  }
-
-  const stripe = (tx + ty + Math.floor(dither * 2)) % 3 === 0;
-  if (stripe && tile !== T.VOID) {
-    ctx.fillStyle = pal.accent;
-    ctx.fillRect(px, py + 8, TILE, 3);
-  }
-
-  if (tile === T.FLUID) {
-    const pulse = 0.2 + Math.sin(dither * 2 + tx * 0.4 + ty * 0.3) * 0.1;
-    if (regionId === "ai") {
-      ctx.fillStyle = `rgba(120, 200, 235, ${pulse})`;
-    } else {
-      ctx.fillStyle = `rgba(200, 40, 60, ${pulse})`;
-    }
-    ctx.fillRect(px + 4, py + 6, TILE - 8, TILE - 10);
-  }
-
-  if (tile === T.RIDGE) {
-    ctx.fillStyle = pal.accent;
-    ctx.beginPath();
-    ctx.arc(px + TILE / 2, py + TILE / 2, TILE / 2 - 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  if (tile !== T.VOID && (tx * 7 + ty * 13) % 5 === 0) {
-    ctx.fillStyle = "rgba(255,255,255,0.04)";
-    ctx.fillRect(px + 10, py + 14, 2, 2);
-  }
+  drawFieldTile(ctx, px, py, tile, regionId, tx, ty, dither, TILE);
 }
 
 function drawWorld() {
@@ -1102,20 +1069,33 @@ function drawRedFrame() {
 }
 
 function drawPlayer() {
-  const img = sprites[player.dir];
-  if (!img) return;
   const sx = player.x - camera.x;
   const sy = player.y - camera.y;
-
-  const warmth = soul.brainWarmth ?? 0;
-  const width = SPRITE_W * NOU_SPRITE_SCALE * (1 + warmth * 0.05);
-  const height = SPRITE_H * SPRITE_SQUASH * NOU_SPRITE_SCALE * (1 - warmth * 0.03);
+  const img = sprites?.[player.dir];
 
   ctx.save();
   ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
   ctx.beginPath();
-  ctx.ellipse(sx, sy + 5, width * 0.34, 6, 0, 0, Math.PI * 2);
+  const shadowW = img ? SPRITE_W * NOU_SPRITE_SCALE * 0.34 : 18;
+  ctx.ellipse(sx, sy + 5, shadowW, 6, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  if (!img) {
+    ctx.fillStyle = "#e50914";
+    ctx.beginPath();
+    ctx.arc(sx, sy - 22, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "10px Helvetica Neue, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("ムー", sx, sy - 19);
+    ctx.restore();
+    return;
+  }
+
+  const warmth = soul.brainWarmth ?? 0;
+  const width = SPRITE_W * NOU_SPRITE_SCALE * (1 + warmth * 0.05);
+  const height = SPRITE_H * SPRITE_SQUASH * NOU_SPRITE_SCALE * (1 - warmth * 0.03);
   drawSprite(ctx, img, sx, sy, width, height);
   ctx.restore();
 }
@@ -1139,8 +1119,8 @@ function drawMinimap() {
     for (let col = 0; col < COLS; col += 2) {
       const tile = world.tiles[row][col];
       if (tile === T.VOID) continue;
-      const pal = PALETTE[tile] ?? PALETTE[T.GROUND];
-      ctx.fillStyle = pal.base;
+      const region = getRegionAt(col, row);
+      ctx.fillStyle = getFieldMinimapColor(tile, region?.id);
       ctx.fillRect(mx + col * sx, my + row * sy, sx * 2 + 1, sy * 2 + 1);
     }
   }
@@ -1175,14 +1155,14 @@ function drawRegionAmbience() {
 
   if (key === "ki") {
     const g = ctx.createRadialGradient(canvas.width * 0.5, 0, 0, canvas.width * 0.5, 0, canvas.height * 0.7);
-    g.addColorStop(0, "rgba(255, 220, 60, 0.03)");
-    g.addColorStop(1, "rgba(255, 220, 60, 0)");
+    g.addColorStop(0, "rgba(200, 190, 80, 0.015)");
+    g.addColorStop(1, "rgba(200, 190, 80, 0)");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
   if (key === "nu") {
-    ctx.fillStyle = "rgba(200, 60, 40, 0.015)";
+    ctx.fillStyle = "rgba(120, 50, 40, 0.008)";
     for (let i = 0; i < 8; i++) {
       const x = (i * 97 + dither * 30) % canvas.width;
       const y = (i * 61 + dither * 20) % (canvas.height * 0.6);
@@ -1202,6 +1182,14 @@ function drawRegionAmbience() {
 }
 
 function draw() {
+  try {
+    drawFrame();
+  } catch (err) {
+    console.error("[draw] error:", err);
+  }
+}
+
+function drawFrame() {
   drawVoidGrain();
 
   if (isBattleView() && battleField) {
@@ -1450,7 +1438,11 @@ async function loadShellRoomInBackground() {
   if (shellRoomView?.ready) return;
   shellRoomLoading = true;
   try {
-    shellRoomView = await createShellRoomView(shellRoomGl, "assets/room");
+    shellRoomView = await createShellRoomView(shellRoomGl, "assets/room", {
+      onMuuLoopChange() {
+        updateShellRoomStatus(shellRoomView);
+      },
+    });
     updateShellRoomStatus(shellRoomView);
     syncShellMuuLayer();
     if (shellRoomView?.ready && state === "play" && mode === "introvert") {
@@ -1476,18 +1468,19 @@ async function boot() {
   preloadBgm();
   preloadVoidCosmos();
   bindInput();
-  requestAnimationFrame(loop);
 
   try {
     sprites = await loadSprites("assets/muu");
     entityIcons = await loadEntityIcons("assets/icons");
     await loadScenery("assets/scenery");
+    prewarmFieldCache();
     refreshSoulUI();
     drawShellMuu();
   } catch (err) {
     console.error("asset load failed:", err);
   }
 
+  requestAnimationFrame(loop);
   loadShellRoomInBackground();
   if (new URLSearchParams(location.search).has("shot")) {
     window.__shot = {
