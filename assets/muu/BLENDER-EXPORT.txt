@@ -1,42 +1,55 @@
-Blender 4.4 — speak-mou2.glb 書き出し（見た目＋アニメ＋テクスチャ）
-============================================================
+Blender 4.4 — speak-mou GLB 書き出し（見た目＋アニメ＋テクスチャ）
+====================================================================
 
-## アニメ（前回できた設定）
+## アニメ（これで OK）
 
 - Selected Objects ✓
 - Animation ✓
 - Mode: **NLA Tracks**
 
-## テクスチャを載せる（追加）
+---
 
-### 1. export 前にテクスチャを blend に埋め込む
+## テクスチャが黒い／欠ける — 原因（Pack だけでは直らない）
 
-```
-File → External Data → Pack Resources
-```
+`File → External Data → Pack Resources` は **画像ファイルを .blend に埋め込む** だけ。
+glTF/GLB export は **Principled BSDF に直接つながった Image Texture だけ** 書き出す。
 
-（または「Automatically Pack Into .blend」をオンにして Save）
+HumGen の `.Human` マテリアルは **カスタムノードグループ** で肌色を合成している。
+Pack しても export 時に Principled の Base Color へ届かないテクスチャは GLB に入らない。
 
-### 2. Export ダイアログ → **Data** を開く
+### speak-mou.glb を調査した結果（2026-07）
 
-| 項目 | 設定 |
-|------|------|
-| Materials | **Export**（None だと真っ白/グレー） |
-| Images | **Auto** または JPEG |
-| UVs | ✓ |
+| マテリアル | GLB 内 | 問題 |
+|-----------|--------|------|
+| `.Human`（体・手足） | baseColor = **そばかす用** `.fm_0_freckles_body` のみ | **肌の Diffuse が未 export** → 手足が黒く見える |
+| `Brain Meat.001` | テクスチャなし | Geometry Nodes / 手続きシェーダー → GLB 非対応 |
+| `.HG_Eyes_Outer_FAST` | テクスチャなし | 虹彩の外側レイヤーが export されない |
+| `.HG_Teeth` / `.HG_Eyes_Inner` | ✓ 正常 | — |
 
-### 3. そのまま export
+Pack は成功している（GLB 内に 8 枚 embed 済み）。**接続の問題** で Pack では解決しない。
 
-保存: assets/muu/speak-mou2.glb
+---
 
-### 4. ターミナル
+## 正しい直し方 — HumGen Texture Baking（必須）
 
-```bash
-cp -f assets/muu/speak-mou2.glb assets/muu/speak_mou.glb
-./setup-and-run.sh
-```
+1. キャラ（speak-mou）を選択
+2. HumGen パネル → **Process** タブ
+3. **Texture Baking** を有効化
+   - Sample count: 128 以上推奨
+   - Body / Face など Resolution を 2K〜4K に
+4. 下部の出力フォルダ（空なら HG content packs の `output`）
+5. **Bake** 実行 → Principled BSDF 向けに flattened テクスチャが生成される
+6. 保存してから GLB export
 
-## Brain のテクスチャだけ切れる場合
+参考: https://help.humgen3d.com/baking
+
+Process タブが見えない場合（ARP リマップ後など）:
+- HumGen パネルでキャラを Human として再選択
+- または Shading で `.Human` を開き、Base Color を Image Texture 1 枚に手動で繋ぎ直してから export
+
+---
+
+## Brain（脳）のテクスチャ
 
 Brain は Geometry Nodes だと GLB に載らないことが多い。
 
@@ -48,10 +61,54 @@ Brain は Geometry Nodes だと GLB に載らないことが多い。
 5. Image → Save As PNG
 6. その PNG を Principled BSDF の Base Color に繋ぎ直して export
 
-## 確認（ブラウザ Console）
+---
+
+## Export ダイアログ設定
+
+| 項目 | 設定 |
+|------|------|
+| Materials | **Export** |
+| Images | **Auto** または JPEG |
+| UVs | ✓ |
+| Animation Mode | **NLA Tracks** |
+
+保存例: `assets/muu/speak-mou4.glb`
+
+```bash
+cp -f assets/muu/speak-mou4.glb assets/muu/speak_mou.glb
+./setup-and-run.sh
+```
+
+---
+
+## 診断コマンド（Mac）
+
+```bash
+cd "/Users/takaearasaki/Desktop/MY GAMES/nois-mou-adventure"
+node scripts/inspect-glb.mjs assets/muu/speak-mou4.glb
+node scripts/inspect-glb-deep.mjs assets/muu/speak-mou4.glb
+```
+
+### 成功の目安
+
+```
+textures: 10 以上
+.Human: ✓ texture  （baseColor が freckles だけでなく baked skin 名になっている）
+△ テクスチャ無しマテリアル: 0〜1  （Brain のみ許容）
+```
+
+### ブラウザ Console
 
 ```
 [shell-muu] texture maps: 12, plain materials: 0
 ```
 
-`texture maps: 0` なら GLB 内に画像が入っていない → Blender の Pack + Materials Export を再確認。
+`[shell-muu] black material (no texture): mesh=... mat=Brain` → Brain は Bake 前なら正常。
+`mat=.Human` で black が出たら HumGen Texture Baking がまだ必要。
+
+---
+
+## 部屋の壁の黒い斑点について
+
+`this ver2.glb`（部屋）側の UV / テクスチャ問題。ムー君 GLB とは別ファイル。
+部屋も同様に Pack だけでは足りない場合、Blender で部屋マテリアルを Principled + Image Texture に直してから export。
