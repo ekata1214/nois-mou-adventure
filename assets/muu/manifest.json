@@ -3,7 +3,8 @@
   "models": ["speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb", "speak_mou.glb", "speak-mou.glb"],
   "targetHeight": 1.35,
   "scale": 1,
-  "position": [0, -0.15, 0.55],
+  "position": [0, 0, 0.55],
+  "footOffset": -0.01,
   "rotation": [0, 0, 0],
   "animations": {
     "idle": ["idle", "Idle", "rest"],

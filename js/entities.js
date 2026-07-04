@@ -209,11 +209,18 @@ export function drawEntity(ctx, e, camera, dither, icons) {
   drawEntityIcon(ctx, icons, e, camera, dither);
 }
 
-/** 怒・哀のマップ → アクション、喜・楽など → RPG */
+/** マイナス感情エリア（怒・哀）→ アクション / プラス（喜・楽）→ RPG */
 const ACTION_REGION_IDS = new Set(["nu", "ai"]);
+const RPG_REGION_IDS = new Set(["ki", "raku"]);
 
 export function combatStyleForEntity(entity) {
-  return ACTION_REGION_IDS.has(entity?.regionId) ? "action" : "rpg";
+  const regionId = entity?.regionId;
+  if (ACTION_REGION_IDS.has(regionId)) return "action";
+  if (RPG_REGION_IDS.has(regionId)) return "rpg";
+  const kind = ENTITY_DEFS[entity?.type]?.kind;
+  if (kind === "negative") return "action";
+  if (kind === "positive") return "rpg";
+  return "rpg";
 }
 
 export function getEntityLine(entity) {

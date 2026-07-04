@@ -4,12 +4,12 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 const GLB_FALLBACK_FILES = ["speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb", "speak_mou.glb", "speak-mou.glb"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260704f`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260704g`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260704f`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260704g`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -60,7 +60,10 @@ function fitMuuRoot(root, manifest, roomFit) {
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
-  root.position.sub(center);
+
+  // X/Z のみ中央寄せ（Y は後で床合わせ）
+  root.position.x -= center.x;
+  root.position.z -= center.z;
 
   const maxDim = Math.max(size.x, size.y, size.z, 0.001);
   const targetHeight = manifest?.targetHeight ?? 1.35;
@@ -68,22 +71,25 @@ function fitMuuRoot(root, manifest, roomFit) {
   const scale = manifest?.scale ?? autoScale;
   root.scale.multiplyScalar(scale);
 
+  root.updateMatrixWorld(true);
+  const grounded = new THREE.Box3().setFromObject(root);
+  root.position.y -= grounded.min.y;
+
   const group = new THREE.Group();
   group.add(root);
 
-  if (manifest?.position) {
-    const [x, y, z] = manifest.position;
-    group.position.set(x, y, z);
-  } else {
-    group.position.set(0, (roomFit?.size?.y ?? 1) * -0.12, (roomFit?.dist ?? 2) * 0.28);
-  }
+  const roomFloorY = roomFit?.size?.y ? -roomFit.size.y * 0.5 : 0;
+  const footOffset = manifest?.footOffset ?? 0;
+  const pos = manifest?.position ?? [0, 0, (roomFit?.dist ?? 2) * 0.28];
+
+  group.position.set(pos[0] ?? 0, roomFloorY + (pos[1] ?? 0) + footOffset, pos[2] ?? 0);
 
   if (manifest?.rotation) {
     const [x, y, z] = manifest.rotation;
     group.rotation.set(x, y, z);
   }
 
-  return { group, size };
+  return { group, size, floorY: roomFloorY + footOffset };
 }
 
 async function loadGlb(basePath, manifest) {
