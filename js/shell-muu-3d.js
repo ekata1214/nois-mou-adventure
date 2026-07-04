@@ -1,16 +1,17 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 import { raycastFloorY } from "./shell-floor.js";
 
 const GLB_FALLBACK_FILES = ["speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb", "speak_mou.glb", "speak-mou.glb"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260704l`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260704n`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260704l`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260704n`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -37,12 +38,33 @@ function findMixerRoot(scene) {
   return armatureGroup || skinned || scene;
 }
 
+function clipBaseName(name) {
+  if (!name) return "";
+  return String(name).split("|").pop().trim();
+}
+
+function normalizeClipToken(value) {
+  return value.toLowerCase().replace(/_/g, "-");
+}
+
+function clipMatchesPattern(clipName, pattern) {
+  const base = normalizeClipToken(clipBaseName(clipName));
+  const pat = normalizeClipToken(pattern);
+  return base === pat || base.startsWith(`${pat}.`) || base.startsWith(`${pat}_`);
+}
+
+function findSkinnedMesh(root) {
+  let mesh = null;
+  root.traverse((obj) => {
+    if (obj.isSkinnedMesh && !mesh) mesh = obj;
+  });
+  return mesh;
+}
+
 function pickClip(clips, names) {
   if (!clips?.length || !names?.length) return null;
-  const lowered = names.map((n) => n.toLowerCase());
   for (const clip of clips) {
-    const name = clip.name.toLowerCase();
-    if (lowered.some((n) => name === n || name.includes(n) || n.includes(name))) return clip;
+    if (names.some((name) => clipMatchesPattern(clip.name, name))) return clip;
   }
   return null;
 }
@@ -58,16 +80,7 @@ function pickBestClip(clips, preferNames) {
 
 function clipsMatching(allClips, patterns) {
   if (!allClips?.length || !patterns?.length) return [];
-  const lowered = patterns.map((p) => p.toLowerCase());
-  return allClips.filter((clip) => {
-    const name = clip.name.toLowerCase();
-    return lowered.some((pat) => {
-      if (name === pat) return true;
-      if (name.endsWith(`|${pat}`)) return true;
-      if (name.split("|").pop() === pat) return true;
-      return name.includes(pat);
-    });
-  });
+  return allClips.filter((clip) => patterns.some((pat) => clipMatchesPattern(clip.name, pat)));
 }
 
 function pickNamedLoopClip(allClips, patterns) {
@@ -75,21 +88,62 @@ function pickNamedLoopClip(allClips, patterns) {
   return pickBestClip(matches, patterns);
 }
 
-async function loadExtraAnimationClips(basePath, manifest) {
+function retargetClips(clips, sourceScene, targetRoot) {
+  const targetMesh = findSkinnedMesh(targetRoot);
+  const sourceMesh = findSkinnedMesh(sourceScene);
+  if (!targetMesh || !sourceMesh) {
+    console.warn("[shell-muu] retarget skip (missing skinned mesh)", {
+      target: Boolean(targetMesh),
+      source: Boolean(sourceMesh),
+    });
+    return clips;
+  }
+
+  return clips.map((clip) => {
+    try {
+      const retargeted = SkeletonUtils.retargetClip(targetMesh, sourceMesh, clip);
+      retargeted.name = clip.name;
+      return retargeted;
+    } catch (err) {
+      console.warn("[shell-muu] retarget failed:", clip.name, err?.message ?? err);
+      return clip;
+    }
+  });
+}
+
+async function loadExtraAnimationClips(basePath, manifest, targetRoot) {
   const sources = manifest?.animationClips ?? ["good-mou.glb", "good_mou.glb"];
   const loader = new GLTFLoader();
   const extra = [];
+  let loadedAny = false;
+
   for (const name of sources) {
     try {
       const gltf = await loader.loadAsync(modelUrl(basePath, name));
-      if (gltf.animations?.length) {
-        extra.push(...gltf.animations);
-        console.info(`[shell-muu] extra clips from ${name}:`, gltf.animations.map((c) => c.name).join(", "));
+      if (!gltf.animations?.length) {
+        console.warn(`[shell-muu] ${name}: animations なし`);
+        continue;
       }
-    } catch {
-      // optional file
+      const retargeted = retargetClips(gltf.animations, gltf.scene, targetRoot);
+      extra.push(...retargeted);
+      loadedAny = true;
+      console.info(
+        `[shell-muu] extra clips from ${name}:`,
+        retargeted.map((c) => c.name).join(", "),
+        `(tracks: ${retargeted.map((c) => c.tracks.length).join(", ")})`
+      );
+      break;
+    } catch (err) {
+      console.warn(`[shell-muu] failed to load ${name}:`, err?.message ?? err);
     }
   }
+
+  if (!loadedAny) {
+    console.warn(
+      "[shell-muu] good-mou.glb が読めません。assets/muu/good-mou.glb を置くか、speak-mou5.glb に NLA トラック good-mou を同梱してください。"
+    );
+  }
+
   return extra;
 }
 
@@ -101,6 +155,12 @@ function buildShellLoopPool(allClips, manifest) {
   const good = pickNamedLoopClip(allClips, goodPatterns);
   if (speak) pool.push(speak);
   if (good && good !== speak) pool.push(good);
+  if (!good) {
+    console.warn(
+      "[shell-muu] good-mou clip not found in:",
+      allClips.map((c) => c.name).join(", ") || "(none)"
+    );
+  }
   return pool;
 }
 
@@ -234,7 +294,7 @@ function fixGltfMaterials(root) {
   console.info(`[shell-muu] texture maps: ${texCount}, plain materials: ${plainCount}`);
 }
 
-export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", roomRoot = null, roomManifest = null) {
+export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", roomRoot = null, roomManifest = null, hooks = {}) {
   const manifest = await readManifest(basePath);
   const loaded = await loadGlb(basePath, manifest);
   if (!loaded.gltf) {
@@ -257,7 +317,7 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
   scene.add(group);
 
   const mixer = new THREE.AnimationMixer(mixerRoot);
-  const extraClips = await loadExtraAnimationClips(basePath, manifest);
+  const extraClips = await loadExtraAnimationClips(basePath, manifest, modelRoot);
   const clips = [...(gltf.animations ?? []), ...extraClips];
   const speakNames = manifest?.animations?.speak ?? ["speak_mou", "speak-mou", "speak mou", "speak", "Speak"];
   const speakClip = pickNamedLoopClip(clips, speakNames) ?? pickBestClip(clips, speakNames) ?? clips[0] ?? null;
@@ -281,15 +341,23 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
   let speakAction = null;
   let loopClip = null;
 
-  function pickRandomShellLoop() {
-    if (shellLoopPool.length) {
-      return shellLoopPool[Math.floor(Math.random() * shellLoopPool.length)];
-    }
-    return speakClip;
+  function notifyLoopChange() {
+    hooks.onLoopChange?.(loopClip?.name ?? null);
   }
 
-  function startShellLoop({ fade = 0.15 } = {}) {
-    const next = pickRandomShellLoop();
+  function pickRandomShellLoop({ preferDifferent = false } = {}) {
+    if (!shellLoopPool.length) return speakClip;
+    if (preferDifferent && shellLoopPool.length > 1 && loopClip) {
+      const others = shellLoopPool.filter((clip) => clip !== loopClip);
+      if (others.length) {
+        return others[Math.floor(Math.random() * others.length)];
+      }
+    }
+    return shellLoopPool[Math.floor(Math.random() * shellLoopPool.length)];
+  }
+
+  function startShellLoop({ fade = 0.15, preferDifferent = false } = {}) {
+    const next = pickRandomShellLoop({ preferDifferent });
     if (!next) return;
 
     if (loopAction) loopAction.fadeOut(fade);
@@ -305,12 +373,18 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
     loopAction.clampWhenFinished = false;
     loopAction.fadeIn(fade).play();
     console.info("[shell-muu] shell loop →", next.name);
+    notifyLoopChange();
   }
 
   startShellLoop({ fade: 0 });
 
+  mixer.addEventListener("loop", (event) => {
+    if (event.action !== loopAction || shellLoopPool.length < 2) return;
+    startShellLoop({ fade: 0.25, preferDifferent: true });
+  });
+
   function playIdle() {
-    startShellLoop();
+    startShellLoop({ preferDifferent: true });
   }
 
   function playSpeak() {

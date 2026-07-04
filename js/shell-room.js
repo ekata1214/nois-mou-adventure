@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { attachShellMuu3d } from "./shell-muu-3d.js";
+import { attachShellMuu3d } from "./shell-muu-3d.js?v=20260704n";
 import { estimateRoomFloorY } from "./shell-floor.js";
 
 const GLB_FALLBACK_FILES = ["this ver2.glb", "this ver2.GLB", "this.glb", "this.GLB"];
@@ -214,7 +214,7 @@ async function loadGlbModel(basePath, manifest) {
   return { errors };
 }
 
-export async function createShellRoomView(canvas, basePath = "assets/room") {
+export async function createShellRoomView(canvas, basePath = "assets/room", hooks = {}) {
   if (!canvas) return { ready: false, error: "canvas missing" };
 
   const manifest = await readManifest(basePath);
@@ -268,7 +268,9 @@ export async function createShellRoomView(canvas, basePath = "assets/room") {
     dispose() {},
   };
   try {
-    muu = await attachShellMuu3d(scene, fit, "assets/muu", roomRoot, manifest);
+    muu = await attachShellMuu3d(scene, fit, "assets/muu", roomRoot, manifest, {
+      onLoopChange: hooks.onMuuLoopChange,
+    });
   } catch (err) {
     console.warn("shell muu load failed:", err);
   }

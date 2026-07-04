@@ -82,7 +82,7 @@ import {
 } from "./bgm.js";
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js";
+import { createShellRoomView } from "./shell-room.js?v=20260704n";
 import { drawVoidCosmosBackground, drawVoidTileCosmos, preloadVoidCosmos } from "./void-cosmos.js";
 
 const canvas = document.getElementById("game");
@@ -1451,7 +1451,11 @@ async function loadShellRoomInBackground() {
   if (shellRoomView?.ready) return;
   shellRoomLoading = true;
   try {
-    shellRoomView = await createShellRoomView(shellRoomGl, "assets/room");
+    shellRoomView = await createShellRoomView(shellRoomGl, "assets/room", {
+      onMuuLoopChange() {
+        updateShellRoomStatus(shellRoomView);
+      },
+    });
     updateShellRoomStatus(shellRoomView);
     syncShellMuuLayer();
     if (shellRoomView?.ready && state === "play" && mode === "introvert") {
