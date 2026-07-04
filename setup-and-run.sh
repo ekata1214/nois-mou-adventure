@@ -37,12 +37,24 @@ else
   echo "✗ assets/room/ に GLB がありません（this ver2.glb を置いてください）"
 fi
 
-if [ -f "assets/muu/speak_mou.glb" ]; then
-  size=$(du -h "assets/muu/speak_mou.glb" | cut -f1)
-  echo "✓ assets/muu/speak_mou.glb ($size)"
-  # 既に GLB があるなら修復だけ試す（失敗しても続行）
+MUU_GLB=""
+for candidate in "speak-mou2.glb" "speak_mou.glb" "speak-mou.glb" "speak_mou.GLB"; do
+  if [ -f "assets/muu/$candidate" ]; then
+    MUU_GLB="$candidate"
+    break
+  fi
+done
+
+if [ -n "$MUU_GLB" ]; then
+  size=$(du -h "assets/muu/$MUU_GLB" | cut -f1)
+  echo "✓ assets/muu/$MUU_GLB ($size)"
+  if [ "$MUU_GLB" != "speak_mou.glb" ] && [ -f "assets/muu/speak_mou.glb" ]; then
+    :
+  elif [ "$MUU_GLB" != "speak_mou.glb" ]; then
+    cp "assets/muu/$MUU_GLB" "assets/muu/speak_mou.glb" 2>/dev/null || true
+  fi
   if bash scripts/repair-speak-mou.sh 2>/dev/null; then
-    : # repaired or kept existing
+    :
   fi
 elif ls assets/muu/*.blend >/dev/null 2>&1; then
   echo ">> speak-mou.blend から GLB を生成..."
