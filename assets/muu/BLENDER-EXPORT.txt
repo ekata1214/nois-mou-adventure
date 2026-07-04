@@ -1,0 +1,57 @@
+Blender 4.4 — speak-mou2.glb 書き出し（見た目＋アニメ＋テクスチャ）
+============================================================
+
+## アニメ（前回できた設定）
+
+- Selected Objects ✓
+- Animation ✓
+- Mode: **NLA Tracks**
+
+## テクスチャを載せる（追加）
+
+### 1. export 前にテクスチャを blend に埋め込む
+
+```
+File → External Data → Pack Resources
+```
+
+（または「Automatically Pack Into .blend」をオンにして Save）
+
+### 2. Export ダイアログ → **Data** を開く
+
+| 項目 | 設定 |
+|------|------|
+| Materials | **Export**（None だと真っ白/グレー） |
+| Images | **Auto** または JPEG |
+| UVs | ✓ |
+
+### 3. そのまま export
+
+保存: assets/muu/speak-mou2.glb
+
+### 4. ターミナル
+
+```bash
+cp -f assets/muu/speak-mou2.glb assets/muu/speak_mou.glb
+./setup-and-run.sh
+```
+
+## Brain のテクスチャだけ切れる場合
+
+Brain は Geometry Nodes だと GLB に載らないことが多い。
+
+**Bake 手順（Brain.001 選択）:**
+1. Shading タブで見た目を確認
+2. Render Engine: Cycles（Eevee でも可）
+3. メッシュ選択 → Render → **Bake** → Type: Diffuse（Direct+Indirect オフ、Color のみ）
+4. Image Texture ノードを追加して New Image → **Bake**
+5. Image → Save As PNG
+6. その PNG を Principled BSDF の Base Color に繋ぎ直して export
+
+## 確認（ブラウザ Console）
+
+```
+[shell-muu] texture maps: 12, plain materials: 0
+```
+
+`texture maps: 0` なら GLB 内に画像が入っていない → Blender の Pack + Materials Export を再確認。

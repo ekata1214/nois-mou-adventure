@@ -148,7 +148,13 @@ function updateShellRoomStatus(view) {
   if (view?.ready && view?.muuReady && view?.muu?.hasAnimations === false) {
     shellRoomStatus.hidden = false;
     shellRoomStatus.textContent =
-      "ムー君 GLB にアニメがありません。Blender でボーンにキーを付け、glTF Export の Animation をオンにして再 export してください。";
+      "ムー君 GLB にアニメがありません。Blender export → Animation → Mode を「NLA Tracks」にして再 export。";
+    return;
+  }
+  if (view?.ready && view?.muuReady && view?.muu?.clipNames?.length) {
+    shellRoomStatus.hidden = false;
+    shellRoomStatus.textContent =
+      `ムー君 GLB: ${view.muu.modelName} / アニメ: ${view.muu.clipNames.join(", ")}`;
     return;
   }
   if (view?.ready && view?.muuReady) {

@@ -1,15 +1,15 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-const GLB_FALLBACK_FILES = ["speak-mou2.glb", "speak_mou.glb", "speak-mou.glb", "speak_mou.GLB"];
+const GLB_FALLBACK_FILES = ["speak-mou3.glb", "speak-mou2.glb", "speak_mou.glb", "speak-mou.glb"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260704a`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260704d`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260704a`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260704c`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -24,18 +24,36 @@ function modelCandidates(manifest) {
   return [...new Set([...files, ...GLB_FALLBACK_FILES])];
 }
 
+function findMixerRoot(scene) {
+  let skinned = null;
+  let armatureGroup = null;
+  scene.traverse((obj) => {
+    if (obj.isSkinnedMesh && !skinned) skinned = obj;
+    if (/speak[-_]?mou|armature/i.test(obj.name) && obj.children?.length) {
+      armatureGroup = obj;
+    }
+  });
+  return armatureGroup || skinned || scene;
+}
+
 function pickClip(clips, names) {
   if (!clips?.length || !names?.length) return null;
   const lowered = names.map((n) => n.toLowerCase());
   for (const clip of clips) {
     const name = clip.name.toLowerCase();
-    if (lowered.includes(name)) return clip;
-  }
-  for (const clip of clips) {
-    const name = clip.name.toLowerCase();
-    if (lowered.some((n) => name.includes(n) || n.includes(name))) return clip;
+    if (lowered.some((n) => name === n || name.includes(n) || n.includes(name))) return clip;
   }
   return null;
+}
+
+function pickBestClip(clips, preferNames) {
+  const named = pickClip(clips, preferNames);
+  if (named) return named;
+  if (!clips?.length) return null;
+  // 最長クリップ（Mixamo/NLA は often longest）
+  return clips.reduce((best, clip) =>
+    !best || clip.duration > best.duration ? clip : best
+  );
 }
 
 function fitMuuRoot(root, manifest, roomFit) {
@@ -93,6 +111,37 @@ function disposeObject3D(root) {
   });
 }
 
+function fixGltfMaterials(root) {
+  let texCount = 0;
+  let plainCount = 0;
+  root.traverse((obj) => {
+    if (!obj.isMesh || !obj.material) return;
+    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+    for (const mat of mats) {
+      if (!mat) continue;
+      mat.needsUpdate = true;
+      const colorMaps = ["map", "emissiveMap"];
+      const dataMaps = ["normalMap", "roughnessMap", "metalnessMap", "aoMap"];
+      for (const key of colorMaps) {
+        const tex = mat[key];
+        if (tex?.isTexture) {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          texCount += 1;
+        }
+      }
+      for (const key of dataMaps) {
+        const tex = mat[key];
+        if (tex?.isTexture) {
+          tex.colorSpace = THREE.LinearSRGBColorSpace;
+          texCount += 1;
+        }
+      }
+      if (!mat.map && !mat.emissiveMap) plainCount += 1;
+    }
+  });
+  console.info(`[shell-muu] texture maps: ${texCount}, plain materials: ${plainCount}`);
+}
+
 export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu") {
   const manifest = await readManifest(basePath);
   const loaded = await loadGlb(basePath, manifest);
@@ -110,30 +159,36 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu") 
 
   const { gltf, name: modelName } = loaded;
   const modelRoot = gltf.scene;
+  fixGltfMaterials(modelRoot);
+  const mixerRoot = findMixerRoot(modelRoot);
   const { group } = fitMuuRoot(modelRoot, manifest, roomFit);
   scene.add(group);
 
-  const mixer = new THREE.AnimationMixer(modelRoot);
+  const mixer = new THREE.AnimationMixer(mixerRoot);
   const clips = gltf.animations ?? [];
-  const idleNames = manifest?.animations?.idle ?? ["idle", "Idle", "rest"];
+  const idleNames = manifest?.animations?.idle ?? ["idle", "Idle", "rest", "mixamo", "Layer0"];
   const speakNames = manifest?.animations?.speak ?? [
     "speak_mou",
     "speak-mou",
+    "speak mou",
     "speak",
     "Speak",
-    "speak mou",
-    "Speak_mou",
+    "mixamo",
+    "Layer0",
+    "remap",
+    "NLA",
   ];
 
   const idleClip = pickClip(clips, idleNames);
-  const speakClip = pickClip(clips, speakNames) ?? clips[0] ?? null;
+  const speakClip = pickBestClip(clips, speakNames) ?? clips[0] ?? null;
 
   if (clips.length === 0) {
     console.warn(
-      "[shell-muu] speak_mou.glb にアニメーションがありません。Blender export で Animation をオンにしてください。"
+      "[shell-muu] GLB にアニメーションがありません（T-poseになります）。Blender export で Animation をオンにしてください。"
     );
   } else {
     console.info("[shell-muu] animation clips:", clips.map((c) => c.name).join(", "));
+    console.info("[shell-muu] using speak clip:", speakClip?.name ?? "(none)", "mixer root:", mixerRoot.name || mixerRoot.type);
   }
 
   let idleAction = null;
@@ -144,7 +199,6 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu") 
     idleAction.setLoop(THREE.LoopRepeat);
     idleAction.play();
   } else if (speakClip) {
-    // idle が無い GLB は speak をループ待機にする（フレーム0で静止しない）
     idleAction = mixer.clipAction(speakClip);
     idleAction.setLoop(THREE.LoopRepeat);
     idleAction.play();
