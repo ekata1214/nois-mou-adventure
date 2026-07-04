@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { attachShellMuu3d } from "./shell-muu-3d.js";
+import { estimateRoomFloorY } from "./shell-floor.js";
 
 const GLB_FALLBACK_FILES = ["this ver2.glb", "this ver2.GLB", "this.glb", "this.GLB"];
 
@@ -24,35 +25,6 @@ function modelCandidates(manifest) {
   if (manifest?.model) files.push(manifest.model);
   if (Array.isArray(manifest?.models)) files.push(...manifest.models);
   return [...new Set([...files, ...GLB_FALLBACK_FILES])];
-}
-
-function estimateFloorY(root, manifest) {
-  if (typeof manifest?.floorY === "number") return manifest.floorY;
-
-  root.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(root);
-  const minY = box.min.y;
-  const span = Math.max(box.max.y - minY, 0.001);
-  const bandTop = minY + span * (manifest?.floorBand ?? 0.22);
-
-  let floorTop = minY;
-  const v = new THREE.Vector3();
-  root.traverse((obj) => {
-    if (!obj.isMesh) return;
-    const pos = obj.geometry?.attributes?.position;
-    if (!pos) return;
-    const step = Math.max(1, Math.floor(pos.count / 8000));
-    for (let i = 0; i < pos.count; i += step) {
-      v.fromBufferAttribute(pos, i);
-      v.applyMatrix4(obj.matrixWorld);
-      if (v.y <= bandTop && v.y > floorTop) floorTop = v.y;
-    }
-  });
-
-  const raise = manifest?.floorRaise ?? 0.1;
-  const result = floorTop + raise;
-  console.info("[shell-room] floorY:", result.toFixed(3), "(bandTop:", bandTop.toFixed(3), ")");
-  return result;
 }
 
 function fitModel(root, camera, manifest) {
@@ -82,7 +54,7 @@ function fitModel(root, camera, manifest) {
 
   camera.lookAt(lookAt);
 
-  const floorY = estimateFloorY(root, manifest);
+  const floorY = estimateRoomFloorY(root, manifest);
 
   return { size, dist, lookAt, floorY };
 }
@@ -296,7 +268,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room") {
     dispose() {},
   };
   try {
-    muu = await attachShellMuu3d(scene, fit, "assets/muu");
+    muu = await attachShellMuu3d(scene, fit, "assets/muu", roomRoot, manifest);
   } catch (err) {
     console.warn("shell muu load failed:", err);
   }
