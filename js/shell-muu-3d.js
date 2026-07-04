@@ -4,12 +4,12 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 const GLB_FALLBACK_FILES = ["speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb", "speak_mou.glb", "speak-mou.glb"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260704i`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260704k`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260704i`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260704k`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -56,11 +56,12 @@ function pickBestClip(clips, preferNames) {
   );
 }
 
-function meshBounds(root) {
+function meshBounds(root, { excludeBrain = true } = {}) {
   const box = new THREE.Box3();
   let init = false;
   root.traverse((obj) => {
     if (!obj.isMesh && !obj.isSkinnedMesh) return;
+    if (excludeBrain && /brain/i.test(obj.name)) return;
     const b = new THREE.Box3().setFromObject(obj);
     if (!init) {
       box.copy(b);

@@ -27,28 +27,32 @@ function modelCandidates(manifest) {
 }
 
 function estimateFloorY(root, manifest) {
-  const ys = [];
-  const v = new THREE.Vector3();
+  if (typeof manifest?.floorY === "number") return manifest.floorY;
+
   root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(root);
+  const minY = box.min.y;
+  const span = Math.max(box.max.y - minY, 0.001);
+  const bandTop = minY + span * (manifest?.floorBand ?? 0.22);
+
+  let floorTop = minY;
+  const v = new THREE.Vector3();
   root.traverse((obj) => {
     if (!obj.isMesh) return;
     const pos = obj.geometry?.attributes?.position;
     if (!pos) return;
-    const step = Math.max(1, Math.floor(pos.count / 6000));
+    const step = Math.max(1, Math.floor(pos.count / 8000));
     for (let i = 0; i < pos.count; i += step) {
       v.fromBufferAttribute(pos, i);
       v.applyMatrix4(obj.matrixWorld);
-      ys.push(v.y);
+      if (v.y <= bandTop && v.y > floorTop) floorTop = v.y;
     }
   });
-  if (ys.length === 0) {
-    return new THREE.Box3().setFromObject(root).min.y;
-  }
-  ys.sort((a, b) => a - b);
-  const idx = Math.min(ys.length - 1, Math.floor(ys.length * 0.28));
-  const floorY = ys[idx];
-  const raise = manifest?.floorRaise ?? 0;
-  return floorY + raise;
+
+  const raise = manifest?.floorRaise ?? 0.1;
+  const result = floorTop + raise;
+  console.info("[shell-room] floorY:", result.toFixed(3), "(bandTop:", bandTop.toFixed(3), ")");
+  return result;
 }
 
 function fitModel(root, camera, manifest) {
