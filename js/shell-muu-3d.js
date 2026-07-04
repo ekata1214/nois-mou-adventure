@@ -1,15 +1,15 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-const GLB_FALLBACK_FILES = ["speak-mou2.glb", "speak_mou.glb", "speak-mou.glb", "speak_mou.GLB"];
+const GLB_FALLBACK_FILES = ["speak-mou3.glb", "speak-mou2.glb", "speak_mou.glb", "speak-mou.glb"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260704b`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260704d`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260704b`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260704c`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -159,6 +159,7 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu") 
 
   const { gltf, name: modelName } = loaded;
   const modelRoot = gltf.scene;
+  fixGltfMaterials(modelRoot);
   const mixerRoot = findMixerRoot(modelRoot);
   const { group } = fitMuuRoot(modelRoot, manifest, roomFit);
   scene.add(group);

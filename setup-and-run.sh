@@ -38,22 +38,24 @@ else
 fi
 
 MUU_GLB=""
-for candidate in "speak-mou2.glb" "speak_mou.glb" "speak-mou.glb" "speak_mou.GLB"; do
-  if [ -f "assets/muu/$candidate" ]; then
-    MUU_GLB="$candidate"
-    break
-  fi
+for candidate in speak-mou*.glb speak_mou.glb speak-mou.glb speak_mou.GLB; do
+  for f in assets/muu/$candidate; do
+    [ -f "$f" ] || continue
+    MUU_GLB="$f"
+    break 2
+  done
 done
+# speak-mou3 > speak-mou2 など数字付きを優先
+if ls assets/muu/speak-mou*.glb >/dev/null 2>&1; then
+  MUU_GLB="$(ls -v assets/muu/speak-mou*.glb 2>/dev/null | tail -1)"
+fi
 
 if [ -n "$MUU_GLB" ]; then
-  size=$(du -h "assets/muu/$MUU_GLB" | cut -f1)
-  echo "✓ assets/muu/$MUU_GLB ($size)"
-  # speak-mou2 があるなら常に speak_mou.glb へ上書き同期（古い15Mを残さない）
-  if [ -f "assets/muu/speak-mou2.glb" ]; then
-    cp -f "assets/muu/speak-mou2.glb" "assets/muu/speak_mou.glb"
-    size=$(du -h "assets/muu/speak_mou.glb" | cut -f1)
-    echo "✓ speak-mou2.glb → speak_mou.glb に同期 ($size)"
-  fi
+  size=$(du -h "$MUU_GLB" | cut -f1)
+  echo "✓ $MUU_GLB ($size)"
+  cp -f "$MUU_GLB" "assets/muu/speak_mou.glb"
+  size=$(du -h "assets/muu/speak_mou.glb" | cut -f1)
+  echo "✓ → speak_mou.glb に同期 ($size)"
   if bash scripts/repair-speak-mou.sh 2>/dev/null; then
     :
   fi
