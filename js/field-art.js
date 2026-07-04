@@ -9,7 +9,6 @@ export const FIELD_MINIMAP = {
   [T.BONE]: "#a89868",
 };
 
-/** 苔・草地パレット（地域ごと） */
 const REGION_MOSS = {
   hub: {
     base: "#3d6a32",
@@ -41,9 +40,9 @@ const REGION_DIRT = {
   raku: { base: "#7a5830", patch: ["#6a4820", "#7a5830", "#8a6840", "#9a7850", "#aa8860"] },
 };
 
-const TILE_CACHE = new Map();
+const PATTERN_SIZE = 128;
 const MICRO = 4;
-const VARIANTS = 4;
+const patternCache = new Map();
 
 function hash(x, y, s = 17) {
   let n = x * 374761393 + y * 668265263 + s * 982451653;
@@ -89,118 +88,104 @@ function paintMicroField(ctx, size, palette, seed) {
         ctx.fillStyle = pick(palette.patch, h >> 4);
         ctx.fillRect(gx + 1, gy + 1, MICRO - 1, MICRO - 1);
       }
-
-      if (h % 11 === 0) {
-        ctx.fillStyle = bump % 2 ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-        ctx.fillRect(gx + 1, gy + 1, 2, 2);
-      }
     }
   }
 }
 
-function paintOrganicGround(ctx, size, regionId, variant) {
-  const pal = REGION_MOSS[regionId] ?? REGION_MOSS.hub;
-  paintMicroField(ctx, size, pal, 100 + variant * 17);
-}
-
-function paintOrganicPath(ctx, size, regionId, variant) {
-  const pal = REGION_DIRT[regionId] ?? REGION_DIRT.hub;
-  paintMicroField(ctx, size, pal, 200 + variant * 23);
-
-  ctx.fillStyle = "rgba(0,0,0,0.04)";
-  for (let i = 0; i < 5; i++) {
-    const h = hash(i, variant, 311);
-    const x = h % (size - 6);
-    const y = (h >> 4) % (size - 4);
-    ctx.fillRect(x + 2, y + 2, 4, 1);
-  }
-}
-
-function paintOrganicRidge(ctx, size, variant) {
-  paintMicroField(ctx, size, {
-    base: "#4a5a48",
-    patch: ["#3a4a38", "#4a5a48", "#5a6a58", "#6a7a68", "#7a8a78", "#5a5048"],
-  }, 300 + variant);
-
-  ctx.fillStyle = "rgba(0,0,0,0.15)";
-  ctx.beginPath();
-  ctx.arc(size * 0.5, size * 0.55, size * 0.28, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function paintOrganicBone(ctx, size, variant) {
-  paintMicroField(ctx, size, {
-    base: "#9a8868",
-    patch: ["#8a7858", "#9a8868", "#aa9878", "#b8a888", "#c8b898"],
-  }, 400 + variant);
-}
-
-function paintOrganicFluid(ctx, size, regionId, variant) {
-  const isRain = regionId === "ai";
-  paintMicroField(ctx, size, {
-    base: isRain ? "#285868" : "#582028",
-    patch: isRain
-      ? ["#285868", "#386878", "#487888", "#588898", "#6898a8"]
-      : ["#582028", "#683038", "#784048", "#885058", "#986068"],
-  }, 500 + variant);
-}
-
-function cacheKey(tile, regionId, variant) {
-  return `${tile}:${regionId}:${variant}`;
-}
-
-function getTileTexture(tile, regionId, tx, ty) {
-  const region = regionId ?? "hub";
-  const variant = hash(tx, ty, tile * 31) % VARIANTS;
-  const key = cacheKey(tile, region, variant);
-  if (TILE_CACHE.has(key)) return TILE_CACHE.get(key);
+function makePattern(key, paintFn) {
+  if (patternCache.has(key)) return patternCache.get(key);
 
   const canvas = document.createElement("canvas");
-  canvas.width = 32;
-  canvas.height = 32;
-  const tctx = canvas.getContext("2d");
-
-  switch (tile) {
-    case T.GROUND:
-      paintOrganicGround(tctx, 32, region, variant);
-      break;
-    case T.PATH:
-      paintOrganicPath(tctx, 32, region, variant);
-      break;
-    case T.RIDGE:
-      paintOrganicRidge(tctx, 32, variant);
-      break;
-    case T.FLUID:
-      paintOrganicFluid(tctx, 32, region, variant);
-      break;
-    case T.BONE:
-      paintOrganicBone(tctx, 32, variant);
-      break;
-    default:
-      paintOrganicGround(tctx, 32, region, variant);
-      break;
-  }
-
-  TILE_CACHE.set(key, canvas);
-  return canvas;
+  canvas.width = PATTERN_SIZE;
+  canvas.height = PATTERN_SIZE;
+  const pctx = canvas.getContext("2d");
+  paintFn(pctx, PATTERN_SIZE);
+  const pattern = pctx.createPattern(canvas, "repeat");
+  patternCache.set(key, pattern);
+  return pattern;
 }
 
-/**
- * 有機的な苔・草地タイル。VOID は false。
- */
+function mossPattern(regionId) {
+  const region = regionId ?? "hub";
+  return makePattern(`moss:${region}`, (pctx, size) => {
+    paintMicroField(pctx, size, REGION_MOSS[region] ?? REGION_MOSS.hub, 100);
+  });
+}
+
+function dirtPattern(regionId) {
+  const region = regionId ?? "hub";
+  return makePattern(`dirt:${region}`, (pctx, size) => {
+    paintMicroField(pctx, size, REGION_DIRT[region] ?? REGION_DIRT.hub, 200);
+  });
+}
+
+function ridgePattern() {
+  return makePattern("ridge", (pctx, size) => {
+    paintMicroField(pctx, size, {
+      base: "#4a5a48",
+      patch: ["#3a4a38", "#4a5a48", "#5a6a58", "#6a7a68", "#7a8a78"],
+    }, 300);
+  });
+}
+
+function bonePattern() {
+  return makePattern("bone", (pctx, size) => {
+    paintMicroField(pctx, size, {
+      base: "#9a8868",
+      patch: ["#8a7858", "#9a8868", "#aa9878", "#b8a888"],
+    }, 400);
+  });
+}
+
+/** 起動時にテクスチャを先に作る（初回フレームのフリーズ防止） */
+export function prewarmFieldCache() {
+  for (const region of ["hub", "ki", "nu", "ai", "raku"]) {
+    mossPattern(region);
+    dirtPattern(region);
+  }
+  ridgePattern();
+  bonePattern();
+}
+
 export function drawFieldTile(ctx, px, py, tile, regionId, tx, ty, dither, tileSize = 32) {
   if (tile === T.VOID) return false;
 
-  const tex = getTileTexture(tile, regionId, tx, ty);
-  ctx.drawImage(tex, px, py, tileSize, tileSize);
+  const region = regionId ?? "hub";
 
-  if (tile === T.FLUID) {
-    const pulse = 0.08 + Math.sin(dither * 2 + tx * 0.4 + ty * 0.3) * 0.06;
-    const isRain = regionId === "ai";
-    ctx.fillStyle = isRain ? `rgba(120, 200, 240, ${pulse})` : `rgba(220, 60, 80, ${pulse})`;
-    ctx.fillRect(px + 4, py + 6, tileSize - 8, tileSize - 12);
-    ctx.fillStyle = "rgba(255,255,255,0.1)";
-    ctx.fillRect(px + 8, py + 10, tileSize - 16, 2);
+  switch (tile) {
+    case T.GROUND:
+      ctx.fillStyle = mossPattern(region);
+      ctx.fillRect(px, py, tileSize, tileSize);
+      break;
+    case T.PATH:
+      ctx.fillStyle = dirtPattern(region);
+      ctx.fillRect(px, py, tileSize, tileSize);
+      break;
+    case T.RIDGE:
+      ctx.fillStyle = ridgePattern();
+      ctx.fillRect(px, py, tileSize, tileSize);
+      ctx.fillStyle = "rgba(0,0,0,0.12)";
+      ctx.fillRect(px + 4, py + tileSize - 8, tileSize - 8, 6);
+      break;
+    case T.BONE:
+      ctx.fillStyle = bonePattern();
+      ctx.fillRect(px, py, tileSize, tileSize);
+      break;
+    case T.FLUID: {
+      const isRain = region === "ai";
+      ctx.fillStyle = isRain ? "rgba(40, 88, 104, 0.92)" : "rgba(88, 32, 40, 0.92)";
+      ctx.fillRect(px, py, tileSize, tileSize);
+      const pulse = 0.12 + Math.sin(dither * 2 + tx * 0.4 + ty * 0.3) * 0.08;
+      ctx.fillStyle = isRain ? `rgba(120, 200, 240, ${pulse})` : `rgba(220, 60, 80, ${pulse})`;
+      ctx.fillRect(px + 3, py + 5, tileSize - 6, tileSize - 10);
+      ctx.fillStyle = "rgba(255,255,255,0.12)";
+      ctx.fillRect(px + 7, py + 9, tileSize - 14, 2);
+      break;
+    }
+    default:
+      ctx.fillStyle = mossPattern(region);
+      ctx.fillRect(px, py, tileSize, tileSize);
+      break;
   }
 
   return true;

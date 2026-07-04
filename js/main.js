@@ -12,7 +12,7 @@ import {
   isInVoid,
   VOID_REALM,
 } from "./world.js";
-import { drawFieldTile, getFieldMinimapColor } from "./field-art.js";
+import { drawFieldTile, getFieldMinimapColor, prewarmFieldCache } from "./field-art.js";
 import { drawSprite, loadSprites } from "./sprites.js";
 import { loadEntityIcons, MOTIF_META, getRegionArt } from "./entity-icons.js";
 import {
@@ -1071,20 +1071,33 @@ function drawRedFrame() {
 }
 
 function drawPlayer() {
-  const img = sprites[player.dir];
-  if (!img) return;
   const sx = player.x - camera.x;
   const sy = player.y - camera.y;
-
-  const warmth = soul.brainWarmth ?? 0;
-  const width = SPRITE_W * NOU_SPRITE_SCALE * (1 + warmth * 0.05);
-  const height = SPRITE_H * SPRITE_SQUASH * NOU_SPRITE_SCALE * (1 - warmth * 0.03);
+  const img = sprites?.[player.dir];
 
   ctx.save();
   ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
   ctx.beginPath();
-  ctx.ellipse(sx, sy + 5, width * 0.34, 6, 0, 0, Math.PI * 2);
+  const shadowW = img ? SPRITE_W * NOU_SPRITE_SCALE * 0.34 : 18;
+  ctx.ellipse(sx, sy + 5, shadowW, 6, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  if (!img) {
+    ctx.fillStyle = "#e50914";
+    ctx.beginPath();
+    ctx.arc(sx, sy - 22, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "10px Helvetica Neue, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("ムー", sx, sy - 19);
+    ctx.restore();
+    return;
+  }
+
+  const warmth = soul.brainWarmth ?? 0;
+  const width = SPRITE_W * NOU_SPRITE_SCALE * (1 + warmth * 0.05);
+  const height = SPRITE_H * SPRITE_SQUASH * NOU_SPRITE_SCALE * (1 - warmth * 0.03);
   drawSprite(ctx, img, sx, sy, width, height);
   ctx.restore();
 }
@@ -1171,6 +1184,14 @@ function drawRegionAmbience() {
 }
 
 function draw() {
+  try {
+    drawFrame();
+  } catch (err) {
+    console.error("[draw] error:", err);
+  }
+}
+
+function drawFrame() {
   drawVoidGrain();
 
   if (isBattleView() && battleField) {
@@ -1449,18 +1470,19 @@ async function boot() {
   preloadBgm();
   preloadVoidCosmos();
   bindInput();
-  requestAnimationFrame(loop);
 
   try {
     sprites = await loadSprites("assets/muu");
     entityIcons = await loadEntityIcons("assets/icons");
     await loadScenery("assets/scenery");
+    prewarmFieldCache();
     refreshSoulUI();
     drawShellMuu();
   } catch (err) {
     console.error("asset load failed:", err);
   }
 
+  requestAnimationFrame(loop);
   loadShellRoomInBackground();
   if (new URLSearchParams(location.search).has("shot")) {
     window.__shot = {
