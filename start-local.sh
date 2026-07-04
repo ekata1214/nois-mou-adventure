@@ -54,10 +54,10 @@ else
   ok=0
 fi
 
-if [ -f "assets/muu/speak-mou3.glb" ]; then
-  size=$(du -h "assets/muu/speak-mou3.glb" | cut -f1)
-  echo "✓ assets/muu/speak-mou3.glb ($size)"
-elif [ -f "assets/muu/speak-mou2.glb" ]; then
+if [ -f "assets/muu/speak-mou4.glb" ]; then
+  size=$(du -h "assets/muu/speak-mou4.glb" | cut -f1)
+  echo "✓ assets/muu/speak-mou4.glb ($size)"
+elif [ -f "assets/muu/speak-mou3.glb" ]; then
   size=$(du -h "assets/muu/speak-mou2.glb" | cut -f1)
   echo "✓ assets/muu/speak-mou2.glb ($size)"
 elif [ -f "assets/muu/speak_mou.glb" ]; then
