@@ -3,8 +3,9 @@ name: Export speak_mou GLB
 on:
   push:
     paths:
-      - "assets/muu/**"
-      - "scripts/**"
+      - "assets/muu/**/*.blend"
+      - "scripts/blender/**"
+      - "scripts/export-speak-mou.sh"
       - ".github/workflows/export-speak-mou.yml"
   workflow_dispatch:
 

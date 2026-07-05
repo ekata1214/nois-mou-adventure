@@ -3,16 +3,17 @@ import { PropertyBinding } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 import { raycastFloorY } from "./shell-floor.js";
+import { createMuuGltfLoader, fixMuuMaterials } from "./muu-gltf-loader.js?v=20260705tex";
 
 const GLB_FALLBACK_FILES = ["speak_mou.glb", "speak-mou.glb", "speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260705anim`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260705tex`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260705anim`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260705tex`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -333,7 +334,7 @@ function retargetClips(clips, sourceScene, targetRoot, referenceClip = null) {
 
 async function loadExtraAnimationClips(basePath, manifest, targetRoot, referenceClip = null) {
   const sources = manifest?.animationClips ?? ["good-mou.glb", "good_mou.glb"];
-  const loader = new GLTFLoader();
+  const loader = createMuuGltfLoader();
   const extra = [];
   let loadedAny = false;
 
@@ -476,7 +477,7 @@ function fitMuuRoot(root, manifest, roomFit, roomRoot = null, roomManifest = nul
 }
 
 async function loadGlb(basePath, manifest) {
-  const loader = new GLTFLoader();
+  const loader = createMuuGltfLoader();
   const errors = [];
   for (const name of modelCandidates(manifest)) {
     const url = modelUrl(basePath, name);
@@ -500,46 +501,6 @@ function disposeObject3D(root) {
   });
 }
 
-function fixGltfMaterials(root) {
-  let texCount = 0;
-  let plainCount = 0;
-  root.traverse((obj) => {
-    if (!obj.isMesh || !obj.material) return;
-    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-    for (const mat of mats) {
-      if (!mat) continue;
-      mat.needsUpdate = true;
-      const colorMaps = ["map", "emissiveMap"];
-      const dataMaps = ["normalMap", "roughnessMap", "metalnessMap", "aoMap"];
-      for (const key of colorMaps) {
-        const tex = mat[key];
-        if (tex?.isTexture) {
-          tex.colorSpace = THREE.SRGBColorSpace;
-          texCount += 1;
-        }
-      }
-      for (const key of dataMaps) {
-        const tex = mat[key];
-        if (tex?.isTexture) {
-          tex.colorSpace = THREE.LinearSRGBColorSpace;
-          texCount += 1;
-        }
-      }
-      const isBlack =
-        mat.color &&
-        mat.color.r < 0.05 &&
-        mat.color.g < 0.05 &&
-        mat.color.b < 0.05 &&
-        !mat.map;
-      if (isBlack) {
-        console.warn(`[shell-muu] black material (no texture): mesh=${obj.name} mat=${mat.name || "(unnamed)"}`);
-      }
-      if (!mat.map && !mat.emissiveMap) plainCount += 1;
-    }
-  });
-  console.info(`[shell-muu] texture maps: ${texCount}, plain materials: ${plainCount}`);
-}
-
 export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", roomRoot = null, roomManifest = null, hooks = {}) {
   const manifest = await readManifest(basePath);
   const loaded = await loadGlb(basePath, manifest);
@@ -557,7 +518,7 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
 
   const { gltf, name: modelName } = loaded;
   const modelRoot = gltf.scene;
-  fixGltfMaterials(modelRoot);
+  fixMuuMaterials(modelRoot);
   const mixerRoot = findMixerRoot(modelRoot);
   const { group } = fitMuuRoot(modelRoot, manifest, roomFit, roomRoot, roomManifest);
   scene.add(group);
