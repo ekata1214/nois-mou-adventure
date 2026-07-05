@@ -2,11 +2,12 @@
 # GLB が LFS ポインタ（~134B）でないことを確認。デプロイ前に必須。
 set -euo pipefail
 
+ROOT="${1:-.}"
 MIN_BYTES=1000000
 fail=0
 
 check_glb() {
-  local f="$1"
+  local f="$ROOT/$1"
   if [ ! -f "$f" ]; then
     echo "::error::missing GLB: $f"
     fail=1
