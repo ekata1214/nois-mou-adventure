@@ -1,5 +1,8 @@
 /** ゼルダ風トップダウン・アクション戦闘 */
 
+/** @planned 斬る以外: 話しかける / 撫でる / 見つめる / 守る — いずれも人間らしいアクション */
+export const PLANNED_ACTION_KINDS = ["slash", "talk", "pet", "watch", "guard"];
+
 export const ENCOUNTER_ZOOM = 2.45;
 export const ZOOM_OUT_DURATION = 0.55;
 export const ARENA_RADIUS = 250;

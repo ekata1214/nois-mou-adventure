@@ -1277,6 +1277,7 @@ function loop(time) {
     soul = tickSoul(soul, dt, {
       playing: true,
       inNou: mode === "extrovert",
+      mode,
       inVoid: mode === "extrovert" && isInVoid(world.tiles, player.x, player.y),
     });
     refreshGauges();
