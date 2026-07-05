@@ -50,6 +50,7 @@ jobs:
           mkdir -p /tmp/site
           rsync -aL \
             --exclude='.git' \
+            --exclude='.gitattributes' \
             --exclude='.github' \
             --exclude='tools' \
             --exclude='scripts/node_modules' \
