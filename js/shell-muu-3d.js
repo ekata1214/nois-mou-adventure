@@ -3,15 +3,15 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 import { raycastFloorY } from "./shell-floor.js";
 
-const GLB_FALLBACK_FILES = ["speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb", "speak_mou.glb", "speak-mou.glb"];
+const GLB_FALLBACK_FILES = ["speak_mou.glb", "speak-mou.glb", "speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260705revert`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260705muu`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260705revert`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260705muu`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -27,15 +27,57 @@ function modelCandidates(manifest) {
 }
 
 function findMixerRoot(scene) {
-  let skinned = null;
-  let armatureGroup = null;
+  let bestSkinned = null;
+  let bestBoneCount = 0;
+  let namedRoot = null;
+
   scene.traverse((obj) => {
-    if (obj.isSkinnedMesh && !skinned) skinned = obj;
-    if (/speak[-_]?mou|armature/i.test(obj.name) && obj.children?.length) {
-      armatureGroup = obj;
+    const trimmed = obj.name?.trim?.() ?? obj.name;
+    if (/speak[-_]?mou/i.test(trimmed) && obj.children?.length) {
+      namedRoot = obj;
+    }
+    if (obj.isSkinnedMesh && obj.skeleton?.bones?.length > bestBoneCount) {
+      bestSkinned = obj;
+      bestBoneCount = obj.skeleton.bones.length;
     }
   });
-  return armatureGroup || skinned || scene;
+
+  if (bestSkinned) {
+    let root = bestSkinned;
+    while (root.parent && root.parent !== scene) {
+      const parentName = root.parent.name?.trim?.() ?? root.parent.name;
+      if (/speak[-_]?mou/i.test(parentName)) return root.parent;
+      root = root.parent;
+    }
+    return root;
+  }
+
+  return namedRoot || scene;
+}
+
+function isRemapClip(clip) {
+  return /remap/i.test(clip?.name ?? "");
+}
+
+function usableClip(clip, minTracks = 8) {
+  return Boolean(
+    clip &&
+      clip.duration > 0.35 &&
+      !isRemapClip(clip) &&
+      (clip.tracks?.length ?? 0) >= minTracks
+  );
+}
+
+function dedupeClips(clips) {
+  const seen = new Set();
+  const out = [];
+  for (const clip of clips) {
+    const key = `${clip.name}|${clip.duration.toFixed(2)}|${clip.tracks?.length ?? 0}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(clip);
+  }
+  return out;
 }
 
 function clipBaseName(name) {
@@ -241,7 +283,12 @@ async function loadExtraAnimationClips(basePath, manifest, targetRoot, reference
         continue;
       }
       const retargeted = retargetClips(gltf.animations, gltf.scene, targetRoot, referenceClip);
-      extra.push(...retargeted);
+      const valid = retargeted.filter((clip) => usableClip(clip, 50));
+      if (!valid.length) {
+        console.warn(`[shell-muu] ${name}: retarget produced no usable tracks`);
+        continue;
+      }
+      extra.push(...valid);
       loadedAny = true;
       console.info(
         `[shell-muu] extra clips from ${name}:`,
@@ -263,20 +310,34 @@ async function loadExtraAnimationClips(basePath, manifest, targetRoot, reference
   return extra;
 }
 
-function buildShellLoopPool(allClips, manifest) {
-  const speakPatterns = manifest?.animations?.speak ?? ["speak_mou", "speak-mou"];
-  const goodPatterns = manifest?.animations?.good ?? ["good_mou", "good-mou"];
+function buildShellLoopPool(allClips, manifest, mainClips = []) {
+  const speakPatterns = manifest?.animations?.speak ?? ["speak_mou", "speak-mou", "layer0.001"];
+  const goodPatterns = manifest?.animations?.good ?? ["good_mou", "good-mou", "layer0"];
+  const native = dedupeClips((mainClips ?? []).filter((clip) => usableClip(clip)));
   const pool = [];
-  const speak = pickNamedLoopClip(allClips, speakPatterns);
-  const good = pickNamedLoopClip(allClips, goodPatterns);
+
+  const speak = pickNamedLoopClip(native.length ? native : allClips, speakPatterns);
+  const goodMatches = clipsMatching(allClips, goodPatterns).filter((clip) => usableClip(clip, 50));
+  const good = pickBestClip(goodMatches, goodPatterns);
+
   if (speak) pool.push(speak);
   if (good && good !== speak) pool.push(good);
-  if (!good) {
+
+  if (!pool.length) {
+    const fallback = dedupeClips(allClips.filter((clip) => usableClip(clip)));
+    pool.push(...fallback.slice(0, 4));
+    if (fallback.length) {
+      console.info("[shell-muu] loop pool fallback:", fallback.map((c) => c.name).join(" | "));
+    }
+  }
+
+  if (!good && !pool.some((clip) => goodPatterns.some((pat) => clipMatchesPattern(clip.name, pat)))) {
     console.warn(
-      "[shell-muu] good-mou clip not found in:",
+      "[shell-muu] good-mou clip not found — speak_mou 内の Layer0 を使用:",
       allClips.map((c) => c.name).join(", ") || "(none)"
     );
   }
+
   return pool;
 }
 
@@ -433,14 +494,19 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
   scene.add(group);
 
   const mixer = new THREE.AnimationMixer(mixerRoot);
-  const speakNames = manifest?.animations?.speak ?? ["speak_mou", "speak-mou", "speak mou", "speak", "Speak"];
-  const mainClips = gltf.animations ?? [];
+  const speakNames = manifest?.animations?.speak ?? ["speak_mou", "speak-mou", "layer0.001"];
+  const mainClips = (gltf.animations ?? []).filter((clip) => usableClip(clip));
   const speakClipFromMain =
     pickNamedLoopClip(mainClips, speakNames) ?? pickBestClip(mainClips, speakNames) ?? mainClips[0] ?? null;
-  const extraClips = await loadExtraAnimationClips(basePath, manifest, modelRoot, speakClipFromMain);
-  const clips = [...mainClips, ...extraClips];
-  const speakClip = pickNamedLoopClip(clips, speakNames) ?? speakClipFromMain ?? clips[0] ?? null;
-  const shellLoopPool = buildShellLoopPool(clips, manifest);
+
+  const hasNativeLoops = mainClips.some((clip) => /layer0/i.test(clip.name));
+  const extraClips = hasNativeLoops
+    ? []
+    : await loadExtraAnimationClips(basePath, manifest, modelRoot, speakClipFromMain);
+
+  const clips = dedupeClips([...(gltf.animations ?? []), ...extraClips]);
+  const speakClip = pickNamedLoopClip(mainClips, speakNames) ?? speakClipFromMain ?? clips[0] ?? null;
+  const shellLoopPool = buildShellLoopPool(clips, manifest, gltf.animations ?? []);
 
   if (clips.length === 0) {
     console.warn(
