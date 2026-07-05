@@ -38,6 +38,9 @@ body {
   justify-content: center;
   background: #000;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 #title-screen::before {

@@ -84,6 +84,11 @@ import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
 import { createShellRoomView } from "./shell-room.js?v=20260704pages";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 import {
+  preloadVoidCosmos,
+  drawVoidCosmosBackground,
+  drawVoidTileCosmos,
+} from "./void-cosmos.js";
+import {
   initMobileControls,
   syncMobileControls,
   getMobileMoveVector,
@@ -390,12 +395,27 @@ function drawShellMuu() {
   drawSprite(sctx, sprites.front, w / 2, h * 0.96, width, height);
 }
 
+let titleEntered = false;
+
 async function beginPlay() {
+  if (titleEntered || state !== "title") return;
+  titleEntered = true;
   unlockAudio();
   unlockBgm();
-  await tryLockLandscape();
   startGame();
   focusGameCanvas();
+  refreshMobileControls();
+  tryLockLandscape().catch(() => {});
+}
+
+function onTitleActivate(e) {
+  e.preventDefault();
+  beginPlay();
+}
+
+function bindTitleScreen() {
+  titleScreen.addEventListener("click", onTitleActivate);
+  titleScreen.addEventListener("pointerup", onTitleActivate, { passive: false });
 }
 
 function initWorld() {
@@ -1490,15 +1510,6 @@ function bindInput() {
   window.addEventListener("keyup", (e) => keys.delete(e.code));
   window.addEventListener("blur", clearMovementKeys);
 
-  titleScreen.addEventListener("click", beginPlay);
-  titleScreen.addEventListener(
-    "touchend",
-    (e) => {
-      e.preventDefault();
-      beginPlay();
-    },
-    { passive: false }
-  );
   retryBtn.addEventListener("click", retryFromDeath);
   fullResetBtn.addEventListener("click", fullReset);
   toShellBtn.addEventListener("click", enterShell);
@@ -1575,11 +1586,6 @@ function bindInput() {
   canvas.addEventListener("pointerup", endTouch);
   canvas.addEventListener("pointercancel", endTouch);
   canvas.addEventListener("pointerleave", endTouch);
-
-  bindViewport();
-
-  initMobileControls({ onAction: handleMobileAction });
-  refreshMobileControls();
 }
 
 async function loadShellRoomInBackground() {
@@ -1611,12 +1617,16 @@ async function loadShellRoomInBackground() {
 
 async function boot() {
   bindViewport();
+  bindInput();
+  bindTitleScreen();
+  initMobileControls({ onAction: handleMobileAction });
+  refreshMobileControls();
+
   soul = loadSoul();
   initWorld();
   preloadVoices();
   preloadBgm();
-  preloadVoidCosmos();
-  bindInput();
+  preloadVoidCosmos().catch(() => {});
 
   try {
     sprites = await loadSprites("assets/muu");
