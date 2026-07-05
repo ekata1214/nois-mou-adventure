@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>ムー君の冒険 — NOU</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="css/style.css?v=20260705both" />
+</head>
+<body>
+  <div id="app">
+    <div id="title-screen">
+      <p class="brand">UNGR ARCHIVE PRESENTS</p>
+      <img id="title-art" src="assets/title.png" alt="ムー君の冒険" />
+      <p class="start-hint">CLICK / SPACE / TAP to enter NOU</p>
+      <p class="start-hint mobile-hint">MOBILE — D-PAD move · DS buttons in combat</p>
+      <p class="credit">Nois Mou — World Scale Prototype · v20260704mobile</p>
+    </div>
+    <canvas id="game" class="hidden" width="1280" height="720" tabindex="0"></canvas>
+
+    <div id="mobile-controls" class="mobile-controls hidden" aria-hidden="true">
+      <div class="mobile-dpad" aria-label="移動">
+        <button type="button" class="dpad-btn dpad-up" data-dpad="up" aria-label="上"></button>
+        <button type="button" class="dpad-btn dpad-left" data-dpad="left" aria-label="左"></button>
+        <button type="button" class="dpad-btn dpad-center" tabindex="-1" aria-hidden="true"></button>
+        <button type="button" class="dpad-btn dpad-right" data-dpad="right" aria-label="右"></button>
+        <button type="button" class="dpad-btn dpad-down" data-dpad="down" aria-label="下"></button>
+      </div>
+      <div id="mobile-face" class="mobile-face hidden" aria-label="アクション">
+        <button type="button" class="face-btn face-y" data-action="guard"><span class="face-key">Y</span><span class="face-label">守</span></button>
+        <button type="button" class="face-btn face-x" data-action="dodge"><span class="face-key">X</span><span class="face-label">避</span></button>
+        <button type="button" class="face-btn face-a" data-action="slash"><span class="face-key">A</span><span class="face-label">切</span></button>
+        <button type="button" class="face-btn face-b" data-action="punch"><span class="face-key">B</span><span class="face-label">殴</span></button>
+        <button type="button" class="face-btn face-flee" data-action="flee"><span class="face-key">逃</span><span class="face-label">走</span></button>
+      </div>
+    </div>
+
+    <div id="shell-screen" class="hidden">
+      <p class="shell-brand">INTROVERT — 殻（カラ）</p>
+      <div class="shell-layout">
+        <div class="shell-visual">
+          <div class="shell-scene">
+            <canvas id="shell-room-gl" aria-label="殻の部屋（ドラッグで見回す）"></canvas>
+            <canvas id="shell-muu" width="696" height="424" aria-label="ムー君"></canvas>
+            <p class="shell-orbit-hint">DRAG — 見回す · SCROLL — ズーム</p>
+          </div>
+          <p id="shell-room-status" class="shell-room-status" hidden></p>
+          <p id="muu-speech">……</p>
+        </div>
+        <div class="shell-panel">
+          <p id="shell-question" class="shell-question"></p>
+          <label for="feed-input">答え（100文字以上）</label>
+          <textarea id="feed-input" rows="8" placeholder="100文字以上、正直に書いて……"></textarea>
+          <p id="feed-char-count" class="feed-char-count">0 / 100</p>
+          <button id="feed-btn" type="button">餌をあげる</button>
+          <div id="dark-meter">
+            <span>闇の思念体</span>
+            <div class="meter-track"><div id="dark-fill"></div></div>
+          </div>
+          <div class="gauge-row shell-gauge">
+            <span class="gauge-label">体力</span>
+            <div class="meter-track"><div id="shell-hp-fill" class="gauge-fill hp"></div></div>
+          </div>
+          <div class="gauge-row shell-gauge">
+            <span class="gauge-label">人間</span>
+            <div class="meter-track"><div id="shell-human-fill" class="gauge-fill human"></div></div>
+          </div>
+          <ul id="feed-log"></ul>
+        </div>
+      </div>
+      <button id="to-nou" type="button" class="mode-switch">NOUへ出る（エクストロバート）</button>
+    </div>
+
+    <div id="action-combat-hud" class="hidden">
+      <p class="action-combat-brand">ENCOUNTER</p>
+      <p id="action-combat-type" class="combat-type">COMBAT — ACTION</p>
+      <p id="action-entity-name" class="action-entity-name"></p>
+      <div class="action-hp-row">
+        <span class="gauge-label">敵</span>
+        <div class="meter-track action-enemy-hp"><div id="action-enemy-hp-fill" class="gauge-fill hp"></div></div>
+      </div>
+      <p id="action-combat-hint" class="action-combat-hint">Z切 · X殴 · C守 · V避 · E逃（端で即逃げ）</p>
+      <div id="action-combat-bar" class="action-combat-bar">
+        <button type="button" data-action="slash" class="action-btn">切る</button>
+        <button type="button" data-action="punch" class="action-btn">殴る</button>
+        <button type="button" data-action="guard" class="action-btn hold">守る</button>
+        <button type="button" data-action="dodge" class="action-btn">避ける</button>
+        <button type="button" data-action="flee" class="action-btn hold">逃げる</button>
+      </div>
+    </div>
+
+    <div id="encounter-screen" class="hidden">
+      <div id="combat-flash" class="hidden"></div>
+      <div class="encounter-panel">
+        <p class="encounter-brand">ENCOUNTER</p>
+        <p id="combat-type" class="combat-type"></p>
+        <h2 id="entity-name">感情の気配</h2>
+        <p id="entity-line">……</p>
+        <img id="entity-visual" src="" alt="" />
+        <div class="choice-grid">
+          <button type="button" data-choice="kill">殺す</button>
+          <button type="button" data-choice="eat">食べる</button>
+          <button type="button" data-choice="ignore">無視する</button>
+          <button type="button" data-choice="friend">友達になる</button>
+        </div>
+        <p id="choice-result" class="choice-result"></p>
+        <button id="encounter-close" type="button" class="mode-switch hidden">立ち去る</button>
+      </div>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div id="hud-left">
+        <span id="area-label">NOU — 始まりの交差点</span>
+        <div class="gauge-row">
+          <span class="gauge-label">体力</span>
+          <div class="meter-track"><div id="hp-fill" class="gauge-fill hp"></div></div>
+        </div>
+        <div class="gauge-row">
+          <span class="gauge-label">人間</span>
+          <div class="meter-track"><div id="human-fill" class="gauge-fill human"></div></div>
+        </div>
+      </div>
+      <div id="hud-right">
+        <span id="mood-label">静寂</span>
+        <button id="to-shell" type="button" class="mode-switch small">殻へ戻る</button>
+      </div>
+    </div>
+
+    <div id="gameover-screen" class="hidden">
+      <div class="gameover-panel">
+        <p class="encounter-brand">GAME OVER</p>
+        <h2 id="gameover-title">体力が尽きた</h2>
+        <p id="gameover-line" class="gameover-line">……</p>
+        <button id="retry-btn" type="button" class="mode-switch">殻へ戻る</button>
+        <button id="full-reset-btn" type="button" class="mode-switch ghost">はじめから</button>
+      </div>
+    </div>
+  </div>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.170.0",
+        "three/addons/": "https://esm.sh/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="js/main.js?v=20260705lfs"></script>
+</body>
+</html>

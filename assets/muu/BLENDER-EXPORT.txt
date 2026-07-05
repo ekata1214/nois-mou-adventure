@@ -1,0 +1,201 @@
+ムー君 speak-mou — GLB 書き出し完全ガイド（2026-07 確定版）
+======================================================
+
+このファイルは HumGen + ARP + 脳メッシュ で speak-mou.glb を書き出す際の
+トラブルと解決策をまとめたもの。別アニメを追加 export するときも参照。
+
+---
+
+## クイック手順（成功パターン）
+
+```
+1. backup 保存（speak-mou-before-export.blend）
+2. 脳: Render Properties → Emit Bake → brain-baked → Principled Base Color
+3. 脳: Image → Save As → Pack Resources 前に必ず保存
+4. 体: HumGen Process → Bake Textures のみ
+      （Apply Modifiers OFF / LOD OFF / Keep shapekeys ON）
+5. Process 後: 脳の親子・brain-baked 接続・体型を確認
+6. File → External Data → Pack Resources（未保存画像警告 → Cancel → 先に Save）
+7. GLB export（下記設定）→ speak-mouN.glb
+8. cp → speak_mou.glb → ./setup-and-run.sh
+```
+
+---
+
+## GLB Export 設定（毎回これ）
+
+| 項目 | 設定 |
+|------|------|
+| Format | glTF Binary (.glb) |
+| Selected Objects | ✓（骨 + 体 + Brain.001） |
+| Animation | ✓ |
+| Animation Mode | **NLA Tracks** ← Actions だと T-pose / アニメなし |
+| Shape Keys | **✓ ON** ← 体型キーフレーム用 |
+| Materials | Export |
+| Images | Auto |
+| UVs | ✓ |
+
+---
+
+## 別の動きを書き出すとき
+
+1. **Blender 側**
+   - 新モーションを NLA にストリップ追加（例: `speak-mou-v2`）
+   - または既存 `speak-mou` アクションを差し替え
+   - NLA ストリップ名はゲームの `manifest.json` → `animations.speak` に追記可
+
+2. **テクスチャ・体型は再 Bake 不要**（blend が同じなら）
+   - マテリアル / 脳 / HumGen テクスチャはそのまま export 可
+
+3. **必ず NLA Tracks** で export（Animation Mode）
+
+4. **ファイル名を変える**（例: speak-mou7.glb）
+   ```bash
+   cp -f assets/muu/speak-mou7.glb assets/muu/speak_mou.glb
+   ./setup-and-run.sh
+   ```
+
+5. **manifest.json** の `model` を最新 GLB 名に更新（git pull で反映済みなら speak-mou*.glb 最大番号を自動同期）
+
+6. ブラウザ **Cmd+Shift+R**（キャッシュ消し）
+
+---
+
+## 今回ハマった問題と解決
+
+### 1. Pack したのにテクスチャが黒い
+- **原因:** Pack は画像を blend に埋め込むだけ。HumGen の `.Human` はカスタム
+  シェーダーで、Principled Base Color に肌 Diffuse が届かない
+- **解決:** HumGen Process → **Bake Textures**（Pack だけでは足りない）
+- **診断:** `node scripts/inspect-glb-deep.mjs assets/muu/speak-mouN.glb`
+  - `.Human` の baseColor が freckles だけ → Bake 不足
+
+### 2. 脳テクスチャが Bake できない（真っ黒）
+- **原因:** Image Texture ノードがグラフに無い / HumGen Process では焼けない /
+  Combined Bake でライトなし
+- **解決:**
+  1. Shading に Image Texture（brain-baked）追加 → **ノードを選択**
+  2. Render Properties → Bake → **Emit**（Screen 出力を Emission に繋ぐ）
+  3. Color → Principled Base Color
+- **HumGen Process は脳には使わない**
+
+### 3. 体型が女性デフォルト（Female_Body_Default）
+- **原因:** GLB は Shape Keys を載せないと HumGen スライダーが消える
+- **解決:** export 時 **Shape Keys ✓**。Apply Modifiers は ARP 後エラーで使えない
+- **やってはいけない:** 本体 blend で bake-muu-body.py / Apply All Shape Keys
+
+### 4. HumGen Apply Modifiers が drivers エラー
+- **原因:** ARP リマップ後、HumGen の driver 参照が壊れる
+- **解決:** Apply Modifiers **OFF**。Bake Textures のみ
+
+### 5. bake-muu-body.py で blend が壊れた
+- **症状:** マテリアル外れ（紫）、体型キーフレーム消失、リグ狂い
+- **原因:** メッシュ差し替え + 旧版が骨ポーズリセット
+- **解決:** backup から復元。**コピー blend にだけ**使う（静的体型のみ必要な場合）
+
+### 6. 親子 Loop in parents
+- **原因:** Brain ↔ 体 ↔ 骨 の循環親子
+- **解決:** 全員 Alt+P で親クリア → Brain を **頭の bone** に Ctrl+P → Bone
+  または Child Of 制約（Target=Armature, Bone=head）
+
+### 7. Pack 警告「images are modified will be lost」
+- **原因:** Bake 後 Save As していない
+- **解決:** Cancel → Image Editor で各画像 Save As → 再度 Pack
+
+### 8. speak-mou4 なのに speak-mou3 が読まれる
+- **原因:** manifest.json が古い / ファイルが assets/muu に無い
+- **解決:** git pull + cp speak-mouN.glb + setup-and-run.sh
+
+---
+
+## HumGen Process 設定（毎回確認）
+
+| 設定 | 値 |
+|------|-----|
+| Bake Textures | ✓ ON |
+| Apply Modifiers | **✗ OFF** |
+| Levels of Detail | **✗ OFF** |
+| Keep shapekeys | ✓ ON |
+| Armature（Apply 内） | ✗ OFF（触らない） |
+| Body 解像度 | 2048 以上推奨 |
+
+Process 前: **Save As → speak-mou-before-process.blend**
+Process 後: 脳の親子 / brain-baked 接続 / 体型 / アニメ を確認
+
+---
+
+## 脳（Brain.001）
+
+- Geometry Nodes / 手続きシェーダー → GLB 非対応 → **Emit Bake 必須**
+- 親: Armature の **head ボーン**（Child Of 制約でも可）
+- HumGen Bake 対象外 → 手動で Principled に繋ぐ
+
+---
+
+## 診断コマンド（Mac）
+
+```bash
+cd "/Users/takaearasaki/Desktop/MY GAMES/nois-mou-adventure"
+node scripts/inspect-glb.mjs assets/muu/speak-mouN.glb
+node scripts/inspect-glb-deep.mjs assets/muu/speak-mouN.glb
+```
+
+成功目安:
+- textures: 8+
+- Brain Meat.001: baseColorTexture あり
+- .Human: baseColor が baked skin（freckles のみではない）
+- animations: 1+（NLA Tracks）
+
+ブラウザ Console:
+```
+[shell-muu] loaded: speak-mouN.glb
+[shell-muu] animation clips: speak-mou, ...
+[shell-muu] texture maps: 10+
+```
+
+画面下:
+```
+ムー君 GLB: speak-mouN.glb / アニメ: speak-mou
+```
+
+---
+
+## やってはいけないこと（まとめ）
+
+| ❌ | 理由 |
+|----|------|
+| Pack だけでテクスチャ期待 | HumGen シェーダー非対応 |
+| HumGen Process で脳を Bake | 効かない |
+| 本体 blend で bake-muu-body.py | Shape Keys・マテリアル破壊 |
+| Apply Modifiers（ARP 後） | drivers エラー |
+| Animation Mode: Actions | NLA が export されない |
+| Pack 前に画像未 Save | Bake 結果が消える |
+| export 前に Apply All Shape Keys | 体型キーフレーム消失 |
+
+---
+
+## ファイル命名
+
+| ファイル | 用途 |
+|----------|------|
+| speak-mou.blend | 作業用本体 |
+| speak-mou-before-process.blend | Process 前 backup |
+| speak-mouN.glb | export 版（N は increment） |
+| speak_mou.glb | ゲームが読む同期先（setup-and-run.sh が自動 cp） |
+
+---
+
+## 部屋 GLB（別問題）
+
+`this ver2.glb` の壁の黒斑点はムー君 GLB とは別ファイル。
+部屋も Pack だけでは直らない場合あり。
+
+---
+
+## 関連ファイル
+
+- `assets/muu/manifest.json` — 読み込む GLB 名・アニメ名パターン
+- `js/shell-muu-3d.js` — GLB ロード・アニメ再生
+- `scripts/inspect-glb-deep.mjs` — テクスチャ接続診断
+- `scripts/blender/bake-muu-body.py` — コピー blend 専用（本体禁止）
+- `scripts/blender/export-speak-mou.py` — headless export（CI 用）

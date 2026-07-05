@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# ムー君の冒険 — セットアップ + 起動チェック + サーバー
+set -e
+cd "$(dirname "$0")"
+PROJECT="$(pwd)"
+
+clear
+echo ""
+echo "=========================================="
+echo "  ムー君の冒険"
+echo "  $PROJECT"
+echo "=========================================="
+echo ""
+
+mkdir -p assets/room assets/muu
+
+# GLB: this ver2 を優先（なければ this.glb へフォールバック）
+ROOM_GLB=""
+for candidate in "this ver2.glb" "this ver2.GLB" "this.glb" "this.GLB" "room right.glb" "room right.GLB"; do
+  if [ -f "assets/room/$candidate" ]; then
+    ROOM_GLB="$candidate"
+    break
+  fi
+done
+
+if [ -n "$ROOM_GLB" ]; then
+  if [ "$ROOM_GLB" != "this ver2.glb" ] && [ -f "assets/room/this ver2.glb" ]; then
+    ROOM_GLB="this ver2.glb"
+  fi
+  if [ "$ROOM_GLB" != "this ver2.glb" ] && [ ! -f "assets/room/this ver2.glb" ]; then
+    cp "assets/room/$ROOM_GLB" "assets/room/this ver2.glb" 2>/dev/null || true
+    echo "✓ assets/room/$ROOM_GLB → this ver2.glb"
+  else
+    echo "✓ assets/room/this ver2.glb"
+  fi
+else
+  echo "✗ assets/room/ に GLB がありません（this ver2.glb を置いてください）"
+fi
+
+MUU_GLB=""
+for candidate in speak-mou*.glb speak_mou.glb speak-mou.glb speak_mou.GLB; do
+  for f in assets/muu/$candidate; do
+    [ -f "$f" ] || continue
+    MUU_GLB="$f"
+    break 2
+  done
+done
+# speak-mou3 > speak-mou2 など数字付きを優先
+if ls assets/muu/speak-mou*.glb >/dev/null 2>&1; then
+  MUU_GLB="$(ls -v assets/muu/speak-mou*.glb 2>/dev/null | tail -1)"
+fi
+
+if [ -n "$MUU_GLB" ]; then
+  size=$(du -h "$MUU_GLB" | cut -f1)
+  echo "✓ $MUU_GLB ($size)"
+  cp -f "$MUU_GLB" "assets/muu/speak_mou.glb"
+  size=$(du -h "assets/muu/speak_mou.glb" | cut -f1)
+  echo "✓ → speak_mou.glb に同期 ($size)"
+  if bash scripts/repair-speak-mou.sh 2>/dev/null; then
+    :
+  fi
+elif ls assets/muu/*.blend >/dev/null 2>&1; then
+  echo ">> speak-mou.blend から GLB を生成..."
+  if bash scripts/export-speak-mou.sh; then
+    echo "✓ speak_mou.glb 生成完了"
+  else
+    echo "△ export 失敗"
+    bash scripts/repair-speak-mou.sh 2>/dev/null || true
+  fi
+elif ls assets/muu/*.glb >/dev/null 2>&1; then
+  echo ">> 既存 GLB を修復..."
+  bash scripts/repair-speak-mou.sh || echo "△ GLB 修復失敗"
+elif [ -f "assets/muu/speak_mou.GLB" ]; then
+  size=$(du -h "assets/muu/speak_mou.GLB" | cut -f1)
+  echo "✓ assets/muu/speak_mou.GLB ($size)"
+else
+  echo "△ assets/muu/speak_mou.glb なし（殻は2Dムー君にフォールバック）"
+fi
+
+chmod +x start-local.sh 2>/dev/null || true
+exec ./start-local.sh "$@"

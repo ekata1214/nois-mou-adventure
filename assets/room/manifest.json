@@ -1,0 +1,14 @@
+{
+  "model": "this ver2.glb",
+  "models": ["this ver2.glb", "this ver2.GLB", "this.glb"],
+  "camera": {
+    "fov": 42
+  },
+  "cameraDistance": 1.35,
+  "ambient": 0.7,
+  "keyLight": 1.15,
+  "fillLight": 0.5,
+  "backgroundColor": "#000000",
+  "starCount": 2800,
+  "brightStarCount": 48
+}
