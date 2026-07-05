@@ -81,7 +81,7 @@ import {
 } from "./bgm.js";
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js?v=20260705both";
+import { createShellRoomView } from "./shell-room.js?v=20260705lfs";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 import {
   preloadVoidCosmos,
@@ -175,20 +175,26 @@ function updateShellRoomStatus(view) {
   }
   if (view?.ready && view?.roomMissing && !view?.muuReady) {
     shellRoomStatus.hidden = false;
-    shellRoomStatus.textContent =
-      "部屋・ムー君 GLB が GitHub に未アップロードです。Mac で ./scripts/upload-for-pages.sh を実行してください。";
+    const onPages = /github\.io/i.test(location.hostname);
+    shellRoomStatus.textContent = onPages
+      ? "GLB が壊れて配信されています（LFS ポインタ）。再デプロイ中です。数分後に強制リロードしてください。"
+      : "部屋・ムー君 GLB が読めません。ターミナルで git lfs install && git lfs pull を実行してください。";
     return;
   }
   if (view?.ready && view?.roomMissing) {
     shellRoomStatus.hidden = false;
-    shellRoomStatus.textContent =
-      "部屋 GLB が GitHub に未アップロードです（星野のみ表示）。Mac で ./scripts/upload-for-pages.sh を実行してください。";
+    const onPages = /github\.io/i.test(location.hostname);
+    shellRoomStatus.textContent = onPages
+      ? "部屋 GLB が LFS ポインタのままです。再デプロイ待ちか、キャッシュを消して再読み込みしてください。"
+      : "部屋 GLB が読めません（星野のみ）。git lfs pull を実行してください。";
     return;
   }
   if (view?.ready && !view?.muuReady) {
     shellRoomStatus.hidden = false;
-    shellRoomStatus.textContent =
-      "部屋は読み込み済み。ムー君 GLB が見つかりません。Mac で ./scripts/upload-for-pages.sh を実行してください。";
+    const onPages = /github\.io/i.test(location.hostname);
+    shellRoomStatus.textContent = onPages
+      ? "ムー君 GLB が読めません。Pages 再デプロイ後に強制リロードしてください。"
+      : "部屋は読み込み済み。ムー君 GLB が見つかりません。git lfs pull を実行してください。";
     return;
   }
   if (view?.ready) {

@@ -25,9 +25,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+          fetch-depth: 0
 
       - name: Materialize LFS binaries
-        run: git lfs pull
+        run: |
+          git lfs install
+          git lfs fetch --all
+          git lfs checkout
+          git lfs pull
+          bash scripts/verify-glb-binaries.sh
 
       - name: Generate good-mou.glb if missing
         continue-on-error: true
