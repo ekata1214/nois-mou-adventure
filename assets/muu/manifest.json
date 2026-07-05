@@ -4,7 +4,7 @@
   "animationClips": ["good-mou.glb", "good_mou.glb"],
   "targetHeight": 1.35,
   "scale": 1,
-  "position": [0, 0, 0.55],
+  "position": [0, 0, 0.12],
   "footOffset": 0.02,
   "rotation": [0, 0, 0],
   "animations": {

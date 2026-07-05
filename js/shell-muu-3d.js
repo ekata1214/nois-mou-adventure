@@ -19,7 +19,7 @@ function modelUrl(basePath, name) {
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260705tex`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260706muu2`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
