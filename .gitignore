@@ -4,5 +4,6 @@ node_modules/
 scripts/node_modules/
 package-lock.json
 package.json
+!scripts/package.json
 tools/
 assets/muu/.export-options.json

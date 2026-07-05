@@ -30,10 +30,13 @@ jobs:
         run: git lfs pull
 
       - name: Generate good-mou.glb if missing
+        continue-on-error: true
         run: |
-          if [ ! -f assets/muu/good-mou.glb ] && [ -f assets/muu/speak_mou.glb ]; then
-            cd scripts && npm ci --omit=dev 2>/dev/null || npm install --omit=dev
+          if [ ! -f assets/muu/good-mou.glb ] && [ -f assets/muu/speak_mou.glb ] && [ -f scripts/package.json ]; then
+            cd scripts && npm install --omit=dev
             node extract-good-mou-glb.mjs
+          else
+            echo "skip good-mou extraction"
           fi
 
       - name: Prepare static site
