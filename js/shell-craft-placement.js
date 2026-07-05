@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { raycastFloorY, raycastWallAttach, getRoomBounds } from "./shell-floor.js";
+import { resolveCraftAnchor } from "./shell-room-anchors.js";
 
 /** 部屋内の相対位置（u/v = 中心からの割合、±0.45 以内が室内） */
 const DEFAULT_CRAFT_SLOTS = {
@@ -153,9 +154,17 @@ export function createCraftProp(recipeId, roomRoot) {
   return group;
 }
 
-export function placeCraftProp(prop, recipeId, roomRoot, manifest, fit) {
+export function placeCraftProp(prop, recipeId, roomRoot, manifest, fit, anchors) {
   const slot = slotFor(recipeId, manifest);
   if (!slot) return;
+
+  const anchor = resolveCraftAnchor(recipeId, anchors, manifest);
+  if (anchor) {
+    prop.position.copy(anchor.position);
+    prop.quaternion.copy(anchor.quaternion);
+    prop.rotation.y += slot.yaw ?? 0;
+    return;
+  }
 
   let placed;
   if (slot.kind === "wall") {
@@ -170,7 +179,7 @@ export function placeCraftProp(prop, recipeId, roomRoot, manifest, fit) {
   }
 }
 
-export function syncCraftedProps(roomRoot, craftedIds, fit, manifest) {
+export function syncCraftedProps(roomRoot, craftedIds, fit, manifest, anchors) {
   if (!roomRoot) return;
   const wanted = new Set(craftedIds ?? []);
 
@@ -186,6 +195,6 @@ export function syncCraftedProps(roomRoot, craftedIds, fit, manifest) {
     if (existing) roomRoot.remove(existing);
     const prop = createCraftProp(id, roomRoot);
     roomRoot.add(prop);
-    placeCraftProp(prop, id, roomRoot, manifest, fit);
+    placeCraftProp(prop, id, roomRoot, manifest, fit, anchors);
   }
 }

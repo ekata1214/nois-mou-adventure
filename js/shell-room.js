@@ -3,7 +3,8 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { attachShellMuu3d } from "./shell-muu-3d.js?v=20260706muu4";
 import { estimateRoomFloorY } from "./shell-floor.js";
-import { syncCraftedProps } from "./shell-craft-placement.js?v=20260706craftroom";
+import { syncCraftedProps } from "./shell-craft-placement.js?v=20260706anchors";
+import { scanRoomAnchors, logRoomPlacementDiagnostics } from "./shell-room-anchors.js";
 
 const GLB_FALLBACK_FILES = ["this ver2.glb", "this ver2.GLB", "this.glb", "this.GLB"];
 
@@ -261,6 +262,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
 
   let fit;
   let modelName = null;
+  let roomAnchors = new Map();
   if (roomMissing) {
     fit = defaultRoomFit(manifest);
     camera.position.set(0, fit.lookAt.y + 0.35, fit.dist);
@@ -270,6 +272,8 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
     modelName = name;
     roomRoot.add(gltf.scene);
     fit = fitModel(roomRoot, camera, manifest);
+    roomAnchors = scanRoomAnchors(roomRoot);
+    logRoomPlacementDiagnostics(roomRoot, roomAnchors, fit, manifest);
   }
 
   let muu = {
@@ -379,7 +383,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   }
 
   function syncCrafted(craftedIds) {
-    syncCraftedProps(roomRoot, craftedIds, fit, manifest);
+    syncCraftedProps(roomRoot, craftedIds, fit, manifest, roomAnchors);
   }
 
   function dispose() {

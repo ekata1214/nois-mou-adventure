@@ -11,6 +11,12 @@
   "backgroundColor": "#000000",
   "starCount": 2800,
   "brightStarCount": 48,
+  "craftAnchors": {
+    "warm_lamp": "warm_lamp",
+    "grow_pot": "grow_pot",
+    "memo_wall": "memo_wall"
+  },
+  "_craftAnchorHelp": "Blender で Empty を slot_warm_lamp 等の名前で export。無い場合は craftSlots の法線推測に fallback",
   "craftSlots": {
     "warm_lamp": { "kind": "floor", "u": -0.24, "v": 0.1 },
     "grow_pot": { "kind": "floor", "u": 0.2, "v": 0.18 },
