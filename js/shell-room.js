@@ -1,20 +1,18 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { attachShellMuu3d } from "./shell-muu-3d.js?v=20260705shell";
+import { attachShellMuu3d } from "./shell-muu-3d.js?v=20260705revert";
 import { estimateRoomFloorY } from "./shell-floor.js";
-import { createProceduralShellRoom } from "./shell-procedural-room.js?v=20260705shell";
-import {
-  assetUrl,
-  estimateMobileRoomBudget,
-  loadFirstGlb,
-} from "./shell-asset-loader.js?v=20260705shell";
-import { isMobileDevice } from "./mobile-viewport.js?v=20260705shell";
 
 const GLB_FALLBACK_FILES = ["this ver2.glb", "this ver2.GLB", "this.glb", "this.GLB"];
 
+function modelUrl(basePath, name) {
+  return `${basePath}/${encodeURIComponent(name)}`;
+}
+
 async function readManifest(basePath) {
   try {
-    const res = await fetch(assetUrl(basePath, "manifest.json"));
+    const res = await fetch(`${basePath}/manifest.json`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -22,10 +20,8 @@ async function readManifest(basePath) {
   }
 }
 
-function modelCandidates(manifest, { mobile = false } = {}) {
+function modelCandidates(manifest) {
   const files = [];
-  if (mobile && manifest?.mobileModel) files.push(manifest.mobileModel);
-  if (Array.isArray(manifest?.mobileModels)) files.push(...manifest.mobileModels);
   if (manifest?.model) files.push(manifest.model);
   if (Array.isArray(manifest?.models)) files.push(...manifest.models);
   return [...new Set([...files, ...GLB_FALLBACK_FILES])];
@@ -213,56 +209,35 @@ function defaultRoomFit(manifest) {
   };
 }
 
-function canvasSize(canvas) {
-  const parent = canvas.parentElement;
-  if (parent) {
-    const rect = parent.getBoundingClientRect();
-    const w = Math.round(rect.width);
-    const h = Math.round(rect.height);
-    if (w > 0 && h > 0) return { w, h };
+async function loadGlbModel(basePath, manifest) {
+  const loader = new GLTFLoader();
+  const errors = [];
+  for (const name of modelCandidates(manifest)) {
+    const url = modelUrl(basePath, name);
+    try {
+      const gltf = await loader.loadAsync(url);
+      return { gltf, name, url };
+    } catch (err) {
+      errors.push(`${name}: ${err?.message ?? err}`);
+    }
   }
-  return {
-    w: parent?.clientWidth || canvas.clientWidth || 696,
-    h: parent?.clientHeight || canvas.clientHeight || 424,
-  };
-}
-
-async function loadRoomModel(basePath, manifest, { mobile = false, forceFull = false } = {}) {
-  const params = new URLSearchParams(location.search);
-  const wantFull = forceFull || params.has("fullroom");
-  const skipHeavyOnMobile = mobile && manifest?.mobileSkipFullRoom !== false && !wantFull;
-
-  if (skipHeavyOnMobile) {
-    return {
-      errors: ["mobile: full room GLB skipped (use ?fullroom=1 to force)"],
-      skipped: true,
-    };
-  }
-
-  const maxBytes = mobile
-    ? (manifest?.mobileMaxRoomBytes ?? estimateMobileRoomBudget(manifest) * 1024 * 1024)
-    : Infinity;
-  const timeoutMs = mobile ? (manifest?.mobileRoomTimeoutMs ?? 45000) : (manifest?.roomTimeoutMs ?? 180000);
-
-  return loadFirstGlb(basePath, modelCandidates(manifest, { mobile }), {
-    timeoutMs,
-    maxBytes,
-  });
+  return { errors };
 }
 
 export async function createShellRoomView(canvas, basePath = "assets/room", hooks = {}) {
   if (!canvas) return { ready: false, error: "canvas missing" };
 
-  const mobile = isMobileDevice();
   const manifest = await readManifest(basePath);
+  const loaded = await loadGlbModel(basePath, manifest);
+  const roomMissing = !loaded.gltf;
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: !mobile,
+    antialias: true,
     alpha: false,
-    powerPreference: mobile ? "default" : "high-performance",
+    powerPreference: "high-performance",
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = manifest?.exposure ?? 1;
@@ -285,31 +260,16 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
 
   let fit;
   let modelName = null;
-  let roomMode = "void";
-  let proceduralRoom = null;
-  let loadErrors = [];
-
-  const loaded = await loadRoomModel(basePath, manifest, { mobile });
-  loadErrors = loaded.errors ?? [];
-
-  if (loaded.gltf) {
-    roomRoot.add(loaded.gltf.scene);
-    modelName = loaded.name;
-    fit = fitModel(roomRoot, camera, manifest);
-    roomMode = "glb";
-    starfield.group.visible = false;
-  } else {
-    proceduralRoom = createProceduralShellRoom(manifest);
-    roomRoot.add(proceduralRoom.group);
-    fit = proceduralRoom.fit;
+  if (roomMissing) {
+    fit = defaultRoomFit(manifest);
     camera.position.set(0, fit.lookAt.y + 0.35, fit.dist);
     camera.lookAt(fit.lookAt);
-    roomMode = loaded.skipped || mobile ? "procedural" : "procedural";
-    starfield.group.visible = roomMode === "void";
-    if (roomMode === "procedural") starfield.group.visible = false;
+  } else {
+    const { gltf, name } = loaded;
+    modelName = name;
+    roomRoot.add(gltf.scene);
+    fit = fitModel(roomRoot, camera, manifest);
   }
-
-  const roomMissing = roomMode !== "glb";
 
   let muu = {
     ready: false,
@@ -321,11 +281,9 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   try {
     muu = await attachShellMuu3d(scene, fit, "assets/muu", roomRoot, manifest, {
       onLoopChange: hooks.onMuuLoopChange,
-      mobile,
     });
   } catch (err) {
     console.warn("shell muu load failed:", err);
-    loadErrors.push(`muu: ${err?.message ?? err}`);
   }
 
   const controls = new OrbitControls(camera, canvas);
@@ -343,8 +301,6 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   const state = {
     ready: true,
     roomMissing,
-    roomMode,
-    mobile,
     canvas,
     renderer,
     scene,
@@ -358,8 +314,8 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
     muuReady: muu.ready,
     time: 0,
     userOrbit: false,
-    error: roomMissing ? (roomMode === "procedural" ? "procedural_fallback" : "glb_not_found") : null,
-    detail: loadErrors.join(" | ") || null,
+    error: roomMissing ? "glb_not_found" : null,
+    detail: roomMissing ? loaded.errors?.join(" | ") ?? "no candidates" : null,
   };
 
   controls.addEventListener("start", () => {
@@ -367,7 +323,9 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   });
 
   function resize() {
-    const { w, h } = canvasSize(canvas);
+    const parent = canvas.parentElement;
+    const w = parent?.clientWidth || canvas.clientWidth || 696;
+    const h = parent?.clientHeight || canvas.clientHeight || 424;
     if (w < 1 || h < 1) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
@@ -377,7 +335,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   function render(dt = 0) {
     if (!state.ready) return;
     state.time += dt;
-    if (roomMode === "glb" && manifest?.rotate && !state.userOrbit) {
+    if (!roomMissing && manifest?.rotate && !state.userOrbit) {
       roomRoot.rotation.y += dt * (manifest.rotateSpeed ?? 0.08);
     }
     muu.update(dt);
@@ -398,7 +356,6 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
     controls.dispose();
     muu.dispose();
     starfield.dispose();
-    proceduralRoom?.dispose();
     renderer.dispose();
     roomRoot.traverse((obj) => {
       if (obj.geometry) obj.geometry.dispose();
@@ -410,9 +367,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   }
 
   resize();
-  const onResize = () => resize();
-  window.addEventListener("resize", onResize);
-  window.visualViewport?.addEventListener("resize", onResize);
+  window.addEventListener("resize", resize);
 
   return { ...state, resize, render, dispose, playMuuSpeak, playMuuIdle };
 }

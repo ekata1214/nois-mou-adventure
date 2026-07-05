@@ -81,7 +81,7 @@ import {
 } from "./bgm.js";
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js?v=20260705shell";
+import { createShellRoomView } from "./shell-room.js?v=20260705revert";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 import {
   preloadVoidCosmos,
@@ -152,7 +152,6 @@ let player;
 let sprites;
 let shellRoomView = null;
 let shellRoomLoading = false;
-let shellMuuIdlePhase = 0;
 
 function updateShellRoomStatus(view) {
   if (!shellRoomStatus) return;
@@ -166,15 +165,7 @@ function updateShellRoomStatus(view) {
     shellRoomStatus.hidden = false;
     const loop = view.muu.loopClipName ?? view.muu.loopClip;
     const animLabel = loop ? `ループ: ${loop}` : view.muu.clipNames.join(", ");
-    const roomLabel =
-      view.roomMode === "glb"
-        ? `部屋: ${view.modelName}`
-        : view.roomMode === "procedural"
-          ? view.mobile
-            ? "部屋: 軽量（スマホ向け）"
-            : "部屋: 簡易（GLB 未読込）"
-          : "部屋: 星野";
-    shellRoomStatus.textContent = `${roomLabel} / ムー君: ${view.muu.modelName} / ${animLabel}`;
+    shellRoomStatus.textContent = `ムー君 GLB: ${view.muu.modelName} / ${animLabel}`;
     return;
   }
   if (view?.ready && view?.muuReady) {
@@ -182,31 +173,22 @@ function updateShellRoomStatus(view) {
     shellRoomStatus.textContent = "";
     return;
   }
-  if (view?.ready && view?.roomMode === "procedural" && !view?.muuReady) {
-    shellRoomStatus.hidden = false;
-    shellRoomStatus.textContent = "部屋は表示中。ムー君 GLB を読み込み中……";
-    return;
-  }
   if (view?.ready && view?.roomMissing && !view?.muuReady) {
     shellRoomStatus.hidden = false;
     shellRoomStatus.textContent =
-      "部屋・ムー君 GLB が読み込めません。回線を確認するか、しばらく待ってから再読み込みしてください。";
+      "部屋・ムー君 GLB が GitHub に未アップロードです。Mac で ./scripts/upload-for-pages.sh を実行してください。";
     return;
   }
   if (view?.ready && view?.roomMissing) {
     shellRoomStatus.hidden = false;
-    if (view.mobile && view.roomMode === "procedural") {
-      shellRoomStatus.textContent =
-        "スマホ向け簡易部屋を表示中（フル GLB は ?fullroom=1 で試せます）。ムー君を読み込み中……";
-    } else {
-      shellRoomStatus.textContent =
-        "部屋 GLB が読めません（簡易部屋を表示）。Mac: ./scripts/upload-for-pages.sh";
-    }
+    shellRoomStatus.textContent =
+      "部屋 GLB が GitHub に未アップロードです（星野のみ表示）。Mac で ./scripts/upload-for-pages.sh を実行してください。";
     return;
   }
   if (view?.ready && !view?.muuReady) {
     shellRoomStatus.hidden = false;
-    shellRoomStatus.textContent = "部屋は読み込み済み。ムー君 GLB を読み込み中……";
+    shellRoomStatus.textContent =
+      "部屋は読み込み済み。ムー君 GLB が見つかりません。Mac で ./scripts/upload-for-pages.sh を実行してください。";
     return;
   }
   if (view?.ready) {
@@ -407,14 +389,10 @@ function drawShellMuu() {
     sctx.fillRect(0, 0, w, h);
   }
 
-  shellMuuIdlePhase += 0.04;
-  const bob = Math.sin(shellMuuIdlePhase) * 4;
-  const breathe = 1 + Math.sin(shellMuuIdlePhase * 0.7) * 0.012;
-
   const warmth = soul?.brainWarmth ?? 0;
-  const width = SPRITE_W * SHELL_MUU_SCALE * (1 + warmth * 0.05) * breathe;
-  const height = SPRITE_H * SPRITE_SQUASH * SHELL_MUU_SCALE * (1 - warmth * 0.03) * breathe;
-  drawSprite(sctx, sprites.front, w / 2, h * 0.96 + bob, width, height);
+  const width = SPRITE_W * SHELL_MUU_SCALE * (1 + warmth * 0.05);
+  const height = SPRITE_H * SPRITE_SQUASH * SHELL_MUU_SCALE * (1 - warmth * 0.03);
+  drawSprite(sctx, sprites.front, w / 2, h * 0.96, width, height);
 }
 
 let titleEntered = false;

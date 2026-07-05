@@ -1,10 +1,6 @@
 {
   "model": "this ver2.glb",
   "models": ["this ver2.glb", "this ver2.GLB", "this.glb"],
-  "mobileSkipFullRoom": true,
-  "mobileMaxRoomMb": 48,
-  "mobileRoomTimeoutMs": 45000,
-  "roomTimeoutMs": 180000,
   "camera": {
     "fov": 42
   },
@@ -14,11 +10,5 @@
   "fillLight": 0.5,
   "backgroundColor": "#000000",
   "starCount": 2800,
-  "brightStarCount": 48,
-  "procedural": {
-    "floorColor": "#1a1210",
-    "wallColor": "#120e0c",
-    "trimColor": "#3a1818",
-    "lampIntensity": 0.55
-  }
+  "brightStarCount": 48
 }
