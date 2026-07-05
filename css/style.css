@@ -352,6 +352,18 @@ body {
 #shell-muu {
   pointer-events: none;
   z-index: 1;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.6));
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+#shell-muu.speaking {
+  filter: drop-shadow(0 4px 28px rgba(229, 9, 20, 0.45));
+  transform: scale(1.02);
+}
+
+#shell-muu.muu-3d-active {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .shell-visual {
@@ -374,24 +386,6 @@ body {
   font-size: 10px;
   letter-spacing: 0.14em;
   color: rgba(255, 255, 255, 0.35);
-  pointer-events: none;
-}
-
-#shell-muu {
-  position: relative;
-  width: min(696px, 90%);
-  height: auto;
-  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.6));
-  transition: filter 0.2s ease, transform 0.2s ease;
-}
-
-#shell-muu.speaking {
-  filter: drop-shadow(0 4px 28px rgba(229, 9, 20, 0.45));
-  transform: scale(1.02);
-}
-
-#shell-muu.muu-3d-active {
-  opacity: 0;
   pointer-events: none;
 }
 

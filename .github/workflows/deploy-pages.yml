@@ -29,6 +29,13 @@ jobs:
       - name: Materialize LFS binaries
         run: git lfs pull
 
+      - name: Generate good-mou.glb if missing
+        run: |
+          if [ ! -f assets/muu/good-mou.glb ] && [ -f assets/muu/speak_mou.glb ]; then
+            cd scripts && npm ci --omit=dev 2>/dev/null || npm install --omit=dev
+            node extract-good-mou-glb.mjs
+          fi
+
       - name: Prepare static site
         run: |
           mkdir -p /tmp/site

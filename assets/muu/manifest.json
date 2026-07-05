@@ -1,14 +1,16 @@
 {
-  "model": "speak-mou5.glb",
-  "models": ["speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb", "speak_mou.glb", "speak-mou.glb"],
+  "model": "speak_mou.glb",
+  "models": ["speak_mou.glb", "speak-mou.glb", "speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb"],
   "animationClips": ["good-mou.glb", "good_mou.glb"],
+  "mobileMaxMuuMb": 64,
+  "mobileMuuTimeoutMs": 90000,
   "targetHeight": 1.35,
   "scale": 1,
   "position": [0, 0, 0.55],
   "footOffset": 0.02,
   "rotation": [0, 0, 0],
   "animations": {
-    "speak": ["speak_mou", "speak-mou"],
-    "good": ["good_mou", "good-mou"]
+    "speak": ["speak_mou", "speak-mou", "layer0.001"],
+    "good": ["good_mou", "good-mou", "layer0"]
   }
 }
