@@ -98,7 +98,7 @@ import {
   formatNeeds,
 } from "./gather-craft.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js?v=20260706gather";
+import { createShellRoomView } from "./shell-room.js?v=20260706craft";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 import {
   preloadVoidCosmos,
@@ -243,6 +243,32 @@ let props;
 let gatherNodes;
 let soul;
 let gatherMode = false;
+function hideGatherOverlays() {
+  gatherToastTimer = 0;
+  gatherToast?.classList.add("hidden");
+  gatherHint?.classList.add("hidden");
+}
+
+function syncShellCrafted() {
+  shellRoomView?.syncCrafted?.(soul.crafted ?? []);
+  shellRoomView?.render?.(0);
+}
+
+function gatherUiSnapshot() {
+  const inv = soul.inventory ?? {};
+  const invKey = Object.keys(inv)
+    .sort()
+    .map((id) => `${id}:${inv[id]}`)
+    .join(",");
+  return `${(soul.crafted ?? []).join(",")}|${invKey}`;
+}
+
+function refreshShellFrameUI() {
+  darkFill.style.width = `${soul.darkEntity}%`;
+  refreshGauges();
+}
+let gatherUiKey = "";
+let craftListBound = false;
 let gatherToastTimer = 0;
 let gatherToastText = "";
 let camera = { x: 0, y: 0 };
@@ -590,10 +616,12 @@ function enterShell() {
   hud.classList.add("hidden");
   gatherMode = false;
   document.body.classList.remove("gather-active");
+  hideGatherOverlays();
   shellRoomView?.resize();
   shellRoomView?.render(0);
   if (!shellRoomView?.ready) loadShellRoomInBackground();
   syncShellMuuLayer();
+  syncShellCrafted();
   encounterScreen.classList.add("hidden");
   presentShellQuestion();
   refreshSoulUI();
@@ -664,12 +692,39 @@ function refreshSoulUI() {
 }
 
 function showGatherToast(text) {
+  if (mode !== "extrovert") return;
   gatherToastText = text;
   gatherToastTimer = 2.4;
   if (gatherToast) {
     gatherToast.textContent = text;
     gatherToast.classList.remove("hidden");
   }
+}
+
+function handleCraft(recipeId) {
+  const result = craftRecipe(soul, recipeId);
+  if (!result.ok) {
+    muuSpeech.textContent = "……素材が足りない。";
+    playVoice("feed_negative", { volume: 0.4 });
+    return;
+  }
+  saveSoul(soul);
+  muuSpeech.textContent = `……${result.recipe.name}、できた。`;
+  playVoice("genki", { volume: 0.45 });
+  pulseMuu(600);
+  syncShellCrafted();
+  gatherUiKey = "";
+  refreshSoulUI();
+}
+
+function bindCraftList() {
+  if (!craftListEl || craftListBound) return;
+  craftListBound = true;
+  craftListEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-craft]");
+    if (!btn || btn.disabled || mode !== "introvert") return;
+    handleCraft(btn.dataset.craft);
+  });
 }
 
 function refreshGatherUI() {
@@ -679,11 +734,14 @@ function refreshGatherUI() {
   }
   document.body.classList.toggle("gather-active", gatherMode && mode === "extrovert");
 
+  const snapshot = gatherUiSnapshot();
+  const inventoryChanged = snapshot !== gatherUiKey;
+
   const items = Object.entries(GATHER_ITEMS)
     .map(([id]) => ({ id, qty: inventoryCount(soul, id) }))
     .filter((row) => row.qty > 0);
 
-  if (gatherInventoryEl) {
+  if (gatherInventoryEl && inventoryChanged) {
     if (!items.length) {
       gatherInventoryEl.innerHTML = `<li class="gather-empty">まだ何もない — NOUで G 採集モード</li>`;
     } else {
@@ -696,29 +754,19 @@ function refreshGatherUI() {
     }
   }
 
-  if (craftListEl) {
+  if (craftListEl && inventoryChanged) {
+    gatherUiKey = snapshot;
     craftListEl.innerHTML = CRAFT_RECIPES.map((recipe) => {
       const done = soul.crafted?.includes(recipe.id);
       const ready = !done && canCraft(soul, recipe);
       const cls = done ? "crafted" : ready ? "ready" : "";
+      const action = done ? "完成" : ready ? "作る" : formatNeeds(recipe);
       return `<button type="button" class="craft-btn ${cls}" data-craft="${recipe.id}" ${done || !ready ? "disabled" : ""}>
         <span class="craft-name">${recipe.name}</span>
-        <span class="craft-needs">${done ? "完成" : formatNeeds(recipe)}</span>
+        <span class="craft-needs">${action}</span>
         <span class="craft-desc">${recipe.desc}</span>
       </button>`;
     }).join("");
-
-    craftListEl.querySelectorAll("[data-craft]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const result = craftRecipe(soul, btn.dataset.craft);
-        if (!result.ok) return;
-        saveSoul(soul);
-        muuSpeech.textContent = `……${result.recipe.name}、できた。`;
-        playVoice("genki", { volume: 0.45 });
-        pulseMuu(600);
-        refreshSoulUI();
-      });
-    });
   }
 
   refreshGatherHint();
@@ -1568,7 +1616,7 @@ function loop(time) {
   if (state === "play" && mode === "introvert") {
     shellRoomView?.resize();
     shellRoomView?.render(dt);
-    refreshSoulUI();
+    refreshShellFrameUI();
     drawShellMuu();
   }
 
@@ -1680,6 +1728,7 @@ function bindInput() {
   gatherToggle?.addEventListener("click", toggleGatherMode);
   feedBtn.addEventListener("click", submitFeed);
   feedInput.addEventListener("input", updateFeedCharCount);
+  bindCraftList();
   encounterCloseBtn.addEventListener("click", closeEncounter);
 
   actionCombatBar?.querySelectorAll("[data-action]").forEach((btn) => {
@@ -1766,6 +1815,7 @@ async function loadShellRoomInBackground() {
     syncShellMuuLayer();
     if (shellRoomView?.ready && state === "play" && mode === "introvert") {
       shellRoomView.resize();
+      syncShellCrafted();
       shellRoomView.render(0);
       if (shellRoomView.muuReady) shellRoomView.playMuuIdle?.();
       drawShellMuu();

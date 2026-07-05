@@ -209,6 +209,109 @@ function defaultRoomFit(manifest) {
   };
 }
 
+const CRAFT_PROP_LAYOUT = {
+  warm_lamp: { x: -0.55, z: 0.35, yOff: 0.02 },
+  memo_wall: { x: 0.72, z: -0.2, yOff: 0.55 },
+  grow_pot: { x: 0.15, z: 0.62, yOff: 0.02 },
+};
+
+function createCraftProp(recipeId) {
+  const group = new THREE.Group();
+  group.name = `craft:${recipeId}`;
+
+  if (recipeId === "warm_lamp") {
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.07, 0.04, 12),
+      new THREE.MeshStandardMaterial({ color: 0x2a2418, roughness: 0.85 })
+    );
+    base.position.y = 0.02;
+    group.add(base);
+
+    const shade = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55),
+      new THREE.MeshStandardMaterial({
+        color: 0xffd89a,
+        emissive: 0xffa040,
+        emissiveIntensity: 0.85,
+        roughness: 0.35,
+        transparent: true,
+        opacity: 0.92,
+      })
+    );
+    shade.position.y = 0.1;
+    group.add(shade);
+
+    const glow = new THREE.PointLight(0xffc870, 0.55, 2.2);
+    glow.position.y = 0.12;
+    group.add(glow);
+  } else if (recipeId === "memo_wall") {
+    const board = new THREE.Mesh(
+      new THREE.BoxGeometry(0.42, 0.28, 0.02),
+      new THREE.MeshStandardMaterial({ color: 0x3a4a52, roughness: 0.9 })
+    );
+    group.add(board);
+
+    for (let i = 0; i < 4; i += 1) {
+      const note = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.08 + (i % 2) * 0.03, 0.06),
+        new THREE.MeshStandardMaterial({
+          color: i % 2 ? 0xe8f4ff : 0xfff0d8,
+          roughness: 0.75,
+          side: THREE.DoubleSide,
+        })
+      );
+      note.position.set(-0.1 + (i % 2) * 0.16, 0.05 - Math.floor(i / 2) * 0.1, 0.012);
+      note.rotation.z = (i - 1.5) * 0.08;
+      group.add(note);
+    }
+  } else if (recipeId === "grow_pot") {
+    const pot = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.07, 0.12, 14),
+      new THREE.MeshStandardMaterial({ color: 0x6b4a32, roughness: 0.88 })
+    );
+    pot.position.y = 0.06;
+    group.add(pot);
+
+    const soil = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.08, 0.02, 14),
+      new THREE.MeshStandardMaterial({ color: 0x2a1f14, roughness: 1 })
+    );
+    soil.position.y = 0.11;
+    group.add(soil);
+
+    const sprout = new THREE.Mesh(
+      new THREE.ConeGeometry(0.03, 0.1, 8),
+      new THREE.MeshStandardMaterial({ color: 0x5ecf6a, roughness: 0.7 })
+    );
+    sprout.position.y = 0.18;
+    group.add(sprout);
+  }
+
+  return group;
+}
+
+function syncCraftedProps(roomRoot, craftedIds, fit) {
+  if (!roomRoot) return;
+  const floorY = fit?.floorY ?? 0;
+  const wanted = new Set(craftedIds ?? []);
+
+  roomRoot.children
+    .filter((child) => child.name?.startsWith("craft:"))
+    .forEach((child) => {
+      const id = child.name.slice(6);
+      if (!wanted.has(id)) roomRoot.remove(child);
+    });
+
+  for (const id of wanted) {
+    if (roomRoot.getObjectByName(`craft:${id}`)) continue;
+    const layout = CRAFT_PROP_LAYOUT[id];
+    if (!layout) continue;
+    const prop = createCraftProp(id);
+    prop.position.set(layout.x, floorY + layout.yOff, layout.z);
+    roomRoot.add(prop);
+  }
+}
+
 async function loadGlbModel(basePath, manifest) {
   const loader = new GLTFLoader();
   const errors = [];
@@ -352,6 +455,10 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
     muu.playIdle();
   }
 
+  function syncCrafted(craftedIds) {
+    syncCraftedProps(roomRoot, craftedIds, fit);
+  }
+
   function dispose() {
     controls.dispose();
     muu.dispose();
@@ -369,5 +476,5 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   resize();
   window.addEventListener("resize", resize);
 
-  return { ...state, resize, render, dispose, playMuuSpeak, playMuuIdle };
+  return { ...state, resize, render, dispose, playMuuSpeak, playMuuIdle, syncCrafted };
 }

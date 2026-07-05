@@ -428,6 +428,8 @@ body {
   gap: 12px;
   border-left: 1px solid #222;
   padding-left: 32px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .shell-question {
@@ -1308,6 +1310,10 @@ body.gather-active #game {
 
 .craft-btn.ready {
   border-color: rgba(110, 200, 255, 0.45);
+}
+
+.craft-btn.ready .craft-needs {
+  color: #9edcff;
 }
 
 .craft-btn.crafted {
