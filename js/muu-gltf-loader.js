@@ -1,17 +1,10 @@
-/** GLTFLoader — HumGen / KHR マテリアル対応 */
+/** GLTFLoader — HumGen マテリアル向け（r170 の GLTFLoader は KHR 拡張を内蔵） */
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { KHRMaterialsClearcoat } from "three/addons/loaders/KHRMaterialsClearcoat.js";
-import { KHRMaterialsIor } from "three/addons/loaders/KHRMaterialsIor.js";
-import { KHRMaterialsSpecular } from "three/addons/loaders/KHRMaterialsSpecular.js";
 
 export function createMuuGltfLoader() {
-  const loader = new GLTFLoader();
-  loader.register((parser) => new KHRMaterialsClearcoat(parser));
-  loader.register((parser) => new KHRMaterialsIor(parser));
-  loader.register((parser) => new KHRMaterialsSpecular(parser));
-  return loader;
+  return new GLTFLoader();
 }
 
 export function fixMuuMaterials(root) {
