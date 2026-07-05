@@ -398,8 +398,32 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   controls.enablePan = false;
   controls.minDistance = fit.dist * 0.45;
   controls.maxDistance = fit.dist * 2.8;
-  controls.maxPolarAngle = Math.PI * 0.92;
+  // 通常は水平より上。ズームアウト時だけ少し下から覗ける（宇宙の楽しさ用）
+  controls.maxPolarAngle = Math.PI * 0.48;
   controls.minPolarAngle = Math.PI * 0.12;
+
+  const floorY = fit.floorY ?? 0;
+  const voidPeekFloor = floorY - fit.size.y * 0.42;
+  const zoomRange = controls.maxDistance - controls.minDistance;
+
+  function updateOrbitLimits() {
+    const t = zoomRange > 0 ? (camera.position.distanceTo(controls.target) - controls.minDistance) / zoomRange : 0;
+    const eased = Math.max(0, Math.min(1, t));
+    controls.maxPolarAngle = Math.PI * (0.48 + eased * 0.14);
+  }
+
+  function softenVoidDive() {
+    updateOrbitLimits();
+    if (camera.position.y >= voidPeekFloor) return;
+    const pull = voidPeekFloor + (camera.position.y - voidPeekFloor) * 0.12;
+    camera.position.y = pull;
+    const offset = camera.position.clone().sub(controls.target);
+    const len = offset.length();
+    if (len > 0.001) {
+      offset.normalize().multiplyScalar(len);
+      camera.position.copy(controls.target).add(offset);
+    }
+  }
 
   const state = {
     ready: true,
@@ -444,6 +468,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
     muu.update(dt);
     starfield.update(state.time);
     controls.update();
+    softenVoidDive();
     renderer.render(scene, camera);
   }
 
