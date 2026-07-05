@@ -98,7 +98,7 @@ import {
   formatNeeds,
 } from "./gather-craft.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js?v=20260706orbit";
+import { createShellRoomView } from "./shell-room.js?v=20260706craftroom";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 import {
   preloadVoidCosmos,

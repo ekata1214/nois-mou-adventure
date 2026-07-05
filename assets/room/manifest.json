@@ -10,5 +10,10 @@
   "fillLight": 0.5,
   "backgroundColor": "#000000",
   "starCount": 2800,
-  "brightStarCount": 48
+  "brightStarCount": 48,
+  "craftSlots": {
+    "warm_lamp": { "kind": "floor", "u": -0.24, "v": 0.1 },
+    "grow_pot": { "kind": "floor", "u": 0.2, "v": 0.18 },
+    "memo_wall": { "kind": "wall", "u": 0.06, "v": -0.28, "wall": "back", "wallHeight": 0.44 }
+  }
 }
