@@ -154,6 +154,13 @@ export function createCraftProp(recipeId, roomRoot) {
   return group;
 }
 
+function craftYOffset(roomRoot, manifest, slot) {
+  const u = roomUnit(roomRoot);
+  const lift = manifest?.craftRaise ?? 0.18;
+  const extra = slot?.yRaise ?? 0;
+  return u * (lift + extra);
+}
+
 export function placeCraftProp(prop, recipeId, roomRoot, manifest, fit, anchors) {
   const slot = slotFor(recipeId, manifest);
   if (!slot) return;
@@ -163,6 +170,7 @@ export function placeCraftProp(prop, recipeId, roomRoot, manifest, fit, anchors)
     prop.position.copy(anchor.position);
     prop.quaternion.copy(anchor.quaternion);
     prop.rotation.y += slot.yaw ?? 0;
+    prop.position.y += craftYOffset(roomRoot, manifest, slot);
     return;
   }
 
@@ -177,6 +185,7 @@ export function placeCraftProp(prop, recipeId, roomRoot, manifest, fit, anchors)
     prop.position.copy(placed.position);
     prop.rotation.set(0, slot.yaw ?? 0, 0);
   }
+  prop.position.y += craftYOffset(roomRoot, manifest, slot);
 }
 
 export function syncCraftedProps(roomRoot, craftedIds, fit, manifest, anchors) {

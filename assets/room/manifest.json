@@ -11,6 +11,7 @@
   "backgroundColor": "#000000",
   "starCount": 2800,
   "brightStarCount": 48,
+  "craftRaise": 0.18,
   "craftAnchors": {
     "warm_lamp": "warm_lamp",
     "grow_pot": "grow_pot",
