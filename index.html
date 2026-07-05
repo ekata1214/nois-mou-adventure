@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>ムー君の冒険 — NOU</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="css/style.css?v=20260704mobile" />
+  <link rel="stylesheet" href="css/style.css?v=20260705ds" />
 </head>
 <body>
   <div id="app">
@@ -16,10 +16,27 @@
       <p class="brand">UNGR ARCHIVE PRESENTS</p>
       <img id="title-art" src="assets/title.png" alt="ムー君の冒険" />
       <p class="start-hint">CLICK / SPACE / TAP to enter NOU</p>
-      <p class="start-hint mobile-hint">MOBILE — TAP map to move</p>
+      <p class="start-hint mobile-hint">MOBILE — D-PAD move · DS buttons in combat</p>
       <p class="credit">Nois Mou — World Scale Prototype · v20260704mobile</p>
     </div>
     <canvas id="game" width="1280" height="720" tabindex="0"></canvas>
+
+    <div id="mobile-controls" class="mobile-controls hidden" aria-hidden="true">
+      <div class="mobile-dpad" aria-label="移動">
+        <button type="button" class="dpad-btn dpad-up" data-dpad="up" aria-label="上"></button>
+        <button type="button" class="dpad-btn dpad-left" data-dpad="left" aria-label="左"></button>
+        <button type="button" class="dpad-btn dpad-center" tabindex="-1" aria-hidden="true"></button>
+        <button type="button" class="dpad-btn dpad-right" data-dpad="right" aria-label="右"></button>
+        <button type="button" class="dpad-btn dpad-down" data-dpad="down" aria-label="下"></button>
+      </div>
+      <div id="mobile-face" class="mobile-face hidden" aria-label="アクション">
+        <button type="button" class="face-btn face-y" data-action="guard"><span class="face-key">Y</span><span class="face-label">守</span></button>
+        <button type="button" class="face-btn face-x" data-action="dodge"><span class="face-key">X</span><span class="face-label">避</span></button>
+        <button type="button" class="face-btn face-a" data-action="slash"><span class="face-key">A</span><span class="face-label">切</span></button>
+        <button type="button" class="face-btn face-b" data-action="punch"><span class="face-key">B</span><span class="face-label">殴</span></button>
+        <button type="button" class="face-btn face-flee" data-action="flee"><span class="face-key">逃</span><span class="face-label">走</span></button>
+      </div>
+    </div>
 
     <div id="shell-screen" class="hidden">
       <p class="shell-brand">INTROVERT — 殻（カラ）</p>
@@ -130,6 +147,6 @@
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=20260705action"></script>
+  <script type="module" src="js/main.js?v=20260705ds"></script>
 </body>
 </html>

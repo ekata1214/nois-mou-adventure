@@ -83,6 +83,11 @@ import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
 import { createShellRoomView } from "./shell-room.js?v=20260704pages";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
+import {
+  initMobileControls,
+  syncMobileControls,
+  getMobileMoveVector,
+} from "./mobile-controls.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -292,13 +297,35 @@ function queueAction(kind) {
   if (kind === ACTION_KIND.FLEE) actionPulse.flee = true;
 }
 
+function handleMobileAction({ kind, phase }) {
+  if (encounterPhase !== "action") return;
+  if (phase === "down") {
+    if (kind === "guard") actionTouchGuard = true;
+    else if (kind === "flee") actionTouchFlee = true;
+    else if (kind !== "reset") queueAction(kind);
+  } else {
+    if (kind === "guard") actionTouchGuard = false;
+    else if (kind === "flee") actionTouchFlee = false;
+    else if (kind === "reset") {
+      actionTouchGuard = false;
+      actionTouchFlee = false;
+    }
+  }
+}
+
 function buildActionCombatInput() {
   let moveX = 0;
   let moveY = 0;
-  if (keys.has("ArrowLeft") || keys.has("KeyA")) moveX -= 1;
-  if (keys.has("ArrowRight") || keys.has("KeyD")) moveX += 1;
-  if (keys.has("ArrowUp") || keys.has("KeyW")) moveY -= 1;
-  if (keys.has("ArrowDown") || keys.has("KeyS")) moveY += 1;
+  const mobileMove = getMobileMoveVector();
+  if (mobileMove.x !== 0 || mobileMove.y !== 0) {
+    moveX = mobileMove.x;
+    moveY = mobileMove.y;
+  } else {
+    if (keys.has("ArrowLeft") || keys.has("KeyA")) moveX -= 1;
+    if (keys.has("ArrowRight") || keys.has("KeyD")) moveX += 1;
+    if (keys.has("ArrowUp") || keys.has("KeyW")) moveY -= 1;
+    if (keys.has("ArrowDown") || keys.has("KeyS")) moveY += 1;
+  }
 
   return {
     moveX,
@@ -403,6 +430,7 @@ function startGame() {
   regionStableTimer = 0;
   refreshSoulUI();
   refreshLayout();
+  refreshMobileControls();
 }
 
 function triggerGameOver({ fromVoid = false } = {}) {
@@ -441,6 +469,7 @@ function triggerGameOver({ fromVoid = false } = {}) {
 
   setBgmEnabled(false);
   playVoice("gameover", { volume: 0.9, force: true });
+  refreshMobileControls();
 }
 
 function triggerGameOverIfDead() {
@@ -515,6 +544,7 @@ function enterShell() {
     pulseMuu(700);
   }
   drawShellMuu();
+  refreshMobileControls();
 }
 
 async function enterNou() {
@@ -537,6 +567,8 @@ async function enterNou() {
   onMapRegionChange(getBgmRegionKey(region), { force: true });
   currentMapRegion = getBgmRegionKey(region);
   playVoice("nou_enter", { volume: 0.5 });
+  hud.classList.remove("hidden");
+  refreshMobileControls();
 }
 
 function refreshGauges() {
@@ -661,6 +693,7 @@ function beginCombatAfterZoom() {
     actionEnemyHpFill.style.width = "100%";
     focusGameCanvas();
   }
+  refreshMobileControls();
 }
 
 function updateEncounterTransition(dt) {
@@ -725,6 +758,7 @@ function finishEncounterClose() {
   encounterScreen.classList.remove("zoom-backdrop", "flash-only");
   encounterPanel?.classList.remove("hidden");
   combatTypeEl.textContent = "";
+  refreshMobileControls();
 }
 
 function openEncounter(entity, presetStyle = null) {
@@ -912,6 +946,15 @@ function refreshLayout() {
   shellRoomView?.resize?.();
 }
 
+function refreshMobileControls() {
+  syncMobileControls({
+    state,
+    mode,
+    encounterPhase,
+    gameover: state === "gameover",
+  });
+}
+
 function bindViewport() {
   bindMobileViewport(refreshLayout);
   refreshLayout();
@@ -945,7 +988,12 @@ function updatePlayer(dt) {
   let dx = 0;
   let dy = 0;
 
-  if (isMovementKeyDown()) {
+  const mobileMove = getMobileMoveVector();
+  if (mobileMove.x !== 0 || mobileMove.y !== 0) {
+    dx = mobileMove.x;
+    dy = mobileMove.y;
+    tapTarget = null;
+  } else if (isMovementKeyDown()) {
     if (keys.has("ArrowLeft") || keys.has("KeyA")) dx -= 1;
     if (keys.has("ArrowRight") || keys.has("KeyD")) dx += 1;
     if (keys.has("ArrowUp") || keys.has("KeyW")) dy -= 1;
@@ -1493,6 +1541,7 @@ function bindInput() {
       if (encounterLocked && encounterPhase !== "action") return;
       if (isTouchDevice) {
         e.preventDefault();
+        if (encounterPhase === "action") return;
         tapTarget = screenToWorld(e.clientX, e.clientY);
         return;
       }
@@ -1528,6 +1577,9 @@ function bindInput() {
   canvas.addEventListener("pointerleave", endTouch);
 
   bindViewport();
+
+  initMobileControls({ onAction: handleMobileAction });
+  refreshMobileControls();
 }
 
 async function loadShellRoomInBackground() {
