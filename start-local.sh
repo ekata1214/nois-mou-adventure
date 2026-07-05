@@ -27,14 +27,7 @@ fi
 if grep -q "shell-room-gl" index.html 2>/dev/null; then
   echo "✓ 殻の3D部屋用 HTML"
 else
-  echo "✗ index.html が古い → git pull してください"
-  ok=0
-fi
-
-if grep -q "v20260703p" index.html 2>/dev/null; then
-  echo "✓ 最新バージョン (v20260703p)"
-else
-  echo "✗ コードが古い → git pull してください"
+  echo "✗ index.html が古い"
   ok=0
 fi
 

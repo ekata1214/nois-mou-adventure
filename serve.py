@@ -33,13 +33,30 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
 def main() -> None:
     parser = argparse.ArgumentParser(description="Serve static files quietly")
     parser.add_argument("port", nargs="?", type=int, default=8765)
+    parser.add_argument(
+        "--lan",
+        action="store_true",
+        help="Listen on all interfaces (phone on same Wi-Fi)",
+    )
     args = parser.parse_args()
 
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    # Mac / Python 3.14 では localhost 固定が一番安定
-    with socketserver.ThreadingTCPServer(("127.0.0.1", args.port), QuietHandler) as httpd:
+    host = "0.0.0.0" if args.lan else "127.0.0.1"
+    with socketserver.ThreadingTCPServer((host, args.port), QuietHandler) as httpd:
         httpd.allow_reuse_address = True
-        print(f"Serving HTTP on 127.0.0.1 port {args.port} (http://localhost:{args.port}/) ...")
+        print(f"Serving HTTP on {host} port {args.port}")
+        print(f"  → http://localhost:{args.port}/")
+        if args.lan:
+            try:
+                import socket
+
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                lan_ip = s.getsockname()[0]
+                s.close()
+                print(f"  → http://{lan_ip}:{args.port}/  (same Wi‑Fi)")
+            except OSError:
+                pass
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

@@ -52,17 +52,12 @@ else
 fi
 
 MUU_GLB=""
-for candidate in speak-mou*.glb speak_mou.glb speak-mou.glb speak_mou.GLB; do
-  for f in assets/muu/$candidate; do
-    [ -f "$f" ] || continue
-    MUU_GLB="$f"
-    break 2
-  done
+for candidate in speak-mou5.glb speak-mou4.glb speak-mou3.glb speak-mou2.glb speak_mou.glb speak-mou.glb; do
+  if [ -f "assets/muu/$candidate" ]; then
+    MUU_GLB="assets/muu/$candidate"
+    break
+  fi
 done
-# speak-mou3 > speak-mou2 など数字付きを優先
-if ls assets/muu/speak-mou*.glb >/dev/null 2>&1; then
-  MUU_GLB="$(ls -v assets/muu/speak-mou*.glb 2>/dev/null | tail -1)"
-fi
 
 if [ -n "$MUU_GLB" ]; then
   size=$(du -h "$MUU_GLB" | cut -f1)
