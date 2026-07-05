@@ -44,6 +44,7 @@ import {
   createActionCombat,
   updateActionCombat,
   drawActionCombat,
+  ACTION_KIND,
 } from "./combat-action.js";
 import {
   stepEncounterTransition,
@@ -95,7 +96,8 @@ const combatTypeEl = document.getElementById("combat-type");
 const actionCombatHud = document.getElementById("action-combat-hud");
 const actionEntityNameEl = document.getElementById("action-entity-name");
 const actionEnemyHpFill = document.getElementById("action-enemy-hp-fill");
-const actionAttackBtn = document.getElementById("action-attack-btn");
+const actionCombatHint = document.getElementById("action-combat-hint");
+const actionCombatBar = document.getElementById("action-combat-bar");
 const entityNameEl = document.getElementById("entity-name");
 const entityLineEl = document.getElementById("entity-line");
 const entityVisualEl = document.getElementById("entity-visual");
@@ -278,7 +280,45 @@ let battleField = null;
 let overworldSnapshot = null;
 let zoomTimer = 0;
 let actionCombat = null;
-let attackJustPressed = false;
+let actionPulse = { slash: false, punch: false, dodge: false, flee: false };
+let actionTouchGuard = false;
+let actionTouchFlee = false;
+
+function queueAction(kind) {
+  if (encounterPhase !== "action" || !actionCombat) return;
+  if (kind === ACTION_KIND.SLASH) actionPulse.slash = true;
+  if (kind === ACTION_KIND.PUNCH) actionPulse.punch = true;
+  if (kind === ACTION_KIND.DODGE) actionPulse.dodge = true;
+  if (kind === ACTION_KIND.FLEE) actionPulse.flee = true;
+}
+
+function buildActionCombatInput() {
+  let moveX = 0;
+  let moveY = 0;
+  if (keys.has("ArrowLeft") || keys.has("KeyA")) moveX -= 1;
+  if (keys.has("ArrowRight") || keys.has("KeyD")) moveX += 1;
+  if (keys.has("ArrowUp") || keys.has("KeyW")) moveY -= 1;
+  if (keys.has("ArrowDown") || keys.has("KeyS")) moveY += 1;
+
+  return {
+    moveX,
+    moveY,
+    slashJustPressed: actionPulse.slash,
+    punchJustPressed: actionPulse.punch,
+    dodgeJustPressed: actionPulse.dodge,
+    fleeJustPressed: actionPulse.flee,
+    fleeHeld: keys.has("KeyE") || actionTouchFlee,
+    guardHeld:
+      keys.has("ShiftLeft") ||
+      keys.has("ShiftRight") ||
+      keys.has("KeyC") ||
+      actionTouchGuard,
+  };
+}
+
+function clearActionPulse() {
+  actionPulse = { slash: false, punch: false, dodge: false, flee: false };
+}
 let encounterCloseQueued = false;
 let saveTimer = 0;
 let lowHpVoiceTimer = 0;
@@ -746,24 +786,21 @@ function closeEncounter() {
 function updateActionCombatFrame(dt) {
   if (encounterPhase !== "action" || !actionCombat) return;
 
-  const input = {
-    attackJustPressed,
-    attackDirX: 0,
-    attackDirY: 0,
-  };
-  if (keys.has("ArrowLeft") || keys.has("KeyA")) input.attackDirX -= 1;
-  if (keys.has("ArrowRight") || keys.has("KeyD")) input.attackDirX += 1;
-  if (keys.has("ArrowUp") || keys.has("KeyW")) input.attackDirY -= 1;
-  if (keys.has("ArrowDown") || keys.has("KeyS")) input.attackDirY += 1;
-
+  const input = buildActionCombatInput();
   const result = updateActionCombat(actionCombat, player, dt, input);
-  attackJustPressed = false;
+  clearActionPulse();
 
   actionEnemyHpFill.style.width = `${(actionCombat.enemyHp / actionCombat.enemyMaxHp) * 100}%`;
 
+  if (actionCombatHint) {
+    const edge = result.edgeDist ?? 999;
+    const fleeNote = edge < 52 ? " · 端でE=即逃げ" : " · E長押し=逃げ";
+    actionCombatHint.textContent = `Z切 X殴 C守 V避${fleeNote}`;
+  }
+
   if (result.events?.playerHit) {
     soul.hp = Math.max(0, (soul.hp ?? HP_MAX) - result.events.playerHit);
-    playVoice("low_hp", { volume: 0.5 });
+    playVoice(result.events.guardHit ? "hmm" : "low_hp", { volume: 0.5 });
     refreshGauges();
     if (isDead(soul)) {
       closeEncounter();
@@ -774,6 +811,15 @@ function updateActionCombatFrame(dt) {
 
   if (result.events?.enemyHit) {
     playClip(voiceForChoice(CHOICE.KILL), 0.35);
+  }
+
+  if (result.events?.fled) {
+    if (!actionCombat.rewardsApplied) {
+      actionCombat.rewardsApplied = true;
+      const outcome = resolveChoice(activeEntity, CHOICE.IGNORE);
+      soul = applyEncounterChoice(soul, CHOICE.IGNORE, outcome);
+      refreshSoulUI();
+    }
   }
 
   if (result.over) {
@@ -891,8 +937,11 @@ function drawTapMarker() {
 function updatePlayer(dt) {
   if (isDead(soul)) return;
   if (encounterLocked && encounterPhase !== "action") return;
+  if (encounterPhase === "action" && actionCombat?.dodgeTimer > 0) return;
 
-  const speed = getMoveSpeed(BASE_SPEED, soul);
+  const guardSlow =
+    encounterPhase === "action" && buildActionCombatInput().guardHeld ? 0.38 : 1;
+  const speed = getMoveSpeed(BASE_SPEED, soul) * guardSlow;
   let dx = 0;
   let dy = 0;
 
@@ -1345,11 +1394,36 @@ function bindInput() {
       return;
     }
 
-    if (encounterPhase === "action" && (e.code === "Space" || e.code === "KeyZ" || e.code === "KeyJ")) {
-      e.preventDefault();
-      attackJustPressed = true;
-      focusGameCanvas();
-      return;
+    if (encounterPhase === "action") {
+      if (e.code === "Space" || e.code === "KeyZ" || e.code === "KeyJ") {
+        e.preventDefault();
+        queueAction(ACTION_KIND.SLASH);
+        focusGameCanvas();
+        return;
+      }
+      if (e.code === "KeyX" || e.code === "KeyK") {
+        e.preventDefault();
+        queueAction(ACTION_KIND.PUNCH);
+        focusGameCanvas();
+        return;
+      }
+      if (e.code === "KeyV") {
+        e.preventDefault();
+        queueAction(ACTION_KIND.DODGE);
+        focusGameCanvas();
+        return;
+      }
+      if (e.code === "KeyE") {
+        e.preventDefault();
+        queueAction(ACTION_KIND.FLEE);
+        focusGameCanvas();
+        return;
+      }
+      if (e.code === "ShiftLeft" || e.code === "ShiftRight" || e.code === "KeyC") {
+        e.preventDefault();
+        focusGameCanvas();
+        return;
+      }
     }
 
     if (!MOVEMENT_KEYS.has(e.code)) return;
@@ -1385,9 +1459,23 @@ function bindInput() {
   feedInput.addEventListener("input", updateFeedCharCount);
   encounterCloseBtn.addEventListener("click", closeEncounter);
 
-  actionAttackBtn?.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    if (encounterPhase === "action") attackJustPressed = true;
+  actionCombatBar?.querySelectorAll("[data-action]").forEach((btn) => {
+    const kind = btn.dataset.action;
+    btn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      if (encounterPhase !== "action") return;
+      if (kind === ACTION_KIND.GUARD) actionTouchGuard = true;
+      else if (kind === ACTION_KIND.FLEE) actionTouchFlee = true;
+      else queueAction(kind);
+    });
+  });
+  window.addEventListener("pointerup", () => {
+    actionTouchGuard = false;
+    actionTouchFlee = false;
+  });
+  window.addEventListener("pointercancel", () => {
+    actionTouchGuard = false;
+    actionTouchFlee = false;
   });
 
   choiceButtons.forEach((btn) => {

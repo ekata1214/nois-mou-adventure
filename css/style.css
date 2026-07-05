@@ -757,41 +757,68 @@ body {
 
 .action-combat-hint {
   position: absolute;
-  bottom: 24px;
+  bottom: 72px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 10px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
   color: #666;
+  white-space: nowrap;
+}
+
+.action-combat-bar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: min(96vw, 520px);
+}
+
+.action-btn {
+  border: 1px solid #444;
+  background: rgba(10, 10, 10, 0.88);
+  color: #ddd;
+  padding: 10px 14px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  touch-action: manipulation;
+  min-width: 3.6em;
+}
+
+.action-btn[data-action="slash"] {
+  border-color: #e50914;
+  color: #e50914;
+}
+
+.action-btn[data-action="flee"] {
+  border-color: #666;
+  color: #999;
+}
+
+.action-btn:active,
+.action-btn.hold:active {
+  background: rgba(229, 9, 20, 0.15);
 }
 
 .action-attack-btn {
   display: none;
-  position: absolute;
-  bottom: 24px;
-  right: 20px;
-  pointer-events: auto;
-  border: 1px solid #e50914;
-  background: rgba(10, 10, 10, 0.85);
-  color: #e50914;
-  padding: 18px 28px;
-  font-size: 14px;
-  letter-spacing: 0.2em;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.action-attack-btn:active {
-  background: rgba(229, 9, 20, 0.2);
 }
 
 @media (hover: none) and (pointer: coarse) {
   .action-combat-hint {
-    display: none;
+    font-size: 9px;
+    bottom: 64px;
   }
 
-  .action-attack-btn {
-    display: block;
+  .action-btn {
+    padding: 12px 10px;
+    font-size: 10px;
   }
 }
 

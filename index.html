@@ -65,8 +65,14 @@
         <span class="gauge-label">敵</span>
         <div class="meter-track action-enemy-hp"><div id="action-enemy-hp-fill" class="gauge-fill hp"></div></div>
       </div>
-      <p id="action-combat-hint" class="action-combat-hint">Z / SPACE — 斬る</p>
-      <button id="action-attack-btn" type="button" class="action-attack-btn">斬る</button>
+      <p id="action-combat-hint" class="action-combat-hint">Z切 · X殴 · C守 · V避 · E逃（端で即逃げ）</p>
+      <div id="action-combat-bar" class="action-combat-bar">
+        <button type="button" data-action="slash" class="action-btn">切る</button>
+        <button type="button" data-action="punch" class="action-btn">殴る</button>
+        <button type="button" data-action="guard" class="action-btn hold">守る</button>
+        <button type="button" data-action="dodge" class="action-btn">避ける</button>
+        <button type="button" data-action="flee" class="action-btn hold">逃げる</button>
+      </div>
     </div>
 
     <div id="encounter-screen" class="hidden">
@@ -124,6 +130,6 @@
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=20260704mobile"></script>
+  <script type="module" src="js/main.js?v=20260705action"></script>
 </body>
 </html>
