@@ -290,6 +290,8 @@ body {
   display: flex;
   flex-direction: column;
   padding: 48px 56px 32px;
+  overflow: hidden;
+  min-height: 0;
 }
 
 #shell-screen.hidden {
@@ -319,6 +321,11 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 40px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shell-layout > * {
   min-height: 0;
 }
 
@@ -428,8 +435,15 @@ body {
   gap: 12px;
   border-left: 1px solid #222;
   padding-left: 32px;
+  padding-right: 4px;
+  padding-bottom: 24px;
   min-height: 0;
+  max-height: 100%;
+  overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .shell-question {
@@ -448,15 +462,17 @@ body {
 }
 
 #feed-input {
-  flex: 1;
-  min-height: 140px;
+  flex: 0 0 auto;
+  height: 140px;
+  min-height: 100px;
+  max-height: 180px;
   background: #0a0a0a;
   border: 1px solid #333;
   color: #f2f2f2;
   padding: 14px;
   font-size: 15px;
   line-height: 1.5;
-  resize: none;
+  resize: vertical;
   font-family: inherit;
 }
 
@@ -506,8 +522,9 @@ body {
 #feed-log {
   list-style: none;
   margin-top: 8px;
+  flex: 0 0 auto;
+  max-height: 120px;
   overflow-y: auto;
-  flex: 1;
   font-size: 12px;
   color: #666;
 }
@@ -527,6 +544,7 @@ body {
 #to-nou {
   align-self: center;
   margin-top: 16px;
+  flex-shrink: 0;
 }
 
 #encounter-screen {
@@ -869,7 +887,7 @@ body {
 
   .shell-layout {
     grid-template-columns: 1fr;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .shell-panel {
@@ -877,6 +895,7 @@ body {
     padding-left: 0;
     border-top: 1px solid #222;
     padding-top: 20px;
+    max-height: none;
   }
 
   #shell-screen {
@@ -1254,7 +1273,9 @@ body.gather-active #game {
 .gather-panel {
   margin-top: 18px;
   padding-top: 14px;
+  padding-bottom: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 .gather-panel-title {
