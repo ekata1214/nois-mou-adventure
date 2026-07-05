@@ -33,10 +33,11 @@ else
   echo "origin/main をマージします..."
   git merge origin/main --no-edit || {
     echo ""
-    echo "マージでコンフリクトしました。解消後:"
-    echo "  git add -A && git commit"
+    echo "マージでコンフリクトしました。"
+    echo "  画面に <<<<<<< HEAD と出ている場合:"
+    echo "    ./scripts/fix-broken-merge.sh"
     echo ""
-    echo "コードだけ main に合わせる場合:"
+    echo "手動で直す場合:"
     echo "  git merge --abort"
     echo "  git reset --hard origin/main"
     exit 1
