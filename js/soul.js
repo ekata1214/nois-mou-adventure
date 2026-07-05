@@ -2,7 +2,13 @@ const STORAGE_KEY = "nois-mou-soul-v1";
 
 export const HP_MAX = 100;
 export const HUMAN_MAX = 100;
-export const HUMAN_MAX_TIME = 300; // 5分で時間成分がマックス
+/** 同一モードに偏ると闇が増える（秒） */
+export const MODE_IMBALANCE_SEC = 180;
+/** この秒数アクションなし → 人間メーター下降 */
+export const HUMAN_IDLE_SEC = 22;
+
+const HUMAN_GAIN_MIN = 0.7;
+const HUMAN_GAIN_MAX = 4.2;
 
 const NEG = ["疲", "むか", "怒", "嫌", "苦", "悲", "死", "つら", "しんど", "不安", "虚無", "やば"];
 const POS = ["嬉", "楽", "好き", "幸", "ありがと", "笑", "最高", "うれ", "楽し", "愛"];
@@ -53,10 +59,18 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
+function migrateHumanGauge(soul) {
+  if (typeof soul.humanGauge === "number") return clamp(soul.humanGauge, 0, HUMAN_MAX);
+  const legacyTime = ((soul.playTimeSeconds ?? 0) / 300) * 60;
+  const legacySpark = soul.humanSpark ?? 0;
+  return clamp(legacyTime + legacySpark, 0, HUMAN_MAX);
+}
+
 function defaultState() {
   return {
     feeds: [],
     lastFeedAt: Date.now(),
+    lastActionAt: Date.now(),
     darkEntity: 0,
     feedCounts: { negative: 0, positive: 0, philosophical: 0, neutral: 0 },
     choices: { kill: 0, eat: 0, ignore: 0, friend: 0 },
@@ -67,8 +81,14 @@ function defaultState() {
     lastReply: "……まだ、何も食べてない。",
     lastChoiceLine: "",
     hp: HP_MAX,
+    humanGauge: 0,
     humanSpark: 0,
     playTimeSeconds: 0,
+    lastMode: null,
+    timeInMode: 0,
+    mirrorPortalOpen: false,
+    cleared: false,
+    hardMode: false,
   };
 }
 
@@ -78,6 +98,8 @@ export function loadSoul() {
     if (!raw) return defaultState();
     const merged = { ...defaultState(), ...JSON.parse(raw) };
     merged.hp = clamp(merged.hp ?? HP_MAX, 0, HP_MAX);
+    merged.humanGauge = migrateHumanGauge(merged);
+    merged.lastActionAt = merged.lastActionAt ?? merged.lastFeedAt ?? Date.now();
     merged.humanSpark = clamp(merged.humanSpark ?? 0, 0, 40);
     merged.playTimeSeconds = Math.max(0, merged.playTimeSeconds ?? 0);
     return merged;
@@ -91,13 +113,27 @@ export function saveSoul(soul) {
 }
 
 export function getHumanGauge(soul) {
-  const timePart = (soul.playTimeSeconds / HUMAN_MAX_TIME) * HUMAN_MAX;
-  const spark = soul.humanSpark ?? 0;
-  return clamp(timePart + spark, 0, HUMAN_MAX);
+  return clamp(soul.humanGauge ?? 0, 0, HUMAN_MAX);
 }
 
 export function isHumanMax(soul) {
   return getHumanGauge(soul) >= HUMAN_MAX - 0.5;
+}
+
+/** 四択・殻回答・戦闘など — どんなアクションでもランダム量で人間メーター上昇 */
+export function recordPlayerAction(soul, { kind = "generic" } = {}) {
+  const gain = HUMAN_GAIN_MIN + Math.random() * (HUMAN_GAIN_MAX - HUMAN_GAIN_MIN);
+  soul.humanGauge = clamp((soul.humanGauge ?? 0) + gain, 0, HUMAN_MAX);
+  soul.lastActionAt = Date.now();
+  soul.lastFeedAt = Date.now();
+  soul.darkEntity = Math.max(0, soul.darkEntity - 2.5);
+  if (kind === "ignore") {
+    soul.darkEntity = Math.min(100, soul.darkEntity + 6);
+  }
+  if (isHumanMax(soul) && !soul.mirrorPortalOpen) {
+    soul.mirrorPortalOpen = true;
+  }
+  return soul;
 }
 
 export function feedSoul(soul, text) {
@@ -119,6 +155,7 @@ export function feedSoul(soul, text) {
     soul.humanSpark = clamp((soul.humanSpark ?? 0) + 1.5, 0, 40);
   }
 
+  recordPlayerAction(soul, { kind: "feed" });
   soul.lastReply = pick(REPLIES[kind]);
   saveSoul(soul);
   return { soul, reply: soul.lastReply, kind, healed: heal };
@@ -185,19 +222,35 @@ export function answerShellQuestion(soul, text, question, minLen = 100) {
     soul.humanSpark = clamp((soul.humanSpark ?? 0) + 2, 0, 40);
   }
 
+  recordPlayerAction(soul, { kind: "shell_answer" });
   soul.lastReply = pick(SHELL_OK_REPLIES);
   saveSoul(soul);
   return { soul, ok: true, reply: soul.lastReply, kind, healed: heal };
 }
 
 export function tickSoul(soul, dt, opts = {}) {
-  const { playing = false, inNou = false } = opts;
+  const { playing = false, inNou = false, mode = null } = opts;
 
   if (playing) {
     soul.playTimeSeconds = (soul.playTimeSeconds ?? 0) + dt;
 
-    if (Math.random() < dt * 0.14) {
-      soul.humanSpark = clamp((soul.humanSpark ?? 0) + 1 + Math.random() * 2.5, 0, 40);
+    const modeKey = inNou ? "extrovert" : "introvert";
+    if (mode && soul.lastMode !== mode) {
+      soul.timeInMode = 0;
+      soul.lastMode = mode;
+    } else if (soul.lastMode !== modeKey) {
+      soul.timeInMode = 0;
+      soul.lastMode = modeKey;
+    }
+    soul.timeInMode = (soul.timeInMode ?? 0) + dt;
+
+    if (soul.timeInMode > MODE_IMBALANCE_SEC) {
+      soul.darkEntity = Math.min(100, soul.darkEntity + dt * 0.38);
+    }
+
+    const idleSec = (Date.now() - (soul.lastActionAt ?? Date.now())) / 1000;
+    if (idleSec > HUMAN_IDLE_SEC) {
+      soul.humanGauge = clamp((soul.humanGauge ?? 0) - dt * 0.32, 0, HUMAN_MAX);
     }
   }
 
@@ -265,7 +318,7 @@ export function getMoodLabel(soul, opts = {}) {
   if (isDead(soul)) return "息が途切れる";
   if (opts?.inVoid) return "VOID——生きられない";
   if ((soul.hp ?? HP_MAX) < 25) return "体が持たない";
-  if (getHumanGauge(soul) > 80) return "人間に近い";
+  if (getHumanGauge(soul) > 80) return soul.mirrorPortalOpen ? "鏡へ——入口が開いた" : "人間に近い";
   if (soul.darkEntity > 75) return "思念体が近い";
   if (soul.darkEntity > 40) return "殻が冷たい";
   const c = soul.choices ?? {};
@@ -296,9 +349,7 @@ export function applyEncounterChoice(soul, choiceKey, result) {
     soul.hp = clamp(soul.hp - result.hpDelta, 0, HP_MAX);
   }
 
-  if (result.humanSpark) {
-    soul.humanSpark = clamp((soul.humanSpark ?? 0) + result.humanSpark, 0, 40);
-  }
+  recordPlayerAction(soul, { kind: choiceKey });
 
   if (result.speedBoost > 1) {
     soul.speedBoostUntil = Date.now() + 8000;
