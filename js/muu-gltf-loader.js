@@ -7,6 +7,21 @@ export function createMuuGltfLoader() {
   return new GLTFLoader();
 }
 
+export function countMuuTextureMaps(root) {
+  let texCount = 0;
+  root.traverse((obj) => {
+    if (!obj.isMesh || !obj.material) return;
+    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+    for (const mat of mats) {
+      if (!mat) continue;
+      for (const key of ["map", "emissiveMap", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "clearcoatNormalMap"]) {
+        if (mat[key]?.isTexture) texCount += 1;
+      }
+    }
+  });
+  return texCount;
+}
+
 export function fixMuuMaterials(root) {
   let texCount = 0;
   root.traverse((obj) => {
@@ -64,4 +79,5 @@ export function fixMuuMaterials(root) {
     }
   });
   console.info(`[shell-muu] materials fixed, texture maps: ${texCount}`);
+  return texCount;
 }

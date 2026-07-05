@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { attachShellMuu3d } from "./shell-muu-3d.js?v=20260705tex";
+import { attachShellMuu3d } from "./shell-muu-3d.js?v=20260706muu";
 import { estimateRoomFloorY } from "./shell-floor.js";
 
 const GLB_FALLBACK_FILES = ["this ver2.glb", "this ver2.GLB", "this.glb", "this.GLB"];

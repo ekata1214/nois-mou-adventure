@@ -81,7 +81,7 @@ import {
 } from "./bgm.js";
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js?v=20260705tex";
+import { createShellRoomView } from "./shell-room.js?v=20260706muu";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 import {
   preloadVoidCosmos,
@@ -165,7 +165,11 @@ function updateShellRoomStatus(view) {
     shellRoomStatus.hidden = false;
     const loop = view.muu.loopClipName ?? view.muu.loopClip;
     const animLabel = loop ? `ループ: ${loop}` : view.muu.clipNames.join(", ");
-    shellRoomStatus.textContent = `ムー君 GLB: ${view.muu.modelName} / ${animLabel}`;
+    let line = `ムー君 GLB: ${view.muu.modelName} / ${animLabel}`;
+    if (view.muu.lowTextures || /speak_mou\.glb$/i.test(view.muu.modelName ?? "")) {
+      line += " — テクスチャ不足。assets/muu/speak-mou5.glb を置いて Cmd+Shift+R";
+    }
+    shellRoomStatus.textContent = line;
     return;
   }
   if (view?.ready && view?.muuReady) {

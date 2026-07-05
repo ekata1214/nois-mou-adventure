@@ -3,12 +3,18 @@ import { PropertyBinding } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 import { raycastFloorY } from "./shell-floor.js";
-import { createMuuGltfLoader, fixMuuMaterials } from "./muu-gltf-loader.js?v=20260705tex";
+import {
+  createMuuGltfLoader,
+  fixMuuMaterials,
+  countMuuTextureMaps,
+} from "./muu-gltf-loader.js?v=20260706muu";
 
-const GLB_FALLBACK_FILES = ["speak_mou.glb", "speak-mou.glb", "speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb"];
+const GLB_FALLBACK_FILES = ["speak-mou5.glb", "speak-mou4.glb", "speak-mou.glb", "speak_mou.glb", "speak-mou3.glb", "speak-mou2.glb"];
+const MIN_GLB_BYTES = 500_000;
+const MIN_TEXTURE_MAPS = 4;
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260705tex`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260706muu`;
 }
 
 async function readManifest(basePath) {
@@ -476,17 +482,59 @@ function fitMuuRoot(root, manifest, roomFit, roomRoot = null, roomManifest = nul
   return { group, size, floorY: group.position.y };
 }
 
+async function probeGlbUrl(url) {
+  const head = await fetch(url, { method: "HEAD" });
+  if (!head.ok) return { ok: false, reason: `HTTP ${head.status}` };
+  const bytes = Number(head.headers.get("content-length") || 0);
+  if (bytes > 0 && bytes < MIN_GLB_BYTES) return { ok: false, reason: `too small (${bytes}B)` };
+
+  const probe = await fetch(url, { headers: { Range: "bytes=0-11" } });
+  if (!probe.ok && probe.status !== 206) return { ok: false, reason: "probe failed" };
+  const buf = new Uint8Array(await probe.arrayBuffer());
+  if (new TextDecoder().decode(buf).startsWith("version ")) {
+    return { ok: false, reason: "LFS pointer" };
+  }
+  const isGlb = buf[0] === 0x67 && buf[1] === 0x6c && buf[2] === 0x54 && buf[3] === 0x46;
+  if (!isGlb) return { ok: false, reason: "not GLB" };
+  return { ok: true, bytes };
+}
+
 async function loadGlb(basePath, manifest) {
   const loader = createMuuGltfLoader();
   const errors = [];
+  let best = null;
+
   for (const name of modelCandidates(manifest)) {
     const url = modelUrl(basePath, name);
     try {
+      const probe = await probeGlbUrl(url);
+      if (!probe.ok) {
+        errors.push(`${name}: ${probe.reason}`);
+        continue;
+      }
+
       const gltf = await loader.loadAsync(url);
-      return { gltf, name, url };
+      const texCount = countMuuTextureMaps(gltf.scene);
+      const entry = { gltf, name, url, texCount };
+
+      if (!best || texCount > best.texCount) best = entry;
+
+      if (texCount >= MIN_TEXTURE_MAPS) {
+        console.info(`[shell-muu] model: ${name} (${texCount} texture maps)`);
+        return entry;
+      }
+
+      console.warn(`[shell-muu] ${name}: textures=${texCount} — 次の候補を試します`);
     } catch (err) {
       errors.push(`${name}: ${err?.message ?? err}`);
     }
+  }
+
+  if (best) {
+    console.warn(
+      `[shell-muu] fallback model: ${best.name} (${best.texCount} texture maps). speak-mou5.glb を assets/muu/ に置くと改善します。`
+    );
+    return best;
   }
   return { errors };
 }
@@ -516,9 +564,10 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
     };
   }
 
-  const { gltf, name: modelName } = loaded;
+  const { gltf, name: modelName, texCount: loadedTexCount = 0 } = loaded;
   const modelRoot = gltf.scene;
-  fixMuuMaterials(modelRoot);
+  const texCount = fixMuuMaterials(modelRoot);
+  const lowTextures = Math.max(texCount, loadedTexCount) < MIN_TEXTURE_MAPS;
   const mixerRoot = findMixerRoot(modelRoot);
   const { group } = fitMuuRoot(modelRoot, manifest, roomFit, roomRoot, roomManifest);
   scene.add(group);
@@ -663,6 +712,8 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
   return {
     ready: true,
     modelName,
+    lowTextures,
+    texCount: Math.max(texCount, loadedTexCount),
     clipNames: clips.map((c) => c.name),
     hasAnimations: clips.length > 0,
     loopClip: loopClip ? displayClipName(loopClip) : null,
