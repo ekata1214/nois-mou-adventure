@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { PropertyBinding } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 import { raycastFloorY } from "./shell-floor.js";
@@ -6,12 +7,12 @@ import { raycastFloorY } from "./shell-floor.js";
 const GLB_FALLBACK_FILES = ["speak_mou.glb", "speak-mou.glb", "speak-mou5.glb", "speak-mou4.glb", "speak-mou3.glb", "speak-mou2.glb"];
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260705both`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260705anim`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260705both`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260705anim`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -98,23 +99,60 @@ function clipMatchesPattern(clipName, pattern) {
   return base === pat || base.startsWith(`${pat}.`) || base.startsWith(`${pat}_`);
 }
 
-function pickGoodLoopClip(allClips, manifest, speakClip) {
+function clipBindingScore(clip, root) {
+  if (!clip?.tracks?.length || !root) return 0;
+  let matched = 0;
+  for (const track of clip.tracks) {
+    try {
+      const parsed = PropertyBinding.parseTrackName(track.name);
+      if (PropertyBinding.findNode(root, parsed.nodeName)) matched += 1;
+    } catch {
+      // ignore malformed track
+    }
+  }
+  return matched;
+}
+
+function isPlayableClip(clip, root, { minMatched = 12, minRatio = 0.04 } = {}) {
+  if (!usableClip(clip)) return false;
+  const matched = clipBindingScore(clip, root);
+  return matched >= minMatched && matched >= clip.tracks.length * minRatio;
+}
+
+function displayClipName(clip) {
+  if (!clip?.name) return "(none)";
+  if (/good[-_]?mou/i.test(clip.name)) return "good-mou";
+  if (/layer0\.001/i.test(clip.name)) return "speak-mou";
+  if (/layer0/i.test(clip.name)) return "good-mou";
+  return clipBaseName(clip.name) || clip.name;
+}
+
+function pickGoodLoopClip(allClips, manifest, speakClip, mainClips = [], mixerRoot = null) {
   const goodPatterns = manifest?.animations?.good ?? ["good_mou", "good-mou", "layer0"];
+  const native = (mainClips ?? []).filter((clip) => usableClip(clip, 50));
+  const canPlay = (clip) => !mixerRoot || isPlayableClip(clip, mixerRoot);
 
-  const named = clipsMatching(allClips, ["good_mou", "good-mou"]).filter(
-    (clip) => usableClip(clip, 50) && clip !== speakClip
-  );
-  if (named.length) return pickBestClip(named, ["good_mou", "good-mou"]);
-
-  const layer0 = allClips.filter((clip) => {
-    if (!usableClip(clip, 50) || clip === speakClip) return false;
+  const layer0 = native.filter((clip) => {
+    if (clip === speakClip) return false;
     const base = normalizeClipToken(clipBaseName(clip.name));
     return base === "layer0" || (base.startsWith("layer0") && !base.startsWith("layer0.001"));
   });
-  if (layer0.length) return pickBestClip(layer0, goodPatterns);
+  const nativeGood = pickBestClip(layer0.filter(canPlay), goodPatterns);
+  if (nativeGood) return nativeGood;
+
+  const nativeNamed = pickNamedLoopClip(
+    native.filter((clip) => clip !== speakClip && canPlay(clip)),
+    goodPatterns
+  );
+  if (nativeNamed) return nativeNamed;
+
+  const external = clipsMatching(allClips, ["good_mou", "good-mou"]).filter(
+    (clip) => usableClip(clip, 50) && clip !== speakClip && !native.includes(clip) && canPlay(clip)
+  );
+  if (external.length) return pickBestClip(external, ["good_mou", "good-mou"]);
 
   return pickNamedLoopClip(
-    allClips.filter((clip) => clip !== speakClip && usableClip(clip, 50)),
+    allClips.filter((clip) => clip !== speakClip && canPlay(clip)),
     goodPatterns
   );
 }
@@ -334,35 +372,38 @@ async function loadExtraAnimationClips(basePath, manifest, targetRoot, reference
   return extra;
 }
 
-function buildShellLoopPool(allClips, manifest, mainClips = [], speakClip = null) {
+function buildShellLoopPool(allClips, manifest, mainClips = [], speakClip = null, mixerRoot = null) {
   const speakPatterns = manifest?.animations?.speak ?? ["speak_mou", "speak-mou", "layer0.001"];
   const native = dedupeClips((mainClips ?? []).filter((clip) => usableClip(clip)));
+  const canPlay = (clip) => !mixerRoot || isPlayableClip(clip, mixerRoot);
   const pool = [];
 
   const speak =
-    speakClip ?? pickNamedLoopClip(native.length ? native : allClips, speakPatterns);
-  const good = pickGoodLoopClip(allClips, manifest, speak);
+    speakClip ??
+    pickNamedLoopClip(native.filter(canPlay), speakPatterns) ??
+    pickNamedLoopClip(native.length ? native : allClips, speakPatterns);
+  const good = pickGoodLoopClip(allClips, manifest, speak, mainClips, mixerRoot);
 
-  if (speak) pool.push(speak);
-  if (good && good !== speak) pool.push(good);
+  if (speak && canPlay(speak)) pool.push(speak);
+  if (good && good !== speak && canPlay(good)) pool.push(good);
 
   if (!pool.length) {
-    const fallback = dedupeClips(allClips.filter((clip) => usableClip(clip)));
+    const fallback = dedupeClips(allClips.filter((clip) => canPlay(clip)));
     pool.push(...fallback.slice(0, 4));
     if (fallback.length) {
-      console.info("[shell-muu] loop pool fallback:", fallback.map((c) => c.name).join(" | "));
+      console.info("[shell-muu] loop pool fallback:", fallback.map((c) => displayClipName(c)).join(" | "));
     }
   }
 
   if (pool.length < 2) {
     console.warn(
       "[shell-muu] speak/good の2本立てになっていません:",
-      pool.map((c) => c.name).join(" | ") || "(none)"
+      pool.map((c) => displayClipName(c)).join(" | ") || "(none)"
     );
   } else {
     console.info(
       "[shell-muu] loop pool (speak + good):",
-      pool.map((c) => c.name).join(" | ")
+      pool.map((c) => `${displayClipName(c)} [${c.name}]`).join(" | ")
     );
   }
 
@@ -530,8 +571,13 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
   const extraClips = await loadExtraAnimationClips(basePath, manifest, modelRoot, speakClipFromMain);
 
   const clips = dedupeClips([...(gltf.animations ?? []), ...extraClips]);
-  const speakClip = pickNamedLoopClip(mainClips, speakNames) ?? speakClipFromMain ?? clips[0] ?? null;
-  const shellLoopPool = buildShellLoopPool(clips, manifest, gltf.animations ?? [], speakClip);
+  const speakClip =
+    pickNamedLoopClip(mainClips.filter((c) => isPlayableClip(c, mixerRoot)), speakNames) ??
+    speakClipFromMain ??
+    clips.find((c) => isPlayableClip(c, mixerRoot)) ??
+    clips[0] ??
+    null;
+  const shellLoopPool = buildShellLoopPool(clips, manifest, gltf.animations ?? [], speakClip, mixerRoot);
 
   if (clips.length === 0) {
     console.warn(
@@ -552,22 +598,36 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
   let loopClip = null;
 
   function notifyLoopChange() {
-    hooks.onLoopChange?.(loopClip?.name ?? null);
+    hooks.onLoopChange?.(displayClipName(loopClip));
   }
 
   function pickRandomShellLoop({ preferDifferent = false } = {}) {
-    if (!shellLoopPool.length) return speakClip;
-    if (preferDifferent && shellLoopPool.length > 1 && loopClip) {
-      const others = shellLoopPool.filter((clip) => clip !== loopClip);
+    const playable = shellLoopPool.filter((clip) => isPlayableClip(clip, mixerRoot));
+    const pool = playable.length ? playable : shellLoopPool;
+    if (!pool.length) return speakClip;
+    if (preferDifferent && pool.length > 1 && loopClip) {
+      const others = pool.filter((clip) => clip !== loopClip);
       if (others.length) {
         return others[Math.floor(Math.random() * others.length)];
       }
     }
-    return shellLoopPool[Math.floor(Math.random() * shellLoopPool.length)];
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   function startShellLoop({ fade = 0.15, preferDifferent = false } = {}) {
-    const next = pickRandomShellLoop({ preferDifferent });
+    const candidates = preferDifferent
+      ? shellLoopPool.filter((clip) => clip !== loopClip)
+      : shellLoopPool;
+    const ordered = [...candidates, ...shellLoopPool, speakClip].filter(Boolean);
+    let next = null;
+    for (const clip of ordered) {
+      if (preferDifferent && clip === loopClip) continue;
+      if (isPlayableClip(clip, mixerRoot)) {
+        next = clip;
+        break;
+      }
+    }
+    next = next ?? pickRandomShellLoop({ preferDifferent });
     if (!next) return;
 
     if (loopAction) loopAction.fadeOut(fade);
@@ -582,11 +642,24 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
     loopAction.setLoop(THREE.LoopRepeat);
     loopAction.clampWhenFinished = false;
     loopAction.fadeIn(fade).play();
-    console.info("[shell-muu] shell loop →", next.name);
+    console.info("[shell-muu] shell loop →", displayClipName(next), `(${next.name})`);
     notifyLoopChange();
   }
 
-  startShellLoop({ fade: 0 });
+  const goodIdle =
+    shellLoopPool.find((clip) => /good|layer0/i.test(displayClipName(clip)) && clip !== speakClip) ??
+    shellLoopPool.find((clip) => clip !== speakClip) ??
+    shellLoopPool[0];
+  if (goodIdle && isPlayableClip(goodIdle, mixerRoot)) {
+    loopClip = goodIdle;
+    loopAction = mixer.clipAction(goodIdle);
+    loopAction.reset();
+    loopAction.setLoop(THREE.LoopRepeat);
+    loopAction.play();
+    notifyLoopChange();
+  } else {
+    startShellLoop({ fade: 0 });
+  }
 
   mixer.addEventListener("loop", (event) => {
     if (event.action !== loopAction || shellLoopPool.length < 2) return;
@@ -631,9 +704,9 @@ export async function attachShellMuu3d(scene, roomFit, basePath = "assets/muu", 
     modelName,
     clipNames: clips.map((c) => c.name),
     hasAnimations: clips.length > 0,
-    loopClip: loopClip?.name ?? null,
+    loopClip: loopClip ? displayClipName(loopClip) : null,
     get loopClipName() {
-      return loopClip?.name ?? null;
+      return loopClip ? displayClipName(loopClip) : null;
     },
     speakClip: speakClip?.name ?? null,
     root: group,
