@@ -69,6 +69,9 @@ function defaultState() {
     hp: HP_MAX,
     humanSpark: 0,
     playTimeSeconds: 0,
+    inventory: {},
+    crafted: [],
+    totalGathered: 0,
   };
 }
 
@@ -80,6 +83,9 @@ export function loadSoul() {
     merged.hp = clamp(merged.hp ?? HP_MAX, 0, HP_MAX);
     merged.humanSpark = clamp(merged.humanSpark ?? 0, 0, 40);
     merged.playTimeSeconds = Math.max(0, merged.playTimeSeconds ?? 0);
+    merged.inventory = merged.inventory && typeof merged.inventory === "object" ? merged.inventory : {};
+    merged.crafted = Array.isArray(merged.crafted) ? merged.crafted : [];
+    merged.totalGathered = Math.max(0, merged.totalGathered ?? 0);
     return merged;
   } catch {
     return defaultState();
@@ -244,6 +250,16 @@ export function resumeAfterGameOver(soul) {
 export function resetProgress(soul) {
   const fresh = defaultState();
   Object.assign(soul, fresh);
+  saveSoul(soul);
+  return soul;
+}
+
+export function addGatherItem(soul, itemId, qty = 1) {
+  soul.inventory = soul.inventory ?? {};
+  soul.inventory[itemId] = (soul.inventory[itemId] ?? 0) + qty;
+  soul.totalGathered = (soul.totalGathered ?? 0) + qty;
+  soul.humanSpark = clamp((soul.humanSpark ?? 0) + 0.35 * qty, 0, 40);
+  soul.darkEntity = Math.max(0, soul.darkEntity - 3 * qty);
   saveSoul(soul);
   return soul;
 }

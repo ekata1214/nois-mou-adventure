@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>ムー君の冒険 — NOU</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="css/style.css?v=20260706muu3" />
+  <link rel="stylesheet" href="css/style.css?v=20260706gather" />
 </head>
 <body>
   <div id="app">
@@ -17,7 +17,7 @@
       <img id="title-art" src="assets/title.png" alt="ムー君の冒険" />
       <p class="start-hint">CLICK / SPACE / TAP to enter NOU</p>
       <p class="start-hint mobile-hint">MOBILE — D-PAD move · DS buttons in combat</p>
-      <p class="credit">Nois Mou — World Scale Prototype · v20260706muu4</p>
+      <p class="credit">Nois Mou — World Scale Prototype · v20260706gather</p>
     </div>
     <canvas id="game" class="hidden" width="1280" height="720" tabindex="0"></canvas>
 
@@ -69,6 +69,12 @@
             <div class="meter-track"><div id="shell-human-fill" class="gauge-fill human"></div></div>
           </div>
           <ul id="feed-log"></ul>
+          <div class="gather-panel">
+            <p class="gather-panel-title">採集ストック</p>
+            <ul id="gather-inventory" class="gather-inventory"></ul>
+            <p class="gather-panel-title">クラフト</p>
+            <div id="craft-list" class="craft-list"></div>
+          </div>
         </div>
       </div>
       <button id="to-nou" type="button" class="mode-switch">NOUへ出る（エクストロバート）</button>
@@ -125,9 +131,12 @@
       </div>
       <div id="hud-right">
         <span id="mood-label">静寂</span>
+        <button id="gather-toggle" type="button" class="mode-switch small gather-toggle">採集 OFF</button>
         <button id="to-shell" type="button" class="mode-switch small">殻へ戻る</button>
       </div>
     </div>
+    <p id="gather-hint" class="gather-hint hidden">G — 採集モード</p>
+    <p id="gather-toast" class="gather-toast hidden"></p>
 
     <div id="gameover-screen" class="hidden">
       <div class="gameover-panel">
@@ -147,6 +156,6 @@
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=20260706muu3"></script>
+  <script type="module" src="js/main.js?v=20260706gather"></script>
 </body>
 </html>

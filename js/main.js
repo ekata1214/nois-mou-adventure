@@ -27,6 +27,7 @@ import {
   isDead,
   resumeAfterGameOver,
   resetProgress,
+  addGatherItem,
   HP_MAX,
 } from "./soul.js";
 import {
@@ -80,8 +81,24 @@ import {
   getBgmRegionKey,
 } from "./bgm.js";
 import { spawnProps, drawProps, loadScenery } from "./props.js";
+import {
+  spawnGatherables,
+  updateGatherables,
+  findNearbyGatherable,
+  pickupGatherable,
+  drawGatherables,
+} from "./gatherables.js";
+import {
+  GATHER_ITEMS,
+  CRAFT_RECIPES,
+  itemMeta,
+  inventoryCount,
+  canCraft,
+  craftRecipe,
+  formatNeeds,
+} from "./gather-craft.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js?v=20260706muu4";
+import { createShellRoomView } from "./shell-room.js?v=20260706gather";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 import {
   preloadVoidCosmos,
@@ -137,6 +154,11 @@ const shellMuu = document.getElementById("shell-muu");
 const shellRoomGl = document.getElementById("shell-room-gl");
 const shellRoomStatus = document.getElementById("shell-room-status");
 const choiceButtons = document.querySelectorAll(".choice-grid button");
+const gatherToggle = document.getElementById("gather-toggle");
+const gatherHint = document.getElementById("gather-hint");
+const gatherToast = document.getElementById("gather-toast");
+const gatherInventoryEl = document.getElementById("gather-inventory");
+const craftListEl = document.getElementById("craft-list");
 
 const BASE_SPEED = 255;
 const SPRITE_W = 116;
@@ -218,7 +240,11 @@ function syncShellMuuLayer() {
 let entityIcons;
 let entities;
 let props;
+let gatherNodes;
 let soul;
+let gatherMode = false;
+let gatherToastTimer = 0;
+let gatherToastText = "";
 let camera = { x: 0, y: 0 };
 let keys = new Set();
 const MOVEMENT_KEYS = new Set([
@@ -439,6 +465,7 @@ function initWorld() {
   };
   entities = spawnEntities(world, TILE, isWalkable);
   props = spawnProps(world, TILE, isWalkable);
+  gatherNodes = spawnGatherables(world, TILE, isWalkable);
 }
 
 function startGame() {
@@ -459,6 +486,7 @@ function startGame() {
   pendingMapRegion = "";
   regionStableTimer = 0;
   refreshSoulUI();
+  refreshGatherUI();
   refreshLayout();
   refreshMobileControls();
 }
@@ -560,6 +588,8 @@ function enterShell() {
   shellScreen.classList.remove("hidden");
   canvas.classList.add("hidden");
   hud.classList.add("hidden");
+  gatherMode = false;
+  document.body.classList.remove("gather-active");
   shellRoomView?.resize();
   shellRoomView?.render(0);
   if (!shellRoomView?.ready) loadShellRoomInBackground();
@@ -598,6 +628,7 @@ async function enterNou() {
   currentMapRegion = getBgmRegionKey(region);
   playVoice("nou_enter", { volume: 0.5 });
   hud.classList.remove("hidden");
+  refreshGatherUI();
   refreshMobileControls();
 }
 
@@ -629,6 +660,106 @@ function refreshSoulUI() {
         `<li><span class="tag">${f.kind}</span>${escapeHtml(f.text.slice(0, 60))}${f.text.length > 60 ? "…" : ""}</li>`
     )
     .join("");
+  refreshGatherUI();
+}
+
+function showGatherToast(text) {
+  gatherToastText = text;
+  gatherToastTimer = 2.4;
+  if (gatherToast) {
+    gatherToast.textContent = text;
+    gatherToast.classList.remove("hidden");
+  }
+}
+
+function refreshGatherUI() {
+  if (gatherToggle) {
+    gatherToggle.classList.toggle("on", gatherMode);
+    gatherToggle.textContent = gatherMode ? "採集 ON" : "採集 OFF";
+  }
+  document.body.classList.toggle("gather-active", gatherMode && mode === "extrovert");
+
+  const items = Object.entries(GATHER_ITEMS)
+    .map(([id]) => ({ id, qty: inventoryCount(soul, id) }))
+    .filter((row) => row.qty > 0);
+
+  if (gatherInventoryEl) {
+    if (!items.length) {
+      gatherInventoryEl.innerHTML = `<li class="gather-empty">まだ何もない — NOUで G 採集モード</li>`;
+    } else {
+      gatherInventoryEl.innerHTML = items
+        .map((row) => {
+          const meta = itemMeta(row.id);
+          return `<li><span class="gather-dot" style="background:${meta.color}"></span>${meta.name} <span class="gather-qty">×${row.qty}</span></li>`;
+        })
+        .join("");
+    }
+  }
+
+  if (craftListEl) {
+    craftListEl.innerHTML = CRAFT_RECIPES.map((recipe) => {
+      const done = soul.crafted?.includes(recipe.id);
+      const ready = !done && canCraft(soul, recipe);
+      const cls = done ? "crafted" : ready ? "ready" : "";
+      return `<button type="button" class="craft-btn ${cls}" data-craft="${recipe.id}" ${done || !ready ? "disabled" : ""}>
+        <span class="craft-name">${recipe.name}</span>
+        <span class="craft-needs">${done ? "完成" : formatNeeds(recipe)}</span>
+        <span class="craft-desc">${recipe.desc}</span>
+      </button>`;
+    }).join("");
+
+    craftListEl.querySelectorAll("[data-craft]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const result = craftRecipe(soul, btn.dataset.craft);
+        if (!result.ok) return;
+        saveSoul(soul);
+        muuSpeech.textContent = `……${result.recipe.name}、できた。`;
+        playVoice("genki", { volume: 0.45 });
+        pulseMuu(600);
+        refreshSoulUI();
+      });
+    });
+  }
+
+  refreshGatherHint();
+}
+
+function refreshGatherHint() {
+  if (!gatherHint || mode !== "extrovert" || state !== "play") {
+    gatherHint?.classList.add("hidden");
+    return;
+  }
+  gatherHint.classList.remove("hidden");
+  if (gatherMode) {
+    const near = findNearbyGatherable(gatherNodes, player.x, player.y, true);
+    gatherHint.textContent = near
+      ? `${itemMeta(near.itemId).name} — 触れると採集（E でも可）`
+      : "採集モード — 光る素材に近づく";
+  } else {
+    gatherHint.textContent = "G — 採集モード";
+  }
+}
+
+function toggleGatherMode() {
+  if (mode !== "extrovert" || encounterPhase) return;
+  gatherMode = !gatherMode;
+  refreshGatherUI();
+  playVoice(gatherMode ? "greet_hello" : "bye", { volume: 0.38 });
+}
+
+function tryPickupGatherable(manual = false) {
+  if (mode !== "extrovert" || !gatherNodes?.length) return false;
+  const node = findNearbyGatherable(gatherNodes, player.x, player.y, gatherMode);
+  if (!node) return false;
+  if (!gatherMode && !manual) return false;
+
+  const meta = itemMeta(node.itemId);
+  pickupGatherable(node);
+  soul = addGatherItem(soul, node.itemId, 1);
+  showGatherToast(`${meta.name} を採集`);
+  playVoice("yes", { volume: 0.42 });
+  refreshGatherUI();
+  return true;
 }
 
 function escapeHtml(s) {
@@ -1098,7 +1229,10 @@ function updatePlayer(dt) {
   }
 
   const near = findNearby(entities, player.x, player.y);
-  if (near && !encounterPhase) openEncounter(near);
+  if (near && !encounterPhase && !gatherMode) openEncounter(near);
+
+  if (gatherMode) tryPickupGatherable(false);
+  refreshGatherHint();
 }
 
 function updateCamera() {
@@ -1360,6 +1494,7 @@ function drawFrame() {
   } else {
     drawWorld();
     drawProps(ctx, props, camera, dither);
+    drawGatherables(ctx, gatherNodes, camera, dither, { gatherMode });
     drawDarkEntity();
     drawVoidHazard();
     drawRegionAmbience();
@@ -1438,6 +1573,11 @@ function loop(time) {
   }
 
   if (state === "play" && mode === "extrovert") {
+    updateGatherables(gatherNodes);
+    if (gatherToastTimer > 0) {
+      gatherToastTimer -= dt;
+      if (gatherToastTimer <= 0) gatherToast?.classList.add("hidden");
+    }
     if (encounterPhase) updateEncounterTransition(dt);
     if (encounterPhase === "action") updateActionCombatFrame(dt);
     if (!encounterLocked) {
@@ -1470,6 +1610,19 @@ function bindInput() {
       if (mode === "extrovert") enterShell();
       else enterNou();
       return;
+    }
+
+    if (mode === "extrovert" && !encounterPhase && !encounterLocked) {
+      if (e.code === "KeyG") {
+        e.preventDefault();
+        toggleGatherMode();
+        return;
+      }
+      if (gatherMode && (e.code === "KeyE" || e.code === "KeyF")) {
+        e.preventDefault();
+        tryPickupGatherable(true);
+        return;
+      }
     }
 
     if (encounterPhase === "action") {
@@ -1524,6 +1677,7 @@ function bindInput() {
   fullResetBtn.addEventListener("click", fullReset);
   toShellBtn.addEventListener("click", enterShell);
   toNouBtn.addEventListener("click", enterNou);
+  gatherToggle?.addEventListener("click", toggleGatherMode);
   feedBtn.addEventListener("click", submitFeed);
   feedInput.addEventListener("input", updateFeedCharCount);
   encounterCloseBtn.addEventListener("click", closeEncounter);
