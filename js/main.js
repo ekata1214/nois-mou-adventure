@@ -504,6 +504,7 @@ function startGame() {
   canvas.classList.remove("hidden");
   state = "play";
   mode = "extrovert";
+  document.body.classList.remove("shell-mode");
   shellScreen.classList.add("hidden");
   encounterScreen.classList.add("hidden");
   gameoverScreen.classList.add("hidden");
@@ -584,6 +585,9 @@ function fullReset() {
   canvas.classList.add("hidden");
   shellScreen.classList.remove("hidden");
   mode = "introvert";
+  document.body.classList.add("shell-mode");
+  hideGatherOverlays();
+  gatherUiKey = "";
   presentShellQuestion();
   refreshSoulUI();
   setBgmEnabled(true);
@@ -616,7 +620,9 @@ function enterShell() {
   hud.classList.add("hidden");
   gatherMode = false;
   document.body.classList.remove("gather-active");
+  document.body.classList.add("shell-mode");
   hideGatherOverlays();
+  gatherUiKey = "";
   shellRoomView?.resize();
   shellRoomView?.render(0);
   if (!shellRoomView?.ready) loadShellRoomInBackground();
@@ -643,6 +649,7 @@ async function enterNou() {
   await tryLockLandscape();
   clearMovementKeys();
   mode = "extrovert";
+  document.body.classList.remove("shell-mode");
   shellScreen.classList.add("hidden");
   canvas.classList.remove("hidden");
   refreshSoulUI();
@@ -702,12 +709,19 @@ function showGatherToast(text) {
 }
 
 function handleCraft(recipeId) {
-  const result = craftRecipe(soul, recipeId);
-  if (!result.ok) {
-    muuSpeech.textContent = "……素材が足りない。";
+  const recipe = CRAFT_RECIPES.find((r) => r.id === recipeId);
+  if (!recipe) return;
+  if (soul.crafted?.includes(recipeId)) {
+    muuSpeech.textContent = `……${recipe.name}は、もうある。`;
+    return;
+  }
+  if (!canCraft(soul, recipe)) {
+    muuSpeech.textContent = `……${recipe.name}、素材が足りない。`;
     playVoice("feed_negative", { volume: 0.4 });
     return;
   }
+  const result = craftRecipe(soul, recipeId);
+  if (!result.ok) return;
   saveSoul(soul);
   muuSpeech.textContent = `……${result.recipe.name}、できた。`;
   playVoice("genki", { volume: 0.45 });
@@ -722,7 +736,7 @@ function bindCraftList() {
   craftListBound = true;
   craftListEl.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-craft]");
-    if (!btn || btn.disabled || mode !== "introvert") return;
+    if (!btn || mode !== "introvert") return;
     handleCraft(btn.dataset.craft);
   });
 }
@@ -759,11 +773,14 @@ function refreshGatherUI() {
     craftListEl.innerHTML = CRAFT_RECIPES.map((recipe) => {
       const done = soul.crafted?.includes(recipe.id);
       const ready = !done && canCraft(soul, recipe);
-      const cls = done ? "crafted" : ready ? "ready" : "";
-      const action = done ? "完成" : ready ? "作る" : formatNeeds(recipe);
-      return `<button type="button" class="craft-btn ${cls}" data-craft="${recipe.id}" ${done || !ready ? "disabled" : ""}>
-        <span class="craft-name">${recipe.name}</span>
-        <span class="craft-needs">${action}</span>
+      const cls = done ? "crafted" : ready ? "ready" : "locked";
+      const action = done ? "完成" : ready ? "作る" : "不足";
+      return `<button type="button" class="craft-btn ${cls}" data-craft="${recipe.id}">
+        <span class="craft-row">
+          <span class="craft-name">${recipe.name}</span>
+          <span class="craft-go">${action}</span>
+        </span>
+        <span class="craft-needs">${formatNeeds(recipe)}</span>
         <span class="craft-desc">${recipe.desc}</span>
       </button>`;
     }).join("");

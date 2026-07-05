@@ -1236,6 +1236,11 @@ body.is-mobile.mobile-action-mode .action-combat-hint {
   pointer-events: none;
 }
 
+body.shell-mode .gather-toast,
+body.shell-mode .gather-hint {
+  display: none !important;
+}
+
 .gather-toggle.on {
   border-color: #6ec8ff;
   color: #9edcff;
@@ -1306,14 +1311,38 @@ body.gather-active #game {
   color: #ddd;
   cursor: pointer;
   font-family: inherit;
+  width: 100%;
+}
+
+.craft-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.craft-go {
+  flex-shrink: 0;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #888;
 }
 
 .craft-btn.ready {
   border-color: rgba(110, 200, 255, 0.45);
 }
 
-.craft-btn.ready .craft-needs {
-  color: #9edcff;
+.craft-btn.ready .craft-go {
+  background: #e50914;
+  border-color: #e50914;
+  color: #fff;
+}
+
+.craft-btn.ready:hover .craft-go {
+  background: #ff1a2a;
 }
 
 .craft-btn.crafted {
@@ -1321,8 +1350,17 @@ body.gather-active #game {
   cursor: default;
 }
 
-.craft-btn:disabled {
-  cursor: default;
+.craft-btn.crafted .craft-go {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #666;
+}
+
+.craft-btn.locked {
+  opacity: 0.72;
+}
+
+.craft-btn.locked .craft-go {
+  color: #666;
 }
 
 .craft-name {
