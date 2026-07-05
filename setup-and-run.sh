@@ -14,6 +14,20 @@ echo ""
 
 mkdir -p assets/room assets/muu
 
+# git pull 後は LFS ポインタだけのことがある → 実 GLB を取得
+if command -v git-lfs >/dev/null 2>&1 || command -v git >/dev/null 2>&1; then
+  git lfs install 2>/dev/null || true
+  git lfs pull 2>/dev/null || true
+fi
+
+room_bytes=0
+if [ -f "assets/room/this ver2.glb" ]; then
+  room_bytes=$(wc -c <"assets/room/this ver2.glb" | tr -d ' ')
+fi
+if [ "$room_bytes" -lt 1000000 ] 2>/dev/null; then
+  echo "△ 部屋 GLB が LFS ポインタです。git lfs install && git lfs pull を実行してください"
+fi
+
 # GLB: this ver2 を優先（なければ this.glb へフォールバック）
 ROOM_GLB=""
 for candidate in "this ver2.glb" "this ver2.GLB" "this.glb" "this.GLB" "room right.glb" "room right.GLB"; do
