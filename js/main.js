@@ -81,7 +81,7 @@ import {
 } from "./bgm.js";
 import { spawnProps, drawProps, loadScenery } from "./props.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js?v=20260706muu3";
+import { createShellRoomView } from "./shell-room.js?v=20260706muu4";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 import {
   preloadVoidCosmos,

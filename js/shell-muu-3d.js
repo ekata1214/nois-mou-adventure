@@ -2,24 +2,19 @@ import * as THREE from "three";
 import { PropertyBinding } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
-import { raycastFloorY } from "./shell-floor.js";
-import {
-  createMuuGltfLoader,
-  fixMuuMaterials,
-  countMuuTextureMaps,
-} from "./muu-gltf-loader.js?v=20260706muu3";
+import { createMuuGltfLoader, fixMuuMaterials, countMuuTextureMaps } from "./muu-gltf-loader.js?v=20260706muu4";
 
 const GLB_FALLBACK_FILES = ["speak-mou5.glb", "speak-mou4.glb", "speak-mou.glb", "speak_mou.glb", "speak-mou3.glb", "speak-mou2.glb"];
 const MIN_GLB_BYTES = 500_000;
 const MIN_TEXTURE_MAPS = 4;
 
 function modelUrl(basePath, name) {
-  return `${basePath}/${encodeURIComponent(name)}?v=20260706muu3`;
+  return `${basePath}/${encodeURIComponent(name)}?v=20260706muu4`;
 }
 
 async function readManifest(basePath) {
   try {
-    const res = await fetch(`${basePath}/manifest.json?v=20260706muu3`);
+    const res = await fetch(`${basePath}/manifest.json?v=20260706muu4`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -459,19 +454,9 @@ function fitMuuRoot(root, manifest, roomFit, roomRoot = null, roomManifest = nul
   const { x: worldX, z: worldZ } = resolveMuuWorldXZ(manifest, roomRoot, roomFit);
   const posY = manifest?.position?.[1] ?? 0;
   const footOffset = manifest?.footOffset ?? 0.02;
-  let floorY = roomFit?.floorY ?? 0;
+  const floorY = roomFit?.floorY ?? 0;
 
-  group.position.set(worldX, floorY + posY, worldZ);
-
-  if (roomRoot) {
-    const snapped = raycastFloorY(roomRoot, group.position.x, group.position.z, roomManifest);
-    if (snapped != null) {
-      floorY = snapped;
-      group.position.y = floorY + posY + footOffset;
-    }
-  } else {
-    group.position.y += footOffset;
-  }
+  group.position.set(worldX, floorY + posY + footOffset, worldZ);
 
   if (manifest?.rotation) {
     const [x, y, z] = manifest.rotation;
@@ -483,24 +468,20 @@ function fitMuuRoot(root, manifest, roomFit, roomRoot = null, roomManifest = nul
   return { group, size, floorY: group.position.y };
 }
 
-/** カメラは +Z。部屋は原点中心 — 奥は min.z、手前は max.z */
+/** 部屋の床面中心（+ manifest の微調整オフセット） */
 function resolveMuuWorldXZ(manifest, roomRoot, roomFit) {
-  const x = manifest?.position?.[0] ?? 0;
+  const ox = manifest?.position?.[0] ?? 0;
+  const oz = manifest?.position?.[2] ?? 0;
   if (roomRoot) {
     roomRoot.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(roomRoot);
-    const size = box.getSize(new THREE.Vector3());
-    const depthFromBack = manifest?.depthFromBack ?? 0.28;
-    const z = box.min.z + size.z * depthFromBack;
-    console.info(
-      "[shell-muu] placement:",
-      `x=${x.toFixed(2)} z=${z.toFixed(2)}`,
-      `(room z ${box.min.z.toFixed(2)}…${box.max.z.toFixed(2)}, depthFromBack=${depthFromBack})`
-    );
-    return { x, z };
+    const cx = (box.min.x + box.max.x) * 0.5 + ox;
+    const cz = (box.min.z + box.max.z) * 0.5 + oz;
+    console.info("[shell-muu] placement: center", `x=${cx.toFixed(2)} z=${cz.toFixed(2)}`);
+    return { x: cx, z: cz };
   }
   const pos = manifest?.position ?? [0, 0, (roomFit?.dist ?? 2) * 0.28];
-  return { x, z: pos[2] ?? 0 };
+  return { x: pos[0] ?? 0, z: pos[2] ?? 0 };
 }
 
 async function probeGlbUrl(url) {

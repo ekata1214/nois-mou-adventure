@@ -5,7 +5,6 @@
   "targetHeight": 1.35,
   "scale": 1,
   "position": [0, 0, 0],
-  "depthFromBack": 0.28,
   "footOffset": 0.02,
   "rotation": [0, 0, 0],
   "animations": {
