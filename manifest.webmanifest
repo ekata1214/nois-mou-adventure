@@ -1,10 +1,19 @@
 {
   "name": "ムー君の冒険",
   "short_name": "ムー君",
+  "description": "NOU — ムー君の冒険（携帯は横画面推奨）",
   "display": "fullscreen",
   "orientation": "landscape",
   "background_color": "#000000",
   "theme_color": "#000000",
-  "start_url": "/",
-  "icons": []
+  "start_url": "./index.html",
+  "scope": "./",
+  "icons": [
+    {
+      "src": "assets/title.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }

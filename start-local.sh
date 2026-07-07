@@ -86,6 +86,8 @@ fi
 
 echo ""
 echo "  開く: http://localhost:${PORT}"
+echo "  携帯: http://localhost:${PORT}/mobile.html  (QR・リンク)"
+echo "  公開: https://ekata1214.github.io/nois-mou-adventure/mobile.html"
 echo "  ※ ブラウザで Cmd+Shift+R（強制リロード）"
 echo "  止める: Ctrl+C"
 echo ""

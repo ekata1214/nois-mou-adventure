@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>ムー君の冒険 — 携帯でプレイ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      background: #000;
+      color: #f2f2f2;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 20px 32px;
+    }
+    .card {
+      width: min(420px, 100%);
+      border: 1px solid #222;
+      padding: 28px 24px 32px;
+      position: relative;
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      left: 20px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: #e50914;
+    }
+    .brand {
+      color: #e50914;
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      font-weight: 700;
+      margin-bottom: 20px;
+      padding-left: 12px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      padding-left: 12px;
+    }
+    .lead {
+      font-size: 13px;
+      line-height: 1.7;
+      color: #aaa;
+      margin-bottom: 24px;
+      padding-left: 12px;
+    }
+    .play-btn {
+      display: block;
+      width: 100%;
+      margin-bottom: 20px;
+      padding: 16px 20px;
+      background: #e50914;
+      color: #fff;
+      text-align: center;
+      text-decoration: none;
+      font-size: 14px;
+      letter-spacing: 0.18em;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .play-btn:hover { background: #ff1a2a; }
+    .url-box {
+      background: #0a0a0a;
+      border: 1px solid #333;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      word-break: break-all;
+      font-size: 12px;
+      color: #9edcff;
+      line-height: 1.5;
+    }
+    .copy-btn {
+      width: 100%;
+      padding: 10px;
+      background: transparent;
+      border: 1px solid #444;
+      color: #ccc;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      font-family: inherit;
+      margin-bottom: 24px;
+    }
+    .copy-btn:hover { border-color: #e50914; color: #fff; }
+    .qr-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      padding-top: 8px;
+    }
+    .qr-wrap img {
+      width: 200px;
+      height: 200px;
+      background: #fff;
+      padding: 8px;
+      border: 1px solid #333;
+    }
+    .qr-label {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .tips {
+      list-style: none;
+      font-size: 12px;
+      line-height: 1.75;
+      color: #888;
+      padding-left: 12px;
+      border-top: 1px solid #1a1a1a;
+      padding-top: 18px;
+    }
+    .tips li { margin-bottom: 6px; }
+    .tips strong { color: #ccc; font-weight: 600; }
+    .local-note {
+      display: none;
+      margin-top: 16px;
+      padding: 12px;
+      border: 1px solid rgba(110, 200, 255, 0.35);
+      color: #9edcff;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .local-note.show { display: block; }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 18px;
+      background: rgba(0,0,0,0.9);
+      border: 1px solid #e50914;
+      color: #fff;
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <p class="brand">UNGR ARCHIVE PRESENTS</p>
+    <h1>ムー君の冒険</h1>
+    <p class="lead">携帯は<strong>横画面</strong>推奨。D-PADで移動、戦闘は画面下のボタン。</p>
+
+    <a id="play-link" class="play-btn" href="index.html">プレイする</a>
+
+    <p class="url-box" id="game-url"></p>
+    <button type="button" class="copy-btn" id="copy-btn">リンクをコピー</button>
+
+    <div class="qr-wrap">
+      <img id="qr" width="200" height="200" alt="QRコード" />
+      <p class="qr-label">別の端末から読み取り</p>
+    </div>
+
+    <ul class="tips">
+      <li><strong>iPhone</strong> — Safari で開く → 共有 →「ホーム画面に追加」</li>
+      <li><strong>Android</strong> — Chrome → メニュー →「ホーム画面に追加」</li>
+      <li>Wi‑Fi が違うとローカル（<code>localhost</code>）は開けません</li>
+    </ul>
+
+    <p class="local-note" id="local-note">
+      同じ Wi‑Fi の iPhone から開くときは、Mac の IP アドレスを使います。<br />
+      例: <code id="lan-example"></code><br />
+      ターミナル: <code>ipconfig getifaddr en0</code>
+    </p>
+  </main>
+  <p class="toast" id="toast">コピーした</p>
+
+  <script>
+    (function () {
+      const PAGES_GAME = "https://ekata1214.github.io/nois-mou-adventure/";
+      const host = location.hostname;
+      const isLocal = /^(localhost|127\.0\.0\.1|\[::\]|0\.0\.0\.0)$/.test(host);
+      const base = location.href.replace(/mobile\.html.*$/, "");
+      const gameUrl = isLocal ? base + "index.html" : PAGES_GAME;
+
+      const playLink = document.getElementById("play-link");
+      const urlEl = document.getElementById("game-url");
+      const qr = document.getElementById("qr");
+      const copyBtn = document.getElementById("copy-btn");
+      const toast = document.getElementById("toast");
+      const localNote = document.getElementById("local-note");
+      const lanExample = document.getElementById("lan-example");
+
+      playLink.href = isLocal ? "index.html" : PAGES_GAME;
+      urlEl.textContent = gameUrl;
+      qr.src =
+        "https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=" +
+        encodeURIComponent(gameUrl);
+
+      if (isLocal) {
+        localNote.classList.add("show");
+        lanExample.textContent = "http://192.168.x.x:8765/index.html";
+      }
+
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(gameUrl);
+          toast.classList.add("show");
+          setTimeout(() => toast.classList.remove("show"), 1600);
+        } catch {
+          window.prompt("この URL をコピー:", gameUrl);
+        }
+      });
+
+      const params = new URLSearchParams(location.search);
+      if (params.has("go") && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+        location.replace(playLink.href);
+      }
+    })();
+  </script>
+</body>
+</html>
