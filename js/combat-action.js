@@ -482,8 +482,6 @@ export function drawActionCombat(ctx, combat, player, camera, canvas, dither, en
     ctx.restore();
   }
 
-  const ex = e.x - camera.x;
-  const ey = e.y - camera.y;
   const hpPct = Math.max(0, combat.enemyHp / combat.enemyMaxHp);
   const barW = 56;
   ctx.fillStyle = "rgba(0,0,0,0.65)";
