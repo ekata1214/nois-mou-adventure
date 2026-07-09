@@ -5,6 +5,7 @@ import { attachShellMuu3d } from "./shell-muu-3d.js?v=20260706muu4";
 import { estimateRoomFloorY } from "./shell-floor.js";
 import { syncCraftedProps } from "./shell-craft-placement.js?v=20260706anchors";
 import { scanRoomAnchors, logRoomPlacementDiagnostics } from "./shell-room-anchors.js";
+import { attachPendantLampBulb } from "./shell-ceiling-lamp.js";
 
 const GLB_FALLBACK_FILES = ["this ver2.glb", "this ver2.GLB", "this.glb", "this.GLB"];
 
@@ -263,6 +264,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   let fit;
   let modelName = null;
   let roomAnchors = new Map();
+  let pendantLamp = { setActive() {}, dispose() {} };
   if (roomMissing) {
     fit = defaultRoomFit(manifest);
     camera.position.set(0, fit.lookAt.y + 0.35, fit.dist);
@@ -274,6 +276,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
     fit = fitModel(roomRoot, camera, manifest);
     roomAnchors = scanRoomAnchors(roomRoot);
     logRoomPlacementDiagnostics(roomRoot, roomAnchors, fit, manifest);
+    pendantLamp = attachPendantLampBulb(roomRoot, scene, manifest);
   }
 
   let muu = {
@@ -386,7 +389,12 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
     syncCraftedProps(roomRoot, craftedIds, fit, manifest, roomAnchors);
   }
 
+  function setPendantLampActive(on) {
+    pendantLamp?.setActive?.(Boolean(on));
+  }
+
   function dispose() {
+    pendantLamp?.dispose?.();
     controls.dispose();
     muu.dispose();
     starfield.dispose();
@@ -403,5 +411,14 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
   resize();
   window.addEventListener("resize", resize);
 
-  return { ...state, resize, render, dispose, playMuuSpeak, playMuuIdle, syncCrafted };
+  return {
+    ...state,
+    resize,
+    render,
+    dispose,
+    playMuuSpeak,
+    playMuuIdle,
+    syncCrafted,
+    setPendantLampActive,
+  };
 }

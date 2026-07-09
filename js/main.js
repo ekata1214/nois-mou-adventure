@@ -79,6 +79,7 @@ import {
   setBgmEnabled,
   onMapRegionChange,
   onShellBgmStart,
+  ensureShellBgm,
   getBgmRegionKey,
 } from "./bgm.js";
 import { spawnProps, drawProps, loadScenery } from "./props.js";
@@ -270,7 +271,16 @@ function hideGatherOverlays() {
 
 function syncShellCrafted() {
   shellRoomView?.syncCrafted?.(soul.crafted ?? []);
+  syncShellLamp();
   shellRoomView?.render?.(0);
+}
+
+function syncShellLamp() {
+  if (!hasCraft(soul, "warm_lamp")) {
+    shellRoomView?.setPendantLampActive?.(false);
+    return;
+  }
+  shellRoomView?.setPendantLampActive?.(isLampActive(soul));
 }
 
 function gatherUiSnapshot() {
@@ -326,6 +336,7 @@ function handleCraftUse(useId) {
     saveSoul(soul);
     playVoice("yes", { volume: 0.42 });
     pulseMuu(500);
+    if (useId === "warm_lamp") syncShellLamp();
   }
   gatherUiKey = "";
   refreshSoulUI();
@@ -487,6 +498,8 @@ function clearActionPulse() {
 let encounterCloseQueued = false;
 let saveTimer = 0;
 let lowHpVoiceTimer = 0;
+let shellLampWasActive = false;
+let shellBgmCheckTimer = 0;
 let currentMapRegion = "";
 let pendingMapRegion = "";
 let regionStableTimer = 0;
@@ -708,11 +721,14 @@ function enterShell() {
   if (!shellRoomView?.ready) loadShellRoomInBackground();
   syncShellMuuLayer();
   syncShellCrafted();
+  shellLampWasActive = isLampActive(soul);
   encounterScreen.classList.add("hidden");
   presentShellQuestion();
   refreshSoulUI();
   setBgmEnabled(true);
+  unlockBgm();
   onShellBgmStart();
+  ensureShellBgm();
   if (fromNou) {
     playClip(voiceForTimeOfDay(), 0.72);
     pulseMuu(700);
@@ -1783,6 +1799,16 @@ function loop(time) {
     shellRoomView?.render(dt);
     refreshShellFrameUI();
     drawShellMuu();
+    const lampOn = hasCraft(soul, "warm_lamp") && isLampActive(soul);
+    if (lampOn !== shellLampWasActive) {
+      shellLampWasActive = lampOn;
+      syncShellLamp();
+    }
+    shellBgmCheckTimer += dt;
+    if (shellBgmCheckTimer > 5) {
+      shellBgmCheckTimer = 0;
+      ensureShellBgm();
+    }
   }
 
   if (state === "play" && mode === "extrovert") {
@@ -1981,6 +2007,7 @@ async function loadShellRoomInBackground() {
     if (shellRoomView?.ready && state === "play" && mode === "introvert") {
       shellRoomView.resize();
       syncShellCrafted();
+      syncShellLamp();
       shellRoomView.render(0);
       if (shellRoomView.muuReady) shellRoomView.playMuuIdle?.();
       drawShellMuu();

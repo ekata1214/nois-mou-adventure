@@ -101,6 +101,20 @@ export function onShellBgmStart() {
   onMapRegionChange("shell", { force: true });
 }
 
+/** 殻モードで BGM が止まっていたら再開（heal_long1 / heal_long2） */
+export function ensureShellBgm() {
+  if (!unlocked || !enabled) return;
+  if (currentRegion !== "shell" || !currentTrack) {
+    onMapRegionChange("shell", { force: true });
+    return;
+  }
+  const cur = players[active];
+  if (cur.paused || cur.volume < 0.04) {
+    cur.play().catch(() => {});
+    fadeVolume(cur, cur.volume, BGM_VOLUME, FADE_MS);
+  }
+}
+
 export function onMapRegionChange(regionKey, { force = false } = {}) {
   if (!unlocked || !enabled) return;
   if (!force && regionKey === currentRegion) return;

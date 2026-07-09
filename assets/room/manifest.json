@@ -12,6 +12,8 @@
   "starCount": 2800,
   "brightStarCount": 48,
   "craftRaise": 0.18,
+  "ceilingLampNode": "kt",
+  "_ceilingLampHelp": "GLB 内の赤ペンダント（ノード kt / メッシュ Cylinder）に電球を配置",
   "craftAnchors": {
     "warm_lamp": "warm_lamp",
     "grow_pot": "grow_pot",

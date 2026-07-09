@@ -12,11 +12,19 @@ export function isLampActive(soul) {
 }
 
 export function useWarmLamp(soul) {
+  return toggleWarmLamp(soul);
+}
+
+/** 天井ランプ（kt）のオン / オフ */
+export function toggleWarmLamp(soul) {
   if (!hasCraft(soul, "warm_lamp")) return { ok: false, msg: "まだない" };
-  if (isLampActive(soul)) return { ok: false, msg: "もう灯ってる" };
+  if (isLampActive(soul)) {
+    soul.lampUntil = 0;
+    return { ok: true, msg: "……灯り、消した。", on: false };
+  }
   soul.lampUntil = Date.now() + LAMP_DURATION_MS;
   soul.darkEntity = Math.max(0, soul.darkEntity - 8);
-  return { ok: true, msg: "……灯り、ついた。闇が遠のく。" };
+  return { ok: true, msg: "……灯り、ついた。闇が遠のく。", on: true };
 }
 
 export function pinToMemoWall(soul, text, question) {
@@ -86,8 +94,8 @@ export function getCraftUseButtons(soul) {
   if (hasCraft(soul, "warm_lamp")) {
     rows.push({
       id: "warm_lamp",
-      label: isLampActive(soul) ? "ランプ点灯中" : "ランプをつける",
-      disabled: isLampActive(soul),
+      label: isLampActive(soul) ? "ランプを消す" : "ランプをつける",
+      disabled: false,
     });
   }
   if (hasCraft(soul, "memo_wall")) {
