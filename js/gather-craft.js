@@ -21,6 +21,7 @@ export const CRAFT_RECIPES = [
     desc: "殻に柔らかい灯りを置く",
     needs: { sun_core: 2, dusk_petal: 1 },
     humanSpark: 1.5,
+    use: "lamp",
   },
   {
     id: "memo_wall",
@@ -28,6 +29,7 @@ export const CRAFT_RECIPES = [
     desc: "言葉が貼れる余白を増やす",
     needs: { rain_moss: 2, anger_shard: 1 },
     humanSpark: 1,
+    use: "memo",
   },
   {
     id: "grow_pot",
@@ -35,6 +37,7 @@ export const CRAFT_RECIPES = [
     desc: "小さな庭のはじまり",
     needs: { sun_core: 1, rain_moss: 2, dusk_petal: 1 },
     humanSpark: 2,
+    use: "pot",
   },
 ];
 
@@ -68,6 +71,10 @@ export function craftRecipe(soul, recipeId) {
   soul.crafted.push(recipe.id);
   soul.humanSpark = Math.min(40, (soul.humanSpark ?? 0) + (recipe.humanSpark ?? 1));
   soul.darkEntity = Math.max(0, soul.darkEntity - 5);
+
+  if (recipe.id === "grow_pot") {
+    soul.potReadyAt = Date.now() + 120_000;
+  }
 
   return { ok: true, recipe };
 }

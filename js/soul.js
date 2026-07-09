@@ -71,7 +71,16 @@ function defaultState() {
     playTimeSeconds: 0,
     inventory: {},
     crafted: [],
+    craftUses: 0,
     totalGathered: 0,
+    memoPosts: [],
+    lampUntil: 0,
+    potReadyAt: 0,
+    chapter: 0,
+    storyFlags: {},
+    winStreak: 0,
+    loseStreak: 0,
+    tutorialSeen: false,
   };
 }
 
@@ -85,7 +94,13 @@ export function loadSoul() {
     merged.playTimeSeconds = Math.max(0, merged.playTimeSeconds ?? 0);
     merged.inventory = merged.inventory && typeof merged.inventory === "object" ? merged.inventory : {};
     merged.crafted = Array.isArray(merged.crafted) ? merged.crafted : [];
+    merged.memoPosts = Array.isArray(merged.memoPosts) ? merged.memoPosts : [];
+    merged.storyFlags = merged.storyFlags && typeof merged.storyFlags === "object" ? merged.storyFlags : {};
     merged.totalGathered = Math.max(0, merged.totalGathered ?? 0);
+    merged.craftUses = Math.max(0, merged.craftUses ?? 0);
+    merged.chapter = Math.max(0, merged.chapter ?? 0);
+    merged.winStreak = Math.max(0, merged.winStreak ?? 0);
+    merged.loseStreak = Math.max(0, merged.loseStreak ?? 0);
     return merged;
   } catch {
     return defaultState();
@@ -158,17 +173,20 @@ const SHELL_INVALID_REPLIES = [
   "もう一度、ちゃんと。",
 ];
 
-export function answerShellQuestion(soul, text, question, minLen = 100) {
+export function answerShellQuestion(soul, text, question, minLen = 100, opts = {}) {
   const trimmed = text.trim();
   if (!trimmed) return { soul, ok: false, reply: null, healed: 0 };
 
-  if (trimmed.length < minLen || !isMeaningfulAnswer(trimmed)) {
+  const lampBonus = opts.lampActive ? 4 : 0;
+  const effectiveMin = Math.max(80, minLen - (opts.memoCrafted ? 8 : 0) - lampBonus);
+
+  if (trimmed.length < effectiveMin || !isMeaningfulAnswer(trimmed)) {
     const reply =
-      trimmed.length < minLen
+      trimmed.length < effectiveMin
         ? pick(SHELL_SHORT_REPLIES)
         : pick(SHELL_INVALID_REPLIES);
     soul.lastReply = reply;
-    return { soul, ok: false, reply, healed: 0, remaining: Math.max(0, minLen - trimmed.length) };
+    return { soul, ok: false, reply, healed: 0, remaining: Math.max(0, effectiveMin - trimmed.length) };
   }
 
   const kind = classify(trimmed);
@@ -184,7 +202,7 @@ export function answerShellQuestion(soul, text, question, minLen = 100) {
   soul.feedCounts[kind] = (soul.feedCounts[kind] ?? 0) + 1;
   soul.darkEntity = Math.max(0, soul.darkEntity - 14);
 
-  const heal = 30;
+  const heal = 30 + (opts.lampActive ? 6 : 0);
   soul.hp = clamp((soul.hp ?? HP_MAX) + heal, 0, HP_MAX);
 
   if (kind === "philosophical" || kind === "positive") {
@@ -197,7 +215,9 @@ export function answerShellQuestion(soul, text, question, minLen = 100) {
 }
 
 export function tickSoul(soul, dt, opts = {}) {
-  const { playing = false, inNou = false } = opts;
+  const { playing = false, inNou = false, craftMods = null } = opts;
+  const darkRate = craftMods?.darkRate ?? 1;
+  const hpDrainMult = craftMods?.hpDrain ?? 1;
 
   if (playing) {
     soul.playTimeSeconds = (soul.playTimeSeconds ?? 0) + dt;
@@ -209,7 +229,7 @@ export function tickSoul(soul, dt, opts = {}) {
 
   const elapsed = (Date.now() - soul.lastFeedAt) / 1000;
   if (elapsed > 45) {
-    soul.darkEntity = Math.min(100, soul.darkEntity + dt * 2.2);
+    soul.darkEntity = Math.min(100, soul.darkEntity + dt * 2.2 * darkRate);
   }
 
   if (playing && inNou && soul.hp > 0) {
@@ -218,9 +238,19 @@ export function tickSoul(soul, dt, opts = {}) {
     const drain = inVoid
       ? dt * (1.2 + neglect * 0.8)
       : dt * (0.025 + neglect * 0.07);
-    soul.hp = clamp(soul.hp - drain, 0, HP_MAX);
+    soul.hp = clamp(soul.hp - drain * hpDrainMult, 0, HP_MAX);
   }
 
+  return soul;
+}
+
+export function addGatherItem(soul, itemId, qty = 1) {
+  soul.inventory = soul.inventory ?? {};
+  soul.inventory[itemId] = (soul.inventory[itemId] ?? 0) + qty;
+  soul.totalGathered = (soul.totalGathered ?? 0) + qty;
+  soul.humanSpark = clamp((soul.humanSpark ?? 0) + 0.35 * qty, 0, 40);
+  soul.darkEntity = Math.max(0, soul.darkEntity - 3 * qty);
+  saveSoul(soul);
   return soul;
 }
 
@@ -250,16 +280,6 @@ export function resumeAfterGameOver(soul) {
 export function resetProgress(soul) {
   const fresh = defaultState();
   Object.assign(soul, fresh);
-  saveSoul(soul);
-  return soul;
-}
-
-export function addGatherItem(soul, itemId, qty = 1) {
-  soul.inventory = soul.inventory ?? {};
-  soul.inventory[itemId] = (soul.inventory[itemId] ?? 0) + qty;
-  soul.totalGathered = (soul.totalGathered ?? 0) + qty;
-  soul.humanSpark = clamp((soul.humanSpark ?? 0) + 0.35 * qty, 0, 40);
-  soul.darkEntity = Math.max(0, soul.darkEntity - 3 * qty);
   saveSoul(soul);
   return soul;
 }

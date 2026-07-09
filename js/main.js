@@ -28,6 +28,7 @@ import {
   resumeAfterGameOver,
   resetProgress,
   addGatherItem,
+  healHp,
   HP_MAX,
 } from "./soul.js";
 import {
@@ -97,6 +98,19 @@ import {
   craftRecipe,
   formatNeeds,
 } from "./gather-craft.js";
+import {
+  useWarmLamp,
+  pinToMemoWall,
+  readMemoWall,
+  harvestPot,
+  craftTickModifiers,
+  getCraftUseButtons,
+  isLampActive,
+  hasCraft,
+} from "./craft-effects.js";
+import { getDifficulty, recordEncounterOutcome, scaleRpgOutcome } from "./difficulty.js";
+import { syncChapter, getChapterProgress, chapterMuuLine } from "./story.js";
+import { patternLabel } from "./enemy-patterns.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
 import { createShellRoomView } from "./shell-room.js?v=20260706craftlift";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
@@ -159,6 +173,11 @@ const gatherHint = document.getElementById("gather-hint");
 const gatherToast = document.getElementById("gather-toast");
 const gatherInventoryEl = document.getElementById("gather-inventory");
 const craftListEl = document.getElementById("craft-list");
+const craftUseListEl = document.getElementById("craft-use-list");
+const memoWallListEl = document.getElementById("memo-wall-list");
+const chapterLabelEl = document.getElementById("chapter-label");
+const chapterGoalEl = document.getElementById("chapter-goal");
+const tutorialToast = document.getElementById("tutorial-toast");
 
 const BASE_SPEED = 255;
 const SPRITE_W = 116;
@@ -260,7 +279,57 @@ function gatherUiSnapshot() {
     .sort()
     .map((id) => `${id}:${inv[id]}`)
     .join(",");
-  return `${(soul.crafted ?? []).join(",")}|${invKey}`;
+  return `${(soul.crafted ?? []).join(",")}|${invKey}|${soul.lampUntil ?? 0}|${soul.potReadyAt ?? 0}`;
+}
+
+function CHAPTERS_NEXT(ch) {
+  const next = ["NOUへ", "採集5個", "クラフト1つ", "使う", "人間60%", "——"];
+  return next[ch] ?? "——";
+}
+
+function refreshProgressUI() {
+  const human = getHumanGauge(soul);
+  const prog = getChapterProgress(soul, { human });
+  if (chapterLabelEl) chapterLabelEl.textContent = `章 ${prog.chapter + 1}/${prog.total} — ${prog.title}`;
+  if (chapterGoalEl) {
+    chapterGoalEl.textContent = prog.done ? `次: ${CHAPTERS_NEXT(prog.chapter)}` : `目標: ${prog.goal}`;
+  }
+}
+
+function showTutorial(text, sec = 4) {
+  if (!tutorialToast) return;
+  tutorialToast.textContent = text;
+  tutorialToast.classList.remove("hidden");
+  tutorialTimer = sec;
+}
+
+function checkChapterAdvance() {
+  const adv = syncChapter(soul, { human: getHumanGauge(soul) });
+  if (adv.advanced) {
+    showTutorial(`章が進んだ — ${adv.title}。${chapterMuuLine(soul)}`);
+    saveSoul(soul);
+  }
+  refreshProgressUI();
+}
+
+function handleCraftUse(useId) {
+  let result;
+  if (useId === "warm_lamp") result = useWarmLamp(soul);
+  else if (useId === "memo_wall_read") result = readMemoWall(soul);
+  else if (useId === "memo_wall_pin") result = pinToMemoWall(soul, feedInput.value, currentShellQuestion);
+  else if (useId === "grow_pot") result = harvestPot(soul);
+  else return;
+
+  muuSpeech.textContent = result.msg ?? "……";
+  if (result.ok) {
+    soul.craftUses = (soul.craftUses ?? 0) + 1;
+    saveSoul(soul);
+    playVoice("yes", { volume: 0.42 });
+    pulseMuu(500);
+  }
+  gatherUiKey = "";
+  refreshSoulUI();
+  checkChapterAdvance();
 }
 
 function refreshShellFrameUI() {
@@ -269,6 +338,8 @@ function refreshShellFrameUI() {
 }
 let gatherUiKey = "";
 let craftListBound = false;
+let craftUseBound = false;
+let tutorialTimer = 0;
 let gatherToastTimer = 0;
 let gatherToastText = "";
 let camera = { x: 0, y: 0 };
@@ -512,10 +583,19 @@ function startGame() {
   currentMapRegion = "";
   pendingMapRegion = "";
   regionStableTimer = 0;
+  syncChapter(soul, { human: getHumanGauge(soul) });
   refreshSoulUI();
   refreshGatherUI();
+  refreshProgressUI();
+  bindCraftList();
   refreshLayout();
   refreshMobileControls();
+  if (!soul.tutorialSeen) {
+    soul.tutorialSeen = true;
+    saveSoul(soul);
+    const prog = getChapterProgress(soul, { human: getHumanGauge(soul) });
+    showTutorial(`Tabで殻へ。${prog.hint}`, 6);
+  }
 }
 
 function triggerGameOver({ fromVoid = false } = {}) {
@@ -696,6 +776,7 @@ function refreshSoulUI() {
     )
     .join("");
   refreshGatherUI();
+  refreshProgressUI();
 }
 
 function showGatherToast(text) {
@@ -729,6 +810,17 @@ function handleCraft(recipeId) {
   syncShellCrafted();
   gatherUiKey = "";
   refreshSoulUI();
+  checkChapterAdvance();
+}
+
+function bindCraftUseList() {
+  if (!craftUseListEl || craftUseBound) return;
+  craftUseBound = true;
+  craftUseListEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-use]");
+    if (!btn || btn.dataset.ready !== "true" || mode !== "introvert") return;
+    handleCraftUse(btn.dataset.use);
+  });
 }
 
 function bindCraftList() {
@@ -739,6 +831,7 @@ function bindCraftList() {
     if (!btn || mode !== "introvert") return;
     handleCraft(btn.dataset.craft);
   });
+  bindCraftUseList();
 }
 
 function refreshGatherUI() {
@@ -786,6 +879,24 @@ function refreshGatherUI() {
     }).join("");
   }
 
+  if (craftUseListEl && inventoryChanged) {
+    craftUseListEl.innerHTML = getCraftUseButtons(soul)
+      .map(
+        (b) =>
+          `<button type="button" class="craft-use-btn${b.disabled ? " dim" : ""}" data-use="${b.id}" data-ready="${!b.disabled}">${b.label}</button>`
+      )
+      .join("");
+  }
+
+  if (memoWallListEl && hasCraft(soul, "memo_wall")) {
+    const posts = soul.memoPosts ?? [];
+    memoWallListEl.innerHTML = posts.length
+      ? posts.slice(0, 4).map((p) => `<li>${escapeHtml(p.text.slice(0, 56))}…</li>`).join("")
+      : `<li class="gather-empty">答えを貼るとここに残る</li>`;
+  } else if (memoWallListEl) {
+    memoWallListEl.innerHTML = "";
+  }
+
   refreshGatherHint();
 }
 
@@ -824,6 +935,7 @@ function tryPickupGatherable(manual = false) {
   showGatherToast(`${meta.name} を採集`);
   playVoice("yes", { volume: 0.42 });
   refreshGatherUI();
+  checkChapterAdvance();
   return true;
 }
 
@@ -832,7 +944,10 @@ function escapeHtml(s) {
 }
 
 function submitFeed() {
-  const result = answerShellQuestion(soul, feedInput.value, currentShellQuestion, SHELL_ANSWER_MIN);
+  const result = answerShellQuestion(soul, feedInput.value, currentShellQuestion, SHELL_ANSWER_MIN, {
+    lampActive: isLampActive(soul),
+    memoCrafted: hasCraft(soul, "memo_wall"),
+  });
   soul = result.soul;
   if (!result.reply) return;
 
@@ -841,10 +956,12 @@ function submitFeed() {
   updateFeedCharCount();
 
   if (result.ok) {
+    if (hasCraft(soul, "memo_wall")) pinToMemoWall(soul, feedInput.value, currentShellQuestion);
     feedInput.value = "";
     updateFeedCharCount();
     playVoice(voiceForFeedKind(result.kind ?? "philosophical"), { volume: 0.88 });
     pulseMuu(800);
+    checkChapterAdvance();
     setTimeout(presentShellQuestion, 2200);
   } else {
     playVoice("feed_negative", { volume: 0.55 });
@@ -913,10 +1030,16 @@ function beginCombatAfterZoom() {
     encounterPhase = "action";
     encounterScreen.classList.add("hidden");
     encounterScreen.classList.remove("flash-only", "zoom-backdrop");
-    actionCombat = createActionCombat(activeEntity, layout.center);
+    actionCombat = createActionCombat(activeEntity, layout.center, {
+      pattern: activeEntity.pattern,
+      difficulty: getDifficulty(soul),
+    });
     actionCombat.arenaRadius = layout.radius;
     actionCombatHud.classList.remove("hidden");
     actionEnemyHpFill.style.width = "100%";
+    const pl = patternLabel(activeEntity.pattern);
+    const typeEl = document.getElementById("action-combat-type");
+    if (typeEl) typeEl.textContent = `COMBAT — ACTION (${pl})`;
     focusGameCanvas();
   }
   refreshMobileControls();
@@ -1063,10 +1186,17 @@ function updateActionCombatFrame(dt) {
     playVoice(result.events.guardHit ? "hmm" : "low_hp", { volume: 0.5 });
     refreshGauges();
     if (isDead(soul)) {
+      recordEncounterOutcome(soul, false);
       closeEncounter();
       triggerGameOverIfDead();
       return;
     }
+  }
+
+  if (result.events?.guardCounter) {
+    playVoice("genki", { volume: 0.55 });
+    soul = healHp(soul, 6);
+    refreshGauges();
   }
 
   if (result.events?.enemyHit) {
@@ -1076,19 +1206,27 @@ function updateActionCombatFrame(dt) {
   if (result.events?.fled) {
     if (!actionCombat.rewardsApplied) {
       actionCombat.rewardsApplied = true;
-      const outcome = resolveChoice(activeEntity, CHOICE.IGNORE);
+      const diff = getDifficulty(soul);
+      const outcome = scaleRpgOutcome(resolveChoice(activeEntity, CHOICE.IGNORE, diff), diff);
       soul = applyEncounterChoice(soul, CHOICE.IGNORE, outcome);
+      recordEncounterOutcome(soul, false);
       refreshSoulUI();
+      checkChapterAdvance();
     }
   }
 
   if (result.over) {
     if (result.victory && actionCombat && !actionCombat.rewardsApplied) {
       actionCombat.rewardsApplied = true;
-      const outcome = resolveChoice(activeEntity, CHOICE.KILL);
+      const diff = getDifficulty(soul);
+      const outcome = scaleRpgOutcome(resolveChoice(activeEntity, CHOICE.KILL, diff), diff);
       soul = applyEncounterChoice(soul, CHOICE.KILL, outcome);
+      recordEncounterOutcome(soul, true);
       refreshSoulUI();
+      checkChapterAdvance();
       if (soul.darkEntity > 85) glitch = 0.4;
+    } else if (!result.victory) {
+      recordEncounterOutcome(soul, false);
     }
     if (!encounterCloseQueued) {
       encounterCloseQueued = true;
@@ -1100,12 +1238,15 @@ function updateActionCombatFrame(dt) {
 function handleChoice(choiceKey) {
   if (!activeEntity || encounterPhase !== "rpg") return;
   playVoice(voiceForChoice(choiceKey), { volume: 0.85 });
-  const result = resolveChoice(activeEntity, choiceKey);
+  const diff = getDifficulty(soul);
+  const result = scaleRpgOutcome(resolveChoice(activeEntity, choiceKey, diff), diff);
   soul = applyEncounterChoice(soul, choiceKey, result);
+  recordEncounterOutcome(soul, choiceKey !== CHOICE.IGNORE);
   choiceResultEl.textContent = result.message;
   choiceButtons.forEach((b) => (b.disabled = true));
   encounterCloseBtn.classList.remove("hidden");
   refreshSoulUI();
+  checkChapterAdvance();
 
   if (soul.darkEntity > 85) glitch = 0.4;
   if (isDead(soul)) {
@@ -1600,11 +1741,18 @@ function loop(time) {
 
   if (encounterCooldown > 0) encounterCooldown -= dt;
 
+  if (tutorialTimer > 0) {
+    tutorialTimer -= dt;
+    if (tutorialTimer <= 0) tutorialToast?.classList.add("hidden");
+  }
+
   if (state === "play") {
+    const craftMods = craftTickModifiers(soul, dt, { inShell: mode === "introvert" });
     soul = tickSoul(soul, dt, {
       playing: true,
       inNou: mode === "extrovert",
       inVoid: mode === "extrovert" && isInVoid(world.tiles, player.x, player.y),
+      craftMods,
     });
     refreshGauges();
 
@@ -1864,7 +2012,10 @@ async function boot() {
     entityIcons = await loadEntityIcons("assets/icons");
     await loadScenery("assets/scenery");
     prewarmFieldCache();
+    bindCraftList();
+    syncChapter(soul, { human: getHumanGauge(soul) });
     refreshSoulUI();
+    refreshProgressUI();
     drawShellMuu();
   } catch (err) {
     console.error("asset load failed:", err);

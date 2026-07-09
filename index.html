@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>ムー君の冒険 — NOU</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="css/style.css?v=20260706orbit" />
+  <link rel="stylesheet" href="css/style.css?v=20260709upgrade" />
 </head>
 <body>
   <div id="app">
@@ -18,7 +18,7 @@
       <p class="start-hint">CLICK / SPACE / TAP to enter NOU</p>
       <p class="start-hint mobile-hint">MOBILE — D-PAD move · DS buttons in combat</p>
       <p class="start-hint"><a href="mobile.html" style="color:#6ec8ff;text-decoration:none;letter-spacing:0.14em">携帯でプレイ →</a></p>
-      <p class="credit">Nois Mou — World Scale Prototype · v20260706craftlift</p>
+      <p class="credit">Nois Mou — World Scale Prototype · v20260709upgrade</p>
     </div>
     <canvas id="game" class="hidden" width="1280" height="720" tabindex="0"></canvas>
 
@@ -75,6 +75,9 @@
             <ul id="gather-inventory" class="gather-inventory"></ul>
             <p class="gather-panel-title">クラフト</p>
             <div id="craft-list" class="craft-list"></div>
+            <p class="gather-panel-title">使う</p>
+            <div id="craft-use-list" class="craft-use-list"></div>
+            <ul id="memo-wall-list" class="memo-wall-list"></ul>
           </div>
         </div>
       </div>
@@ -129,6 +132,10 @@
           <span class="gauge-label">人間</span>
           <div class="meter-track"><div id="human-fill" class="gauge-fill human"></div></div>
         </div>
+        <div id="progress-panel" class="progress-panel">
+          <p id="chapter-label" class="chapter-label">章 —</p>
+          <p id="chapter-goal" class="chapter-goal"></p>
+        </div>
       </div>
       <div id="hud-right">
         <span id="mood-label">静寂</span>
@@ -138,6 +145,7 @@
     </div>
     <p id="gather-hint" class="gather-hint hidden">G — 採集モード</p>
     <p id="gather-toast" class="gather-toast hidden"></p>
+    <p id="tutorial-toast" class="tutorial-toast hidden"></p>
 
     <div id="gameover-screen" class="hidden">
       <div class="gameover-panel">
@@ -157,6 +165,6 @@
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=20260706craftlift"></script>
+  <script type="module" src="js/main.js?v=20260709upgrade"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 import { pickMotifForRegion, drawEntityIcon } from "./entity-icons.js";
+import { pickPatternForEntity } from "./enemy-patterns.js";
 
 export const CHOICE = {
   KILL: "kill",
@@ -162,6 +163,7 @@ export function spawnEntities(world, TILE, isWalkable) {
           motif: pickMotifForRegion(region.id),
           regionId: region.id,
           region: region.name,
+          pattern: pickPatternForEntity({ type }, region.id),
           x: tx * TILE + TILE / 2,
           y: ty * TILE + TILE / 2,
           vx: (Math.random() - 0.5) * 28,
@@ -229,7 +231,7 @@ export function getEntityLine(entity) {
   return lines[Math.floor(Math.random() * lines.length)];
 }
 
-export function resolveChoice(entity, choice) {
+export function resolveChoice(entity, choice, diff = null) {
   const def = ENTITY_DEFS[entity.type];
   const message = REACTIONS[choice]?.[entity.type] ?? "……";
 
@@ -237,33 +239,35 @@ export function resolveChoice(entity, choice) {
   let darkDelta = 0;
   let speedBoost = 0;
   let brainWarmth = 0;
-
   let hpDelta = 0;
   let humanSpark = 0;
 
+  const mult = diff?.rpgHpMult ?? 1;
+  const mercy = diff?.mercy ? 0.85 : 1;
+
   switch (choice) {
     case CHOICE.KILL:
-      darkDelta = def.kind === "negative" ? 8 : def.kind === "neutral" ? 10 : 12;
+      darkDelta = (def.kind === "negative" ? 8 : def.kind === "neutral" ? 10 : 12) * mercy;
       brainWarmth = -0.2;
-      hpDelta = -14;
+      hpDelta = Math.round(14 * mult);
       break;
     case CHOICE.EAT:
-      darkDelta = def.kind === "negative" ? 14 : def.kind === "neutral" ? 6 : 2;
+      darkDelta = (def.kind === "negative" ? 14 : def.kind === "neutral" ? 6 : 2) * mercy;
       speedBoost = def.kind === "negative" ? 1.25 : def.kind === "neutral" ? 1.1 : 1.05;
       brainWarmth = def.kind === "negative" ? 0.3 : def.kind === "neutral" ? 0.15 : 0.1;
-      hpDelta = def.kind === "negative" ? -20 : def.kind === "neutral" ? -12 : -10;
+      hpDelta = Math.round((def.kind === "negative" ? 20 : def.kind === "neutral" ? 12 : 10) * mult);
       entity.scale = 1.1;
       break;
     case CHOICE.IGNORE:
       remove = false;
-      darkDelta = 16;
-      hpDelta = -8;
+      darkDelta = 16 * mercy;
+      hpDelta = Math.round(8 * mult);
       entity.scale = Math.min(1.8, entity.scale + 0.15);
       break;
     case CHOICE.FRIEND:
       darkDelta = -10;
       brainWarmth = 0.25;
-      hpDelta = -24;
+      hpDelta = Math.round(24 * mult);
       humanSpark = 2;
       remove = true;
       break;
@@ -271,14 +275,5 @@ export function resolveChoice(entity, choice) {
 
   if (remove) entity.alive = false;
 
-  return {
-    message,
-    def,
-    darkDelta,
-    speedBoost,
-    brainWarmth,
-    hpDelta,
-    humanSpark,
-    remove,
-  };
+  return { message, def, darkDelta, speedBoost, brainWarmth, hpDelta, humanSpark, remove };
 }

@@ -50,11 +50,19 @@ const DIR_VECTORS = {
   right: { x: 1, y: 0 },
 };
 
-export function createActionCombat(entity, arenaCenter) {
+export function createActionCombat(entity, arenaCenter, opts = {}) {
+  const diff = opts.difficulty ?? {};
+  const hpMult = diff.enemyHpMult ?? 1;
+  const maxHp = Math.round(ENEMY_HP * hpMult);
+  const pattern = opts.pattern ?? entity?.pattern ?? null;
+
   return {
     entity,
-    enemyHp: ENEMY_HP,
-    enemyMaxHp: ENEMY_HP,
+    pattern,
+    enemyHp: maxHp,
+    enemyMaxHp: maxHp,
+    enemySpeed: ENEMY_SPEED * (diff.enemySpeedMult ?? 1),
+    contactDamage: Math.round(CONTACT_DAMAGE * (diff.enemyDamageMult ?? 1)),
     attackCooldown: 0,
     punchCooldown: 0,
     dodgeCooldown: 0,
@@ -79,6 +87,10 @@ export function createActionCombat(entity, arenaCenter) {
     outcomeMessage: "",
     rewardsApplied: false,
     lastActionKind: null,
+    telegraphTimer: 0,
+    charging: false,
+    chargeDir: { x: 0, y: 1 },
+    strafeAngle: Math.random() * Math.PI * 2,
   };
 }
 
@@ -188,10 +200,43 @@ export function updateActionCombat(combat, player, dt, input) {
     const edx = player.x - e.x;
     const edy = player.y - e.y;
     const edist = Math.hypot(edx, edy) || 1;
-    const chase = combat.guardActive ? ENEMY_SPEED * 0.72 : ENEMY_SPEED;
-    const nx = e.x + (edx / edist) * chase * dt;
-    const ny = e.y + (edy / edist) * chase * dt;
-    const enemyPos = clampToArena(nx, ny, combat.arenaCenter, combat.arenaRadius);
+    const nx = edx / edist;
+    const ny = edy / edist;
+    const p = combat.pattern;
+    let chase = (combat.guardActive ? combat.enemySpeed * 0.72 : combat.enemySpeed) * (p?.speed ?? 1);
+
+    if (p?.charge) {
+      if (!combat.charging && edist < 120 && combat.telegraphTimer <= 0) {
+        combat.telegraphTimer = p.telegraph ?? 0.8;
+        combat.chargeDir = { x: nx, y: ny };
+      }
+      if (combat.telegraphTimer > 0) {
+        combat.telegraphTimer -= dt;
+        if (combat.telegraphTimer <= 0) combat.charging = true;
+      } else if (combat.charging) {
+        chase *= p.chargeSpeed ?? 2.4;
+        e.x += combat.chargeDir.x * chase * dt;
+        e.y += combat.chargeDir.y * chase * dt;
+        if (edist > 140) combat.charging = false;
+      } else {
+        e.x += nx * chase * dt * 0.35;
+        e.y += ny * chase * dt * 0.35;
+      }
+    } else if (p?.strafe) {
+      combat.strafeAngle += dt * 2.2;
+      const sx = Math.cos(combat.strafeAngle) * chase * dt;
+      const sy = Math.sin(combat.strafeAngle) * chase * dt;
+      e.x += nx * chase * dt * 0.45 + sx;
+      e.y += ny * chase * dt * 0.45 + sy;
+    } else if (p?.flee && edist < 90) {
+      e.x -= nx * chase * dt;
+      e.y -= ny * chase * dt;
+    } else {
+      e.x += nx * chase * dt;
+      e.y += ny * chase * dt;
+    }
+
+    const enemyPos = clampToArena(e.x, e.y, combat.arenaCenter, combat.arenaRadius);
     e.x = enemyPos.x;
     e.y = enemyPos.y;
   }
@@ -200,8 +245,23 @@ export function updateActionCombat(combat, player, dt, input) {
   const touchDist = Math.hypot(player.x - e.x, player.y - e.y);
   if (touchDist < 34 && combat.contactTimer >= CONTACT_INTERVAL && !hasIframes(combat)) {
     combat.contactTimer = 0;
-    let dmg = CONTACT_DAMAGE;
-    if (combat.guardActive) dmg *= GUARD_DAMAGE_MUL;
+    let dmg = combat.contactDamage ?? CONTACT_DAMAGE;
+    if (combat.charging) dmg = Math.round(dmg * (combat.pattern?.chargeDamage ?? 1.4));
+    if (combat.guardActive) {
+      dmg *= GUARD_DAMAGE_MUL;
+      if (combat.guardTimer > 0.35 && combat.charging) {
+        combat.stunTimer = 0.55;
+        combat.charging = false;
+        combat.telegraphTimer = 0;
+        combat.enemyHp -= 22;
+        events.guardCounter = true;
+        if (combat.enemyHp <= 0) {
+          combat.phase = "win";
+          combat.winTimer = 0;
+          e.alive = false;
+        }
+      }
+    }
     events.playerHit = dmg;
     if (combat.guardActive) events.guardHit = true;
   }
@@ -341,6 +401,18 @@ export function drawActionCombat(ctx, combat, player, camera, canvas, dither, en
 
   const px = player.x - camera.x;
   const py = player.y - camera.y;
+  const ex = e.x - camera.x;
+  const ey = e.y - camera.y;
+
+  if (combat.telegraphTimer > 0) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(255, 80, 40, ${0.35 + (1 - combat.telegraphTimer) * 0.5})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(ex, ey, 28 + (1 - combat.telegraphTimer) * 20, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   if (combat.guardActive) {
     ctx.save();
