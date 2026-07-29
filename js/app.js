@@ -8,56 +8,48 @@ const KIND = {
   about: "紹介",
 };
 
-const shell = document.getElementById("app-shell");
-const pages = [...document.querySelectorAll(".page")];
-const dockBtns = [...document.querySelectorAll(".dock-btn[data-go]")];
+const app = document.getElementById("app");
+const pages = [...document.querySelectorAll(".nf-page")];
+const dockBtns = [...document.querySelectorAll(".nf-dock-btn[data-go]")];
+const topLinks = [...document.querySelectorAll(".nf-toplink")];
 const noticeList = document.getElementById("notice-list");
 const homeFeed = document.getElementById("home-feed");
 const mediaList = document.getElementById("media-list");
-const chips = [...document.querySelectorAll(".chip")];
+const chips = [...document.querySelectorAll(".nf-chip")];
 const playerDialog = document.getElementById("player-dialog");
 const playerFrame = document.getElementById("player-frame");
 const playerTitle = document.getElementById("player-title");
 const playerOpen = document.getElementById("player-open");
 const mouLaunch = document.getElementById("mou-launch");
 const bootFade = document.getElementById("boot-fade");
-const dockPlay = document.getElementById("dock-play");
 
 let archive = null;
 let filter = "all";
 
 function setPage(name) {
-  shell.dataset.tab = name;
+  app.dataset.tab = name;
   pages.forEach((p) => {
     const on = p.dataset.page === name;
     p.classList.toggle("is-on", on);
     p.hidden = !on;
-    if (on) {
-      p.style.animation = "none";
-      void p.offsetWidth;
-      p.style.animation = "";
-    }
   });
   dockBtns.forEach((b) => b.classList.toggle("is-on", b.dataset.go === name));
+  topLinks.forEach((b) => b.classList.toggle("is-on", b.dataset.go === name));
   document.getElementById("screen")?.scrollTo({ top: 0 });
   history.replaceState(null, "", name === "home" ? "#" : `#${name}`);
 }
 
 function bindNav() {
-  dockBtns.forEach((b) => b.addEventListener("click", () => setPage(b.dataset.go)));
   document.querySelectorAll("[data-go]").forEach((el) => {
-    if (el.classList.contains("dock-btn")) return;
-    el.addEventListener("click", () => setPage(el.dataset.go));
+    el.addEventListener("click", (e) => {
+      const page = el.dataset.go;
+      if (!page) return;
+      if (el.tagName === "A" && el.getAttribute("href")?.startsWith("#")) e.preventDefault();
+      setPage(page);
+    });
   });
   const hash = location.hash.replace("#", "");
   if (["home", "feed", "about"].includes(hash)) setPage(hash);
-}
-
-function tickClock() {
-  const el = document.getElementById("status-time");
-  if (!el) return;
-  const d = new Date();
-  el.textContent = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function escapeHtml(v) {
@@ -73,7 +65,7 @@ function renderNotices(notices) {
   noticeList.innerHTML = notices
     .map(
       (n) => `
-      <a class="notice-item" href="${escapeAttr(n.href)}" ${
+      <a class="nf-notice" href="${escapeAttr(n.href)}" ${
         /^https?:|mailto:/.test(n.href) ? 'target="_blank" rel="noopener"' : ""
       }>
         <span class="label">${escapeHtml(n.label)}</span>
@@ -87,11 +79,11 @@ function renderNotices(notices) {
 }
 
 function renderHomeFeed(videos) {
-  const top = videos.slice(0, 8);
-  homeFeed.innerHTML = top
+  homeFeed.innerHTML = videos
+    .slice(0, 12)
     .map(
       (v) => `
-      <button type="button" class="feed-card" data-id="${escapeAttr(v.id)}" data-title="${escapeAttr(v.title)}" data-url="${escapeAttr(v.url)}">
+      <button type="button" class="nf-card" data-id="${escapeAttr(v.id)}" data-title="${escapeAttr(v.title)}" data-url="${escapeAttr(v.url)}">
         <img src="${escapeAttr(v.thumb)}" alt="" loading="lazy" />
         <span class="meta">
           <span class="kind">${escapeHtml(KIND[v.kind] || v.kind)}</span>
@@ -100,7 +92,7 @@ function renderHomeFeed(videos) {
       </button>`
     )
     .join("");
-  homeFeed.querySelectorAll(".feed-card").forEach((btn) => {
+  homeFeed.querySelectorAll(".nf-card").forEach((btn) => {
     btn.addEventListener("click", () => openPlayer(btn.dataset.id, btn.dataset.title, btn.dataset.url));
   });
 }
@@ -108,13 +100,13 @@ function renderHomeFeed(videos) {
 function renderMedia(videos) {
   const list = filter === "all" ? videos : videos.filter((v) => v.kind === filter);
   if (!list.length) {
-    mediaList.innerHTML = `<p style="color:var(--muted);padding:12px 0">このカテゴリはまだ空です。</p>`;
+    mediaList.innerHTML = `<p style="color:var(--nf-muted);padding:12px 0">このカテゴリはまだ空です。</p>`;
     return;
   }
   mediaList.innerHTML = list
     .map(
       (v) => `
-      <button type="button" class="media-item" data-id="${escapeAttr(v.id)}" data-title="${escapeAttr(v.title)}" data-url="${escapeAttr(v.url)}">
+      <button type="button" class="nf-media" data-id="${escapeAttr(v.id)}" data-title="${escapeAttr(v.title)}" data-url="${escapeAttr(v.url)}">
         <img src="${escapeAttr(v.thumb)}" alt="" loading="lazy" />
         <span>
           <div class="kind">${escapeHtml(KIND[v.kind] || v.kind)}</div>
@@ -124,7 +116,7 @@ function renderMedia(videos) {
       </button>`
     )
     .join("");
-  mediaList.querySelectorAll(".media-item").forEach((btn) => {
+  mediaList.querySelectorAll(".nf-media").forEach((btn) => {
     btn.addEventListener("click", () => openPlayer(btn.dataset.id, btn.dataset.title, btn.dataset.url));
   });
 }
@@ -174,7 +166,7 @@ function launchGame(href) {
   requestAnimationFrame(() => bootFade.classList.add("show"));
   setTimeout(() => {
     location.href = href;
-  }, 320);
+  }, 280);
 }
 
 function bindGameLaunch() {
@@ -183,7 +175,9 @@ function bindGameLaunch() {
     launchGame(e.currentTarget.getAttribute("href") || "game.html");
   };
   mouLaunch?.addEventListener("click", go);
-  dockPlay?.addEventListener("click", go);
+  document.getElementById("dock-play")?.addEventListener("click", go);
+  document.getElementById("top-play")?.addEventListener("click", go);
+  document.getElementById("dock-play-card")?.addEventListener("click", go);
 }
 
 playerDialog?.addEventListener("close", () => {
@@ -191,11 +185,8 @@ playerDialog?.addEventListener("close", () => {
 });
 
 async function boot() {
-  tickClock();
-  setInterval(tickClock, 30000);
   bindNav();
   bindGameLaunch();
-
   const res = await fetch(`data/archive.json?v=${Date.now()}`);
   archive = await res.json();
   renderNotices(archive.notices);

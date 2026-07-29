@@ -10,9 +10,9 @@
   "scope": "./",
   "icons": [
     {
-      "src": "assets/ungr-avatar.jpg",
-      "sizes": "900x900",
-      "type": "image/jpeg",
+      "src": "assets/ungr-brain.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
       "purpose": "any"
     },
     {
