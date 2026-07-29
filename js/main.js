@@ -125,7 +125,7 @@ import {
   initMobileControls,
   syncMobileControls,
   getMobileMoveVector,
-} from "./mobile-controls.js?v=20260729nolongpress";
+} from "./mobile-controls.js?v=20260729gameui";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -555,12 +555,6 @@ async function beginPlay() {
   tryLockLandscape().catch(() => {});
 }
 
-function onTitleActivate(e) {
-  if (e.target.closest("a, button, #hub-back-btn")) return;
-  e.preventDefault();
-  beginPlay();
-}
-
 function returnToHub() {
   if (document.body.classList.contains("is-returning-hub")) return;
   document.body.classList.add("is-returning-hub");
@@ -572,13 +566,32 @@ function returnToHub() {
   }, 260);
 }
 
-function bindHubBack() {
-  const btn = document.getElementById("hub-back-btn");
-  btn?.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    returnToHub();
+function bindPressableButtons(root = document) {
+  root.querySelectorAll(
+    ".title-btn, .mode-switch, .hub-back-btn, .choice-grid button, .action-btn, #feed-btn"
+  ).forEach((btn) => {
+    if (btn.dataset.pressBound === "1") return;
+    btn.dataset.pressBound = "1";
+    const down = () => btn.classList.add("pressed");
+    const up = () => btn.classList.remove("pressed");
+    btn.addEventListener("pointerdown", down);
+    btn.addEventListener("pointerup", up);
+    btn.addEventListener("pointercancel", up);
+    btn.addEventListener("pointerleave", up);
   });
+}
+
+function bindHubBack() {
+  const bindHome = (el) => {
+    el?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      returnToHub();
+    });
+  };
+  bindHome(document.getElementById("hub-back-btn"));
+  bindHome(document.getElementById("title-home-btn"));
+  bindHome(document.getElementById("hud-home-btn"));
   bindEdgeSwipeBack(() => {
     const hint = document.getElementById("edge-back-hint");
     hint?.classList.add("show");
@@ -614,8 +627,12 @@ function blockMobileTextChrome() {
 }
 
 function bindTitleScreen() {
-  titleScreen.addEventListener("click", onTitleActivate);
-  titleScreen.addEventListener("pointerup", onTitleActivate, { passive: false });
+  const startBtn = document.getElementById("start-btn");
+  startBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    beginPlay();
+  });
 }
 
 function initWorld() {
@@ -2080,6 +2097,7 @@ async function boot() {
   bindInput();
   bindTitleScreen();
   bindHubBack();
+  bindPressableButtons();
   blockMobileTextChrome();
   initMobileControls({ onAction: handleMobileAction });
   refreshMobileControls();
