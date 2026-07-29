@@ -24,6 +24,7 @@ FILES=(
   js/main.js
   js/shell-room.js
   index.html
+  game.html
   assets/muu/manifest.json
   scripts/apply-good-mou-update.sh
 )

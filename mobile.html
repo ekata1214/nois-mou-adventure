@@ -158,7 +158,7 @@
     <h1>ムー君の冒険</h1>
     <p class="lead">携帯は<strong>横画面</strong>推奨。D-PADで移動、戦闘は画面下のボタン。</p>
 
-    <a id="play-link" class="play-btn" href="index.html">プレイする</a>
+    <a id="play-link" class="play-btn" href="game.html">プレイする</a>
 
     <p class="url-box" id="game-url"></p>
     <button type="button" class="copy-btn" id="copy-btn">リンクをコピー</button>
@@ -184,11 +184,11 @@
 
   <script>
     (function () {
-      const PAGES_GAME = "https://ekata1214.github.io/nois-mou-adventure/";
+      const PAGES_GAME = "https://ekata1214.github.io/nois-mou-adventure/game.html";
       const host = location.hostname;
       const isLocal = /^(localhost|127\.0\.0\.1|\[::\]|0\.0\.0\.0)$/.test(host);
       const base = location.href.replace(/mobile\.html.*$/, "");
-      const gameUrl = isLocal ? base + "index.html" : PAGES_GAME;
+      const gameUrl = isLocal ? base + "game.html" : PAGES_GAME;
 
       const playLink = document.getElementById("play-link");
       const urlEl = document.getElementById("game-url");
@@ -198,7 +198,7 @@
       const localNote = document.getElementById("local-note");
       const lanExample = document.getElementById("lan-example");
 
-      playLink.href = isLocal ? "index.html" : PAGES_GAME;
+      playLink.href = isLocal ? "game.html" : PAGES_GAME;
       urlEl.textContent = gameUrl;
       qr.src =
         "https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=" +
@@ -206,7 +206,7 @@
 
       if (isLocal) {
         localNote.classList.add("show");
-        lanExample.textContent = "http://192.168.x.x:8765/index.html";
+        lanExample.textContent = "http://192.168.x.x:8765/game.html";
       }
 
       copyBtn.addEventListener("click", async () => {

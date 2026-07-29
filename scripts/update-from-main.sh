@@ -44,7 +44,7 @@ else
   }
 fi
 
-VER="$(grep -o 'v[0-9]*[a-z]*' index.html | tail -1 || true)"
+VER="$(grep -o 'v[0-9]*[a-z]*' game.html index.html 2>/dev/null | tail -1 || true)"
 echo ""
 echo "✓ 更新完了"
 echo "  バージョン表示: ${VER:-（要確認）}"

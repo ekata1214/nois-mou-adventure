@@ -1,14 +1,20 @@
 {
-  "name": "ムー君の冒険",
-  "short_name": "ムー君",
-  "description": "NOU — ムー君の冒険（携帯は横画面推奨）",
-  "display": "fullscreen",
-  "orientation": "landscape",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "name": "UNGR ARCHIVE",
+  "short_name": "UNGR",
+  "description": "アングラアーカイブ — 脳の中の議論をする場 / ムー君の冒険",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#070708",
+  "theme_color": "#070708",
   "start_url": "./index.html",
   "scope": "./",
   "icons": [
+    {
+      "src": "assets/ungr-avatar.jpg",
+      "sizes": "900x900",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
     {
       "src": "assets/title.png",
       "sizes": "512x512",
