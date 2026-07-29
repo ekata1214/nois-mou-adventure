@@ -125,7 +125,7 @@ import {
   initMobileControls,
   syncMobileControls,
   getMobileMoveVector,
-} from "./mobile-controls.js";
+} from "./mobile-controls.js?v=20260729nolongpress";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -2080,6 +2080,7 @@ async function boot() {
   bindInput();
   bindTitleScreen();
   bindHubBack();
+  blockMobileTextChrome();
   initMobileControls({ onAction: handleMobileAction });
   refreshMobileControls();
 
