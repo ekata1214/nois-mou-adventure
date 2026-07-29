@@ -125,7 +125,7 @@ import {
   initMobileControls,
   syncMobileControls,
   getMobileMoveVector,
-} from "./mobile-controls.js?v=20260729gameui";
+} from "./mobile-controls.js?v=20260729dpadfix";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");

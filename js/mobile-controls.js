@@ -1,7 +1,7 @@
 /** 携帯 DS 風バーチャルパッド（左: 移動 / 右: アクション） */
 
 import { isMobileDevice } from "./mobile-viewport.js";
-import { isOnDpadCross, normalizePadCoords, resolveDpadDirs } from "./dpad-input.js";
+import { isOnDpadCross, normalizePadCoords, resolveDpadDirs } from "./dpad-input.js?v=20260729dpadfix";
 
 const dpadState = { up: false, down: false, left: false, right: false };
 const analog = { x: 0, y: 0, active: false };
