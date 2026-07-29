@@ -1,0 +1,49 @@
+.hub-back-btn {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  left: max(10px, env(safe-area-inset-left, 0px));
+  z-index: 40;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.55);
+  color: #f2f2f2;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hub-back-btn:hover {
+  border-color: #e50914;
+  color: #fff;
+}
+
+.edge-back-hint {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translate(-100%, -50%);
+  z-index: 45;
+  padding: 10px 14px;
+  background: rgba(229, 9, 20, 0.92);
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.edge-back-hint.show {
+  transform: translate(0, -50%);
+  opacity: 1;
+}
+
+body.is-returning-hub #app {
+  opacity: 0;
+  transform: translateX(12%);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}

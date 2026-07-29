@@ -1,3 +1,5 @@
+import { bindEdgeSwipeBack } from "./swipe-back.js";
+
 const KIND = {
   essay: "批評",
   film: "映画",
@@ -25,8 +27,10 @@ const bootFade = document.getElementById("boot-fade");
 
 let archive = null;
 let filter = "all";
+let stack = ["home"];
+let playerOpenFlag = false;
 
-function setPage(name) {
+function showPage(name) {
   app.dataset.tab = name;
   pages.forEach((p) => {
     const on = p.dataset.page === name;
@@ -36,7 +40,45 @@ function setPage(name) {
   dockBtns.forEach((b) => b.classList.toggle("is-on", b.dataset.go === name));
   topLinks.forEach((b) => b.classList.toggle("is-on", b.dataset.go === name));
   document.getElementById("screen")?.scrollTo({ top: 0 });
-  history.replaceState(null, "", name === "home" ? "#" : `#${name}`);
+}
+
+function goTo(name, { push = true } = {}) {
+  if (!["home", "feed", "about"].includes(name)) return;
+  const current = stack[stack.length - 1];
+  if (name === current) {
+    showPage(name);
+    return;
+  }
+  if (push) {
+    stack.push(name);
+    history.pushState({ ungr: true, stack: [...stack] }, "", name === "home" ? "#" : `#${name}`);
+  } else {
+    stack = [name];
+    history.replaceState({ ungr: true, stack: [...stack] }, "", name === "home" ? "#" : `#${name}`);
+  }
+  showPage(name);
+}
+
+function closePlayer() {
+  if (!playerOpenFlag) return false;
+  playerOpenFlag = false;
+  if (playerDialog?.open) playerDialog.close();
+  playerFrame.src = "";
+  return true;
+}
+
+function goBackInApp() {
+  if (closePlayer()) return true;
+  if (stack.length <= 1) return false;
+  stack.pop();
+  const prev = stack[stack.length - 1] || "home";
+  history.replaceState({ ungr: true, stack: [...stack] }, "", prev === "home" ? "#" : `#${prev}`);
+  showPage(prev);
+  app.classList.add("nf-swipe-back");
+  requestAnimationFrame(() => {
+    setTimeout(() => app.classList.remove("nf-swipe-back"), 280);
+  });
+  return true;
 }
 
 function bindNav() {
@@ -45,11 +87,43 @@ function bindNav() {
       const page = el.dataset.go;
       if (!page) return;
       if (el.tagName === "A" && el.getAttribute("href")?.startsWith("#")) e.preventDefault();
-      setPage(page);
+      // dock/home jumps reset stack; subpages push
+      if (page === "home") goTo("home", { push: false });
+      else goTo(page, { push: true });
     });
   });
+
   const hash = location.hash.replace("#", "");
-  if (["home", "feed", "about"].includes(hash)) setPage(hash);
+  if (["feed", "about"].includes(hash)) {
+    stack = ["home", hash];
+    history.replaceState({ ungr: true, stack: [...stack] }, "", `#${hash}`);
+    showPage(hash);
+  } else {
+    stack = ["home"];
+    history.replaceState({ ungr: true, stack: [...stack] }, "", "#");
+    showPage("home");
+  }
+
+  window.addEventListener("popstate", (e) => {
+    if (closePlayer()) {
+      // keep current page if dialog ate the back
+      if (e.state?.stack) {
+        stack = [...e.state.stack];
+        showPage(stack[stack.length - 1] || "home");
+      }
+      return;
+    }
+    if (e.state?.stack?.length) {
+      stack = [...e.state.stack];
+      showPage(stack[stack.length - 1] || "home");
+      return;
+    }
+    goTo("home", { push: false });
+  });
+
+  bindEdgeSwipeBack(() => {
+    goBackInApp();
+  });
 }
 
 function escapeHtml(v) {
@@ -125,6 +199,7 @@ function openPlayer(id, title, url) {
   playerTitle.textContent = title;
   playerOpen.href = url;
   playerFrame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&rel=0`;
+  playerOpenFlag = true;
   if (typeof playerDialog.showModal === "function") playerDialog.showModal();
   else window.open(url, "_blank", "noopener");
 }
@@ -163,6 +238,7 @@ function bindFilters(videos) {
 function launchGame(href) {
   mouLaunch?.classList.add("is-leaving");
   bootFade.hidden = false;
+  sessionStorage.setItem("ungr-from-hub", "1");
   requestAnimationFrame(() => bootFade.classList.add("show"));
   setTimeout(() => {
     location.href = href;
@@ -181,6 +257,7 @@ function bindGameLaunch() {
 }
 
 playerDialog?.addEventListener("close", () => {
+  playerOpenFlag = false;
   playerFrame.src = "";
 });
 
