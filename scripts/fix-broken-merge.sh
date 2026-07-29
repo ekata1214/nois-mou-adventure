@@ -31,8 +31,8 @@ for f in assets/muu/*.{glb,GLB} assets/room/*.{glb,GLB}; do
   backup_big_glb "$f" 2>/dev/null || true
 done
 
-if grep -q '^<<<<<<< ' index.html 2>/dev/null; then
-  echo "△ index.html にマージコンフリクト痕跡あり"
+if grep -q '^<<<<<<< ' index.html game.html 2>/dev/null; then
+  echo "△ HTML にマージコンフリクト痕跡あり"
 fi
 
 echo ""

@@ -555,6 +555,7 @@ async function beginPlay() {
 }
 
 function onTitleActivate(e) {
+  if (e.target.closest("a")) return;
   e.preventDefault();
   beginPlay();
 }

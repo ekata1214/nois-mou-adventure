@@ -14,7 +14,14 @@ if [ ! -f "index.html" ]; then
   echo "✗ index.html がありません"
   ok=0
 else
-  echo "✓ index.html"
+  echo "✓ index.html (ARCHIVE hub)"
+fi
+
+if [ ! -f "game.html" ]; then
+  echo "✗ game.html がありません"
+  ok=0
+else
+  echo "✓ game.html"
 fi
 
 if [ ! -f "js/shell-room.js" ]; then
@@ -24,10 +31,10 @@ else
   echo "✓ js/shell-room.js"
 fi
 
-if grep -q "shell-room-gl" index.html 2>/dev/null; then
+if grep -q "shell-room-gl" game.html 2>/dev/null; then
   echo "✓ 殻の3D部屋用 HTML"
 else
-  echo "✗ index.html が古い"
+  echo "✗ game.html が古い"
   ok=0
 fi
 

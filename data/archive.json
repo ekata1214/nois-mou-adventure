@@ -1,0 +1,473 @@
+{
+  "brand": {
+    "name": "UNGR ARCHIVE",
+    "nameJa": "アングラアーカイブ",
+    "handle": "@ungr.archive",
+    "tagline": "脳の中の議論をする場",
+    "statement": "世の中のあらゆる事象は議論が起きてる時が華。なぜ好きか / なぜ嫌いかをここで議論していきませんか？",
+    "roles": [
+      "世界観設計",
+      "映像",
+      "CG制作",
+      "映像ディレクション"
+    ],
+    "keywords": [
+      "アングラ",
+      "批評",
+      "表現",
+      "倫理",
+      "思想"
+    ],
+    "email": "ungr.archive@gmail.com",
+    "portfolio": "https://drive.google.com/file/d/1M798ui3two5K6BKDoPH20hZ41C499I23/view?usp=sharing",
+    "avatar": "assets/ungr-avatar.jpg",
+    "banner": "assets/ungr-banner.png",
+    "stats": {
+      "youtubeSubscribers": "3.97K",
+      "youtubeViews": "409,660",
+      "tiktokFollowers": "10.3K",
+      "tiktokLikes": "163K",
+      "tiktokVideos": 78
+    },
+    "links": [
+      {
+        "id": "youtube",
+        "label": "YouTube",
+        "url": "https://www.youtube.com/@ungr.archive"
+      },
+      {
+        "id": "tiktok",
+        "label": "TikTok",
+        "url": "https://www.tiktok.com/@ungr.archive"
+      },
+      {
+        "id": "instagram",
+        "label": "Instagram",
+        "url": "https://www.instagram.com/ungr.archive/"
+      },
+      {
+        "id": "email",
+        "label": "Mail",
+        "url": "mailto:ungr.archive@gmail.com"
+      }
+    ]
+  },
+  "notices": [
+    {
+      "id": "mou-live",
+      "label": "PLAYABLE",
+      "title": "ムー君の冒険 — ワールド試作公開中",
+      "body": "殻と NOU を行き来する体験プロトタイプ。携帯・PC両対応。",
+      "href": "game.html",
+      "date": "2026-07-09"
+    },
+    {
+      "id": "latest",
+      "label": "NEW",
+      "title": "ここ10年間プレイリストに入り続けてます",
+      "body": "YouTube / TikTok に最新アーカイブを追加。",
+      "href": "https://www.youtube.com/watch?v=Xtu7Pz21LP4",
+      "date": "2026-07-28"
+    },
+    {
+      "id": "work",
+      "label": "WORK",
+      "title": "映像制作・世界観設計の相談受付中",
+      "body": "ポートフォリオ閲覧 / お仕事のご依頼はメールかDMへ。",
+      "href": "mailto:ungr.archive@gmail.com",
+      "date": null
+    }
+  ],
+  "game": {
+    "title": "ムー君の冒険",
+    "subtitle": "Nois Mou — World Scale Prototype",
+    "blurb": "人間の思考の中でしか生きられないムー君。殻（INTROVERT）と外界 NOU を往復する、UNGR ARCHIVE 発の体験。",
+    "href": "game.html",
+    "mobileHref": "mobile.html",
+    "art": "assets/title.png",
+    "episode": {
+      "id": "BNUeDVNsVKc",
+      "title": "【ムー君の冒険】第0話 - Nois Mou",
+      "rawTitle": "【ムー君の冒険】第0話 - Nois Mou",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/BNUeDVNsVKc/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=BNUeDVNsVKc",
+      "tags": [],
+      "kind": "game"
+    }
+  },
+  "videos": [
+    {
+      "id": "Xtu7Pz21LP4",
+      "title": "ここ10年間プレイリストに入り続けてます",
+      "rawTitle": "ここ10年間プレイリストに入り続けてます。 #アングラ #カルチャー #サブカル　#音楽紹介",
+      "published": "2026-07-28",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/Xtu7Pz21LP4/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=Xtu7Pz21LP4",
+      "tags": [
+        "アングラ",
+        "カルチャー",
+        "サブカル",
+        "音楽紹介"
+      ],
+      "kind": "music"
+    },
+    {
+      "id": "WCE4dRdFQQw",
+      "title": "花火の下での告白が失敗しやすい理由",
+      "rawTitle": "花火の下での告白が失敗しやすい理由",
+      "published": "2026-07-26",
+      "description": "昨日の隅田川花火大会で無事結ばれたカップルはいくつあるんだろう🧠\n\n映像制作ポートフォリオ\nhttps://drive.google.com/file/d/1M798ui3two5K6BKDoPH20hZ41C499I23/view?usp=sharing\n\n世の中のあらゆる事象は議論が起きてる時が華。\nなぜ好きか / なぜ嫌いかをここで議論していきませんか？\nアングラアーカイブ。\n🧠\n世界観設計 / 映像 / CG制作 etc\nお仕事のご依頼/ご相談 / ポートフォリオの閲覧はお気軽に\n📩ungr.archive@gmail.com",
+      "thumb": "https://i.ytimg.com/vi/WCE4dRdFQQw/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=WCE4dRdFQQw",
+      "tags": [],
+      "kind": "essay"
+    },
+    {
+      "id": "BWsGj5HVgSY",
+      "title": "好きな邦画トップ3に入ります",
+      "rawTitle": "好きな邦画トップ3に入ります。 #アングラ #映画 #カルチャー #サブカル",
+      "published": "2026-07-20",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/BWsGj5HVgSY/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=BWsGj5HVgSY",
+      "tags": [
+        "アングラ",
+        "映画",
+        "カルチャー",
+        "サブカル"
+      ],
+      "kind": "film"
+    },
+    {
+      "id": "JtjpyS8AzEw",
+      "title": "フルは画面下部のリンクから⚽️🧠",
+      "rawTitle": "フルは画面下部のリンクから⚽️🧠 #アングラ #カルチャー #映画 #サッカー #w杯",
+      "published": "2026-07-19",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/JtjpyS8AzEw/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=JtjpyS8AzEw",
+      "tags": [
+        "アングラ",
+        "カルチャー",
+        "映画",
+        "サッカー",
+        "w杯"
+      ],
+      "kind": "film"
+    },
+    {
+      "id": "rwbR8pIvbsg",
+      "title": "全盛期は最高だった",
+      "rawTitle": "全盛期は最高だった。 #アングラ #hiphop #カルチャー #ヒップホップ #音楽紹介",
+      "published": "2026-07-15",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/rwbR8pIvbsg/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=rwbR8pIvbsg",
+      "tags": [
+        "アングラ",
+        "hiphop",
+        "カルチャー",
+        "ヒップホップ",
+        "音楽紹介"
+      ],
+      "kind": "music"
+    },
+    {
+      "id": "EteyNUPRNvU",
+      "title": "フルは画面下部のリンクから",
+      "rawTitle": "フルは画面下部のリンクから #アングラ #カルチャー",
+      "published": "2026-07-14",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/EteyNUPRNvU/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=EteyNUPRNvU",
+      "tags": [
+        "アングラ",
+        "カルチャー"
+      ],
+      "kind": "essay"
+    },
+    {
+      "id": "edjbV0QVisA",
+      "title": "AIが人間に負けるわけがない。フルは画面下部のリンクから🧠",
+      "rawTitle": "AIが人間に負けるわけがない。フルは画面下部のリンクから🧠 #アングラ #カルチャー #サブカル",
+      "published": "2026-07-11",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/edjbV0QVisA/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=edjbV0QVisA",
+      "tags": [
+        "アングラ",
+        "カルチャー",
+        "サブカル"
+      ],
+      "kind": "essay"
+    },
+    {
+      "id": "iKpt0VDXU8E",
+      "title": "人間がAIに負けるわけがない",
+      "rawTitle": "人間がAIに負けるわけがない。",
+      "published": "2026-07-11",
+      "description": "6月にあった石田徹也展、すごく良かったです。\n\n映像制作ポートフォリオ\nhttps://drive.google.com/file/d/1M798ui3two5K6BKDoPH20hZ41C499I23/view?usp=sharing\n\n世の中のあらゆる事象は議論が起きてる時が華。\nなぜ好きか / なぜ嫌いかをここで議論していきませんか？\nアングラアーカイブ。\n🧠\n世界観設計 / 映像 / CG制作 etc\nお仕事のご依頼/ご相談 / ポートフォリオの閲覧はお気軽に\n📩ungr.archive@gmail.com",
+      "thumb": "https://i.ytimg.com/vi/iKpt0VDXU8E/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=iKpt0VDXU8E",
+      "tags": [],
+      "kind": "essay"
+    },
+    {
+      "id": "gXa8Ortp81Y",
+      "title": "サントラが、本当に神",
+      "rawTitle": "サントラが、本当に神。 #アングラ #カルチャー #サブカル　#アニメ紹介",
+      "published": "2026-07-08",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/gXa8Ortp81Y/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=gXa8Ortp81Y",
+      "tags": [
+        "アングラ",
+        "カルチャー",
+        "サブカル",
+        "アニメ紹介"
+      ],
+      "kind": "music"
+    },
+    {
+      "id": "6PnWRDqz7yg",
+      "title": "ご冥福をお祈りします",
+      "rawTitle": "ご冥福をお祈りします。 #アングラ #カルチャー #サブカル",
+      "published": "2026-07-06",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/6PnWRDqz7yg/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=6PnWRDqz7yg",
+      "tags": [
+        "アングラ",
+        "カルチャー",
+        "サブカル"
+      ],
+      "kind": "essay"
+    },
+    {
+      "id": "L7RaoFy-KXs",
+      "title": "映画『マトリックス』から考える100年後の贅沢",
+      "rawTitle": "映画『マトリックス』から考える100年後の贅沢",
+      "published": "2026-07-04",
+      "description": "畑仕事とか、めっちゃ贅沢な体験になると思う。\n\n映像制作ポートフォリオ\nhttps://drive.google.com/file/d/1M798ui3two5K6BKDoPH20hZ41C499I23/view?usp=sharing\n\n世の中のあらゆる事象は議論が起きてる時が華。\nなぜ好きか / なぜ嫌いかをここで議論していきませんか？\nアングラアーカイブ。\n🧠\n世界観設計 / 映像 / CG制作 etc\nお仕事のご依頼/ご相談 / ポートフォリオの閲覧はお気軽に\n📩ungr.archive@gmail.com",
+      "thumb": "https://i.ytimg.com/vi/L7RaoFy-KXs/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=L7RaoFy-KXs",
+      "tags": [],
+      "kind": "film"
+    },
+    {
+      "id": "8P4Fb3kXXzg",
+      "title": "ラストシーン、意味深で好き",
+      "rawTitle": "ラストシーン、意味深で好き。 #アングラ #カルチャー #映画紹介",
+      "published": "2026-07-01",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/8P4Fb3kXXzg/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=8P4Fb3kXXzg",
+      "tags": [
+        "アングラ",
+        "カルチャー",
+        "映画紹介"
+      ],
+      "kind": "film"
+    },
+    {
+      "id": "m8iYtp7jfzg",
+      "title": "今年出たアルバムも最高だった",
+      "rawTitle": "今年出たアルバムも最高だった。 #アングラ #カルチャー #ヒップホップ #音楽紹介",
+      "published": "2026-06-29",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/m8iYtp7jfzg/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=m8iYtp7jfzg",
+      "tags": [
+        "アングラ",
+        "カルチャー",
+        "ヒップホップ",
+        "音楽紹介"
+      ],
+      "kind": "music"
+    },
+    {
+      "id": "F3kNI3InTPM",
+      "title": "Clams Casinoとの曲最高なんよね",
+      "rawTitle": "Clams Casinoとの曲最高なんよね。 #アングラ #カルチャー #洋楽 #ヒップホップ #音楽紹介",
+      "published": "2026-06-27",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/F3kNI3InTPM/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=F3kNI3InTPM",
+      "tags": [
+        "アングラ",
+        "カルチャー",
+        "洋楽",
+        "ヒップホップ",
+        "音楽紹介"
+      ],
+      "kind": "music"
+    },
+    {
+      "id": "xIaPR_6FYog",
+      "title": "小耳ちゃんガチで欲しい",
+      "rawTitle": "小耳ちゃんガチで欲しい。 #アングラ #カルチャー #アニメ紹介 #サブカル",
+      "published": "2026-06-24",
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/xIaPR_6FYog/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=xIaPR_6FYog",
+      "tags": [
+        "アングラ",
+        "カルチャー",
+        "アニメ紹介",
+        "サブカル"
+      ],
+      "kind": "anime"
+    },
+    {
+      "id": "DfZuSEM3ofo",
+      "title": "漫画『死役所』が突きつけてくる命の価値観",
+      "rawTitle": "漫画『死役所』が突きつけてくる命の価値観",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/DfZuSEM3ofo/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=DfZuSEM3ofo",
+      "tags": [],
+      "kind": "book"
+    },
+    {
+      "id": "wAZsvl483OI",
+      "title": "【完全版】クラウドラップの歴史",
+      "rawTitle": "【完全版】クラウドラップの歴史",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/wAZsvl483OI/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=wAZsvl483OI",
+      "tags": [],
+      "kind": "music"
+    },
+    {
+      "id": "kwvh8-Icc2Q",
+      "title": "僕達の語彙力が無いせいでエモいなんて言葉が出来た",
+      "rawTitle": "僕達の語彙力が無いせいでエモいなんて言葉が出来た",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/kwvh8-Icc2Q/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=kwvh8-Icc2Q",
+      "tags": [],
+      "kind": "essay"
+    },
+    {
+      "id": "BNUeDVNsVKc",
+      "title": "【ムー君の冒険】第0話 - Nois Mou",
+      "rawTitle": "【ムー君の冒険】第0話 - Nois Mou",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/BNUeDVNsVKc/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=BNUeDVNsVKc",
+      "tags": [],
+      "kind": "game"
+    },
+    {
+      "id": "vTHDAEt4ihQ",
+      "title": "好きなアーティストがバズると悲しむ人がいる理由",
+      "rawTitle": "好きなアーティストがバズると悲しむ人がいる理由",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/vTHDAEt4ihQ/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=vTHDAEt4ihQ",
+      "tags": [],
+      "kind": "essay"
+    },
+    {
+      "id": "r04Ef7ZWryM",
+      "title": "【痩せすぎ注意】一週間鬱映画ダイエット",
+      "rawTitle": "【痩せすぎ注意】一週間鬱映画ダイエット",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/r04Ef7ZWryM/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=r04Ef7ZWryM",
+      "tags": [],
+      "kind": "film"
+    },
+    {
+      "id": "TO9eCqHWoT0",
+      "title": "個性が求められる世界でオマージュが賞賛される矛盾",
+      "rawTitle": "個性が求められる世界でオマージュが賞賛される矛盾",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/TO9eCqHWoT0/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=TO9eCqHWoT0",
+      "tags": [],
+      "kind": "essay"
+    },
+    {
+      "id": "RD0NDc-MDkQ",
+      "title": "僕達はなぜグロいモノを見るのに現実のニュースで悲しむのか",
+      "rawTitle": "僕達はなぜグロいモノを見るのに現実のニュースで悲しむのか",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/RD0NDc-MDkQ/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=RD0NDc-MDkQ",
+      "tags": [],
+      "kind": "essay"
+    },
+    {
+      "id": "AMuh85FB1NM",
+      "title": "『ビョークが好きだとセンスがいい』という風潮の不快感の正体",
+      "rawTitle": "『ビョークが好きだとセンスがいい』という風潮の不快感の正体",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/AMuh85FB1NM/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=AMuh85FB1NM",
+      "tags": [],
+      "kind": "essay"
+    },
+    {
+      "id": "DI3uOLH_JeM",
+      "title": "サイコパスは少し泥臭くないといけない/読書の原体験を添えて",
+      "rawTitle": "サイコパスは少し泥臭くないといけない/読書の原体験を添えて",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/DI3uOLH_JeM/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=DI3uOLH_JeM",
+      "tags": [],
+      "kind": "book"
+    },
+    {
+      "id": "-txXFg-SzQ4",
+      "title": "アングラアーカイブとは？",
+      "rawTitle": "アングラアーカイブとは？",
+      "published": null,
+      "description": "",
+      "thumb": "https://i.ytimg.com/vi/-txXFg-SzQ4/hqdefault.jpg",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/watch?v=-txXFg-SzQ4",
+      "tags": [],
+      "kind": "about"
+    }
+  ]
+}
