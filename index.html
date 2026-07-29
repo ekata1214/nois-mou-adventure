@@ -3,126 +3,125 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#050506" />
+  <meta name="theme-color" content="#141414" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="description" content="UNGR ARCHIVE / アングラアーカイブ — 脳の中の議論をする場。ムー君の冒険。" />
   <title>UNGR ARCHIVE</title>
   <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/ungr-brain.png" />
+  <link rel="apple-touch-icon" href="assets/ungr-brain.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=20260729app2" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css?v=20260729nflx" />
 </head>
 <body>
-  <div class="viewport">
-    <div id="app-shell" class="phone" data-tab="home">
-      <div class="status-bar" aria-hidden="true">
-        <span class="status-time" id="status-time">12:00</span>
-        <span class="status-brand">UNGR</span>
-        <span class="status-dots">●●●</span>
-      </div>
-
-      <main class="screen" id="screen">
-        <!-- HOME -->
-        <section class="page is-on" data-page="home" aria-label="ホーム">
-          <header class="home-head">
-            <img class="home-avatar" src="assets/ungr-avatar.jpg" alt="" />
-            <div>
-              <p class="home-kicker">アングラアーカイブ</p>
-              <h1 class="home-title">UNGR ARCHIVE</h1>
-            </div>
-          </header>
-
-          <p class="home-tag">脳の中の議論をする場</p>
-
-          <a
-            id="mou-launch"
-            class="mou-launch"
-            href="game.html"
-            aria-label="ムー君の冒険をはじめる"
-          >
-            <img class="mou-art" src="assets/title.png" alt="ムー君の冒険" />
-            <span class="mou-veil"></span>
-            <span class="mou-cta">
-              <span class="mou-cta-label">TAP TO ENTER</span>
-              <span class="mou-cta-title">ムー君の冒険</span>
-            </span>
-            <span class="mou-pulse" aria-hidden="true"></span>
-          </a>
-
-          <section class="block">
-            <div class="block-head">
-              <h2>新着</h2>
-              <button type="button" class="text-btn" data-go="feed">すべて</button>
-            </div>
-            <div id="home-feed" class="home-feed"></div>
-          </section>
-
-          <section class="block">
-            <div class="block-head"><h2>お知らせ</h2></div>
-            <div id="notice-list" class="notice-list"></div>
-          </section>
-        </section>
-
-        <!-- FEED -->
-        <section class="page" data-page="feed" aria-label="アーカイブ" hidden>
-          <header class="page-head">
-            <h2>ARCHIVE</h2>
-            <p>議論とカルチャーの保管庫</p>
-          </header>
-          <div class="chips" id="chips">
-            <button type="button" class="chip is-on" data-filter="all">すべて</button>
-            <button type="button" class="chip" data-filter="essay">批評</button>
-            <button type="button" class="chip" data-filter="film">映画</button>
-            <button type="button" class="chip" data-filter="music">音楽</button>
-            <button type="button" class="chip" data-filter="anime">アニメ</button>
-            <button type="button" class="chip" data-filter="book">本</button>
-            <button type="button" class="chip" data-filter="game">ゲーム</button>
-            <button type="button" class="chip" data-filter="about">紹介</button>
-          </div>
-          <div id="media-list" class="media-list"></div>
-        </section>
-
-        <!-- ABOUT -->
-        <section class="page" data-page="about" aria-label="情報" hidden>
-          <header class="about-top">
-            <img src="assets/ungr-avatar.jpg" alt="UNGR ARCHIVE" />
-            <div>
-              <h2>UNGR ARCHIVE</h2>
-              <p>@ungr.archive</p>
-            </div>
-          </header>
-          <p id="about-statement" class="about-copy"></p>
-          <ul id="role-list" class="pill-row"></ul>
-          <ul id="keyword-list" class="pill-row accent"></ul>
-          <div id="stat-grid" class="stats"></div>
-          <div id="link-grid" class="socials"></div>
-          <a id="mail-link" class="mail" href="mailto:ungr.archive@gmail.com">ungr.archive@gmail.com</a>
-          <a id="portfolio-link" class="ghost-btn" href="#" target="_blank" rel="noopener">ポートフォリオ</a>
-        </section>
-      </main>
-
-      <nav class="dock" aria-label="メニュー">
-        <button type="button" class="dock-btn is-on" data-go="home">
-          <span class="dock-ico">⌂</span>
-          <span>ホーム</span>
-        </button>
-        <button type="button" class="dock-btn" data-go="feed">
-          <span class="dock-ico">▣</span>
-          <span>動画</span>
-        </button>
-        <a class="dock-btn dock-play" href="game.html" id="dock-play">
-          <span class="dock-ico">▶</span>
-          <span>冒険</span>
-        </a>
-        <button type="button" class="dock-btn" data-go="about">
-          <span class="dock-ico">◎</span>
-          <span>情報</span>
-        </button>
+  <div id="app" class="nf-app" data-tab="home">
+    <header class="nf-top">
+      <a class="nf-logo" href="#home" data-go="home" aria-label="UNGR ARCHIVE ホーム">
+        <img src="assets/ungr-brain.png" alt="" class="nf-logo-mark" />
+        <span class="nf-logo-word">UNGR</span>
+      </a>
+      <nav class="nf-toplinks" aria-label="ナビ">
+        <button type="button" class="nf-toplink is-on" data-go="home">ホーム</button>
+        <button type="button" class="nf-toplink" data-go="feed">動画</button>
+        <button type="button" class="nf-toplink" data-go="about">情報</button>
       </nav>
-    </div>
+      <a class="nf-top-play" href="game.html" id="top-play">PLAY</a>
+    </header>
+
+    <main class="nf-main" id="screen">
+      <section class="nf-page is-on" data-page="home" aria-label="ホーム">
+        <a id="mou-launch" class="nf-billboard" href="game.html" aria-label="ムー君の冒険をはじめる">
+          <img class="nf-billboard-art" src="assets/title.png" alt="ムー君の冒険" />
+          <span class="nf-billboard-shade"></span>
+          <span class="nf-billboard-copy">
+            <span class="nf-eyebrow">UNGR ORIGINAL</span>
+            <span class="nf-billboard-title">ムー君の冒険</span>
+            <span class="nf-billboard-desc">脳の中の議論をする場から生まれた、殻と NOU の冒険。</span>
+            <span class="nf-billboard-actions">
+              <span class="nf-btn-play"><span class="nf-play-ico">▶</span> 再生</span>
+              <span class="nf-btn-info">詳細</span>
+            </span>
+          </span>
+        </a>
+
+        <section class="nf-row">
+          <h2 class="nf-row-title">新着アーカイブ</h2>
+          <div id="home-feed" class="nf-rail"></div>
+        </section>
+
+        <section class="nf-row">
+          <h2 class="nf-row-title">お知らせ</h2>
+          <div id="notice-list" class="nf-notices"></div>
+        </section>
+
+        <section class="nf-row nf-row-game">
+          <h2 class="nf-row-title">いま再生できる</h2>
+          <a class="nf-poster-wide" href="game.html" id="dock-play-card">
+            <img src="assets/title.png" alt="ムー君の冒険" />
+            <span>ムー君の冒険 — タップしてプレイ</span>
+          </a>
+        </section>
+      </section>
+
+      <section class="nf-page" data-page="feed" aria-label="動画" hidden>
+        <header class="nf-page-head">
+          <h2>動画</h2>
+          <p>議論とカルチャーの保管庫</p>
+        </header>
+        <div class="nf-chips">
+          <button type="button" class="nf-chip is-on" data-filter="all">すべて</button>
+          <button type="button" class="nf-chip" data-filter="essay">批評</button>
+          <button type="button" class="nf-chip" data-filter="film">映画</button>
+          <button type="button" class="nf-chip" data-filter="music">音楽</button>
+          <button type="button" class="nf-chip" data-filter="anime">アニメ</button>
+          <button type="button" class="nf-chip" data-filter="book">本</button>
+          <button type="button" class="nf-chip" data-filter="game">ゲーム</button>
+          <button type="button" class="nf-chip" data-filter="about">紹介</button>
+        </div>
+        <div id="media-list" class="nf-media-list"></div>
+      </section>
+
+      <section class="nf-page" data-page="about" aria-label="情報" hidden>
+        <header class="nf-about-head">
+          <img src="assets/ungr-brain.png" alt="UNGR ARCHIVE" class="nf-about-brain" />
+          <div>
+            <p class="nf-eyebrow">PROFILE</p>
+            <h2 class="nf-about-title">UNGR ARCHIVE</h2>
+            <p class="nf-handle">@ungr.archive</p>
+          </div>
+        </header>
+        <p id="about-statement" class="nf-about-copy"></p>
+        <ul id="role-list" class="nf-pills"></ul>
+        <ul id="keyword-list" class="nf-pills accent"></ul>
+        <div id="stat-grid" class="nf-stats"></div>
+        <div id="link-grid" class="nf-socials"></div>
+        <a id="mail-link" class="nf-mail" href="mailto:ungr.archive@gmail.com">ungr.archive@gmail.com</a>
+        <a id="portfolio-link" class="nf-ghost" href="#" target="_blank" rel="noopener">ポートフォリオ</a>
+      </section>
+    </main>
+
+    <nav class="nf-dock" aria-label="メニュー">
+      <button type="button" class="nf-dock-btn is-on" data-go="home">
+        <img src="assets/ungr-brain.png" alt="" class="nf-dock-brain" />
+        <span>ホーム</span>
+      </button>
+      <button type="button" class="nf-dock-btn" data-go="feed">
+        <span class="nf-dock-ico">▣</span>
+        <span>動画</span>
+      </button>
+      <a class="nf-dock-btn nf-dock-play" href="game.html" id="dock-play">
+        <span class="nf-dock-ico">▶</span>
+        <span>冒険</span>
+      </a>
+      <button type="button" class="nf-dock-btn" data-go="about">
+        <span class="nf-dock-ico">◎</span>
+        <span>情報</span>
+      </button>
+    </nav>
   </div>
 
   <div id="boot-fade" class="boot-fade" hidden></div>
@@ -138,6 +137,6 @@
     <a id="player-open" href="#" target="_blank" rel="noopener">YouTubeで開く</a>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260729app2"></script>
+  <script type="module" src="js/app.js?v=20260729nflx"></script>
 </body>
 </html>
