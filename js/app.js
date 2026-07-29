@@ -1,5 +1,4 @@
-const KIND_LABEL = {
-  all: "すべて",
+const KIND = {
   essay: "批評",
   film: "映画",
   music: "音楽",
@@ -10,90 +9,123 @@ const KIND_LABEL = {
 };
 
 const shell = document.getElementById("app-shell");
-const panels = [...document.querySelectorAll(".tab-panel")];
-const tabButtons = [...document.querySelectorAll(".tab-btn")];
+const pages = [...document.querySelectorAll(".page")];
+const dockBtns = [...document.querySelectorAll(".dock-btn[data-go]")];
 const noticeList = document.getElementById("notice-list");
+const homeFeed = document.getElementById("home-feed");
 const mediaList = document.getElementById("media-list");
-const filterChips = [...document.querySelectorAll(".filter-chip")];
+const chips = [...document.querySelectorAll(".chip")];
 const playerDialog = document.getElementById("player-dialog");
 const playerFrame = document.getElementById("player-frame");
 const playerTitle = document.getElementById("player-title");
 const playerOpen = document.getElementById("player-open");
+const mouLaunch = document.getElementById("mou-launch");
+const bootFade = document.getElementById("boot-fade");
+const dockPlay = document.getElementById("dock-play");
 
 let archive = null;
-let activeFilter = "all";
+let filter = "all";
 
-function setTab(tab) {
-  shell.dataset.tab = tab;
-  tabButtons.forEach((btn) => {
-    btn.classList.toggle("is-on", btn.dataset.tab === tab);
-  });
-  panels.forEach((panel) => {
-    const on = panel.dataset.panel === tab;
-    panel.classList.toggle("is-active", on);
-    panel.hidden = !on;
+function setPage(name) {
+  shell.dataset.tab = name;
+  pages.forEach((p) => {
+    const on = p.dataset.page === name;
+    p.classList.toggle("is-on", on);
+    p.hidden = !on;
     if (on) {
-      panel.style.animation = "none";
-      // force reflow for enter motion
-      void panel.offsetWidth;
-      panel.style.animation = "";
+      p.style.animation = "none";
+      void p.offsetWidth;
+      p.style.animation = "";
     }
   });
-  document.querySelector(".app-main")?.scrollTo({ top: 0, behavior: "smooth" });
-  history.replaceState(null, "", tab === "home" ? "#" : `#${tab}`);
+  dockBtns.forEach((b) => b.classList.toggle("is-on", b.dataset.go === name));
+  document.getElementById("screen")?.scrollTo({ top: 0 });
+  history.replaceState(null, "", name === "home" ? "#" : `#${name}`);
 }
 
-function bindTabs() {
-  tabButtons.forEach((btn) => {
-    btn.addEventListener("click", () => setTab(btn.dataset.tab));
-  });
-  document.querySelectorAll("[data-go-tab]").forEach((el) => {
-    el.addEventListener("click", () => setTab(el.dataset.goTab));
+function bindNav() {
+  dockBtns.forEach((b) => b.addEventListener("click", () => setPage(b.dataset.go)));
+  document.querySelectorAll("[data-go]").forEach((el) => {
+    if (el.classList.contains("dock-btn")) return;
+    el.addEventListener("click", () => setPage(el.dataset.go));
   });
   const hash = location.hash.replace("#", "");
-  if (["home", "archive", "play", "about"].includes(hash)) setTab(hash);
+  if (["home", "feed", "about"].includes(hash)) setPage(hash);
 }
+
+function tickClock() {
+  const el = document.getElementById("status-time");
+  if (!el) return;
+  const d = new Date();
+  el.textContent = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function escapeHtml(v) {
+  return String(v ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+const escapeAttr = escapeHtml;
 
 function renderNotices(notices) {
   noticeList.innerHTML = notices
     .map(
       (n) => `
-      <a class="notice-item" href="${escapeAttr(n.href)}" ${n.href.startsWith("http") || n.href.startsWith("mailto:") ? 'target="_blank" rel="noopener"' : ""}>
-        <span class="notice-label">${escapeHtml(n.label)}</span>
+      <a class="notice-item" href="${escapeAttr(n.href)}" ${
+        /^https?:|mailto:/.test(n.href) ? 'target="_blank" rel="noopener"' : ""
+      }>
+        <span class="label">${escapeHtml(n.label)}</span>
         <span>
-          <span class="notice-title">${escapeHtml(n.title)}</span>
-          <span class="notice-body">${escapeHtml(n.body)}</span>
+          <span class="ttl">${escapeHtml(n.title)}</span>
+          <span class="body">${escapeHtml(n.body)}</span>
         </span>
       </a>`
     )
     .join("");
 }
 
-function renderMedia(videos) {
-  const list =
-    activeFilter === "all" ? videos : videos.filter((v) => v.kind === activeFilter);
-
-  if (!list.length) {
-    mediaList.innerHTML = `<p class="panel-intro" style="color:var(--muted)">このカテゴリにはまだありません。</p>`;
-    return;
-  }
-
-  mediaList.innerHTML = list
+function renderHomeFeed(videos) {
+  const top = videos.slice(0, 8);
+  homeFeed.innerHTML = top
     .map(
       (v) => `
-      <button type="button" class="media-item" data-video-id="${escapeAttr(v.id)}" data-url="${escapeAttr(v.url)}" data-title="${escapeAttr(v.title)}">
-        <img class="media-thumb" src="${escapeAttr(v.thumb)}" alt="" loading="lazy" />
-        <span class="media-meta">
-          <span class="media-kind">${escapeHtml(KIND_LABEL[v.kind] || v.kind)}</span>
-          <span class="media-title">${escapeHtml(v.title)}</span>
-          <span class="media-date">${escapeHtml(v.published || "ARCHIVE")}</span>
+      <button type="button" class="feed-card" data-id="${escapeAttr(v.id)}" data-title="${escapeAttr(v.title)}" data-url="${escapeAttr(v.url)}">
+        <img src="${escapeAttr(v.thumb)}" alt="" loading="lazy" />
+        <span class="meta">
+          <span class="kind">${escapeHtml(KIND[v.kind] || v.kind)}</span>
+          <span class="ttl">${escapeHtml(v.title)}</span>
         </span>
       </button>`
     )
     .join("");
+  homeFeed.querySelectorAll(".feed-card").forEach((btn) => {
+    btn.addEventListener("click", () => openPlayer(btn.dataset.id, btn.dataset.title, btn.dataset.url));
+  });
+}
 
+function renderMedia(videos) {
+  const list = filter === "all" ? videos : videos.filter((v) => v.kind === filter);
+  if (!list.length) {
+    mediaList.innerHTML = `<p style="color:var(--muted);padding:12px 0">このカテゴリはまだ空です。</p>`;
+    return;
+  }
+  mediaList.innerHTML = list
+    .map(
+      (v) => `
+      <button type="button" class="media-item" data-id="${escapeAttr(v.id)}" data-title="${escapeAttr(v.title)}" data-url="${escapeAttr(v.url)}">
+        <img src="${escapeAttr(v.thumb)}" alt="" loading="lazy" />
+        <span>
+          <div class="kind">${escapeHtml(KIND[v.kind] || v.kind)}</div>
+          <div class="ttl">${escapeHtml(v.title)}</div>
+          <div class="date">${escapeHtml(v.published || "ARCHIVE")}</div>
+        </span>
+      </button>`
+    )
+    .join("");
   mediaList.querySelectorAll(".media-item").forEach((btn) => {
-    btn.addEventListener("click", () => openPlayer(btn.dataset.videoId, btn.dataset.title, btn.dataset.url));
+    btn.addEventListener("click", () => openPlayer(btn.dataset.id, btn.dataset.title, btn.dataset.url));
   });
 }
 
@@ -105,28 +137,13 @@ function openPlayer(id, title, url) {
   else window.open(url, "_blank", "noopener");
 }
 
-function closePlayer() {
-  playerFrame.src = "";
-}
-
 function renderAbout(brand) {
-  document.getElementById("hero-banner").src = brand.banner;
-  document.getElementById("about-avatar").src = brand.avatar;
   document.getElementById("about-statement").textContent = brand.statement;
-  document.getElementById("game-blurb").textContent = archive.game.blurb;
   document.getElementById("mail-link").href = `mailto:${brand.email}`;
   document.getElementById("mail-link").textContent = brand.email;
-
-  const portfolio = document.getElementById("portfolio-link");
-  portfolio.href = brand.portfolio;
-
-  document.getElementById("role-list").innerHTML = brand.roles
-    .map((r) => `<li>${escapeHtml(r)}</li>`)
-    .join("");
-  document.getElementById("keyword-list").innerHTML = brand.keywords
-    .map((k) => `<li>#${escapeHtml(k)}</li>`)
-    .join("");
-
+  document.getElementById("portfolio-link").href = brand.portfolio;
+  document.getElementById("role-list").innerHTML = brand.roles.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
+  document.getElementById("keyword-list").innerHTML = brand.keywords.map((k) => `<li>#${escapeHtml(k)}</li>`).join("");
   const stats = [
     ["YouTube", brand.stats.youtubeSubscribers],
     ["Views", brand.stats.youtubeViews],
@@ -134,67 +151,61 @@ function renderAbout(brand) {
     ["Likes", brand.stats.tiktokLikes],
   ];
   document.getElementById("stat-grid").innerHTML = stats
-    .map(
-      ([label, value]) => `
-      <div class="stat-cell">
-        <strong>${escapeHtml(value)}</strong>
-        <span>${escapeHtml(label)}</span>
-      </div>`
-    )
+    .map(([l, v]) => `<div><strong>${escapeHtml(v)}</strong><span>${escapeHtml(l)}</span></div>`)
     .join("");
-
   document.getElementById("link-grid").innerHTML = brand.links
-    .map(
-      (l) => `<a href="${escapeAttr(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.label)}</a>`
-    )
+    .map((l) => `<a href="${escapeAttr(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.label)}</a>`)
     .join("");
-
-  const episode = archive.game.episode;
-  const episodeLink = document.getElementById("episode-link");
-  if (episode) {
-    episodeLink.href = episode.url;
-    episodeLink.textContent = `${episode.title} を見る`;
-  } else {
-    episodeLink.hidden = true;
-  }
 }
 
 function bindFilters(videos) {
-  filterChips.forEach((chip) => {
+  chips.forEach((chip) => {
     chip.addEventListener("click", () => {
-      activeFilter = chip.dataset.filter;
-      filterChips.forEach((c) => c.classList.toggle("is-on", c === chip));
+      filter = chip.dataset.filter;
+      chips.forEach((c) => c.classList.toggle("is-on", c === chip));
       renderMedia(videos);
     });
   });
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+function launchGame(href) {
+  mouLaunch?.classList.add("is-leaving");
+  bootFade.hidden = false;
+  requestAnimationFrame(() => bootFade.classList.add("show"));
+  setTimeout(() => {
+    location.href = href;
+  }, 320);
 }
 
-function escapeAttr(value) {
-  return escapeHtml(value).replaceAll("'", "&#39;");
+function bindGameLaunch() {
+  const go = (e) => {
+    e.preventDefault();
+    launchGame(e.currentTarget.getAttribute("href") || "game.html");
+  };
+  mouLaunch?.addEventListener("click", go);
+  dockPlay?.addEventListener("click", go);
 }
 
-playerDialog?.addEventListener("close", closePlayer);
+playerDialog?.addEventListener("close", () => {
+  playerFrame.src = "";
+});
 
 async function boot() {
-  bindTabs();
+  tickClock();
+  setInterval(tickClock, 30000);
+  bindNav();
+  bindGameLaunch();
+
   const res = await fetch(`data/archive.json?v=${Date.now()}`);
-  if (!res.ok) throw new Error("archive.json failed");
   archive = await res.json();
   renderNotices(archive.notices);
-  renderAbout(archive.brand);
+  renderHomeFeed(archive.videos);
   bindFilters(archive.videos);
   renderMedia(archive.videos);
+  renderAbout(archive.brand);
 }
 
 boot().catch((err) => {
   console.error(err);
-  noticeList.innerHTML = `<p class="notice-body">アーカイブデータの読み込みに失敗しました。</p>`;
+  noticeList.innerHTML = `<p class="body">データの読み込みに失敗しました。</p>`;
 });
