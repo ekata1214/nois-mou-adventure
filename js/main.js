@@ -113,7 +113,7 @@ import { getDifficulty, recordEncounterOutcome, scaleRpgOutcome } from "./diffic
 import { syncChapter, getChapterProgress, chapterMuuLine } from "./story.js";
 import { patternLabel } from "./enemy-patterns.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
-import { createShellRoomView } from "./shell-room.js?v=20260706craftlift";
+import { createShellRoomView } from "./shell-room.js?v=20260729gameoverfix";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
 import { bindEdgeSwipeBack } from "./swipe-back.js";
 import {
@@ -682,18 +682,8 @@ function startGame() {
   }
 }
 
-function triggerGameOver({ fromVoid = false } = {}) {
-  if (state === "gameover") return;
-  clearMovementKeys();
-  state = "gameover";
-  encounterScreen.classList.add("hidden");
-  actionCombatHud.classList.add("hidden");
-  shellScreen.classList.add("hidden");
-  canvas.classList.add("hidden");
-  hud.classList.add("hidden");
-  gameoverScreen.classList.remove("hidden");
-  activeEntity = null;
-  encounterLocked = false;
+function hardClearEncounter() {
+  encounterCloseQueued = false;
   encounterPhase = null;
   encounterZoom = 1;
   encounterBlackout = 0;
@@ -705,6 +695,25 @@ function triggerGameOver({ fromVoid = false } = {}) {
   overworldSnapshot = null;
   actionCombat = null;
   combatStyle = null;
+  activeEntity = null;
+  encounterLocked = false;
+  zoomTimer = 0;
+  encounterScreen.classList.add("hidden");
+  encounterScreen.classList.remove("zoom-backdrop", "flash-only");
+  encounterPanel?.classList.remove("hidden");
+  actionCombatHud.classList.add("hidden");
+}
+
+function triggerGameOver({ fromVoid = false } = {}) {
+  if (state === "gameover") return;
+  clearMovementKeys();
+  hardClearEncounter();
+  state = "gameover";
+  document.body.classList.remove("shell-mode", "gather-active", "mobile-action-mode");
+  shellScreen.classList.add("hidden");
+  canvas.classList.add("hidden");
+  hud.classList.add("hidden");
+  gameoverScreen.classList.remove("hidden");
   saveSoul(soul);
 
   if (fromVoid) {
@@ -722,16 +731,22 @@ function triggerGameOver({ fromVoid = false } = {}) {
 }
 
 function triggerGameOverIfDead() {
+  if (state === "gameover") return;
   if (!isDead(soul)) return;
   const fromVoid = mode === "extrovert" && isInVoid(world.tiles, player.x, player.y);
   triggerGameOver({ fromVoid });
 }
 
 function retryFromDeath() {
+  if (state !== "gameover") return;
+  hardClearEncounter();
   soul = resumeAfterGameOver(soul);
   state = "play";
   gameoverScreen.classList.add("hidden");
-  hud.classList.remove("hidden");
+  gatherMode = false;
+  document.body.classList.remove("gather-active");
+  // Shell hides field HUD; keep home button via fixed hub-back.
+  hud.classList.add("hidden");
   enterShell();
   playVoice("shell_idle", { volume: 0.7 });
   pulseMuu(600);
@@ -739,13 +754,14 @@ function retryFromDeath() {
 }
 
 function fullReset() {
+  hardClearEncounter();
   soul = resetProgress(soul);
   state = "play";
   gameoverScreen.classList.add("hidden");
   initWorld();
   player.x = world.spawnX;
   player.y = world.spawnY;
-  hud.classList.remove("hidden");
+  hud.classList.add("hidden");
   canvas.classList.add("hidden");
   shellScreen.classList.remove("hidden");
   mode = "introvert";
@@ -756,6 +772,8 @@ function fullReset() {
   refreshSoulUI();
   setBgmEnabled(true);
   onShellBgmStart();
+  ensureShellBgm();
+  refreshMobileControls();
 }
 
 function presentShellQuestion() {
@@ -1274,7 +1292,8 @@ function updateActionCombatFrame(dt) {
     refreshGauges();
     if (isDead(soul)) {
       recordEncounterOutcome(soul, false);
-      closeEncounter();
+      // Skip zoom-out teardown — go straight to game over to avoid a hitchy double path.
+      hardClearEncounter();
       triggerGameOverIfDead();
       return;
     }
@@ -1337,7 +1356,7 @@ function handleChoice(choiceKey) {
 
   if (soul.darkEntity > 85) glitch = 0.4;
   if (isDead(soul)) {
-    closeEncounter();
+    hardClearEncounter();
     triggerGameOverIfDead();
   }
 }
