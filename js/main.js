@@ -682,6 +682,12 @@ function startGame() {
   }
 }
 
+function restoreFieldHud() {
+  if (state === "play" && mode === "extrovert") {
+    hud.classList.remove("hidden");
+  }
+}
+
 function hardClearEncounter() {
   encounterCloseQueued = false;
   encounterPhase = null;
@@ -699,9 +705,10 @@ function hardClearEncounter() {
   encounterLocked = false;
   zoomTimer = 0;
   encounterScreen.classList.add("hidden");
-  encounterScreen.classList.remove("zoom-backdrop", "flash-only");
+  encounterScreen.classList.remove("zoom-backdrop", "flash-only", "rpg-mode");
   encounterPanel?.classList.remove("hidden");
   actionCombatHud.classList.add("hidden");
+  restoreFieldHud();
 }
 
 function triggerGameOver({ fromVoid = false } = {}) {
@@ -1123,8 +1130,9 @@ function beginCombatAfterZoom() {
   if (combatStyle === "rpg") {
     encounterPhase = "rpg";
     actionCombatHud.classList.add("hidden");
-    encounterScreen.classList.remove("hidden", "flash-only");
-    encounterScreen.classList.add("zoom-backdrop");
+    hud.classList.add("hidden");
+    encounterScreen.classList.remove("hidden", "flash-only", "zoom-backdrop");
+    encounterScreen.classList.add("rpg-mode");
     encounterPanel?.classList.remove("hidden");
     combatTypeEl.textContent = "COMBAT — RPG";
     choiceResultEl.textContent = "";
@@ -1209,9 +1217,10 @@ function finishEncounterClose() {
   actionCombat = null;
   actionCombatHud.classList.add("hidden");
   encounterScreen.classList.add("hidden");
-  encounterScreen.classList.remove("zoom-backdrop", "flash-only");
+  encounterScreen.classList.remove("zoom-backdrop", "flash-only", "rpg-mode");
   encounterPanel?.classList.remove("hidden");
   combatTypeEl.textContent = "";
+  restoreFieldHud();
   refreshMobileControls();
 }
 
@@ -1256,7 +1265,7 @@ function closeEncounter() {
   if (!encounterPhase || encounterPhase === "zoom-out") return;
 
   encounterScreen.classList.add("hidden");
-  encounterScreen.classList.remove("zoom-backdrop", "flash-only");
+  encounterScreen.classList.remove("zoom-backdrop", "flash-only", "rpg-mode");
   encounterPanel?.classList.remove("hidden");
   actionCombatHud.classList.add("hidden");
 

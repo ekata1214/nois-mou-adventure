@@ -58,16 +58,20 @@ function bindHoldButton(btn, onPress, onRelease) {
 export function syncMobileControls(opts = {}) {
   if (!rootEl) return;
   const mobile = isMobileDevice();
+  // RPG / ズーム中は十字キーを隠す（ACTION戦闘だけ操作UIを出す）
+  const phase = opts.encounterPhase;
+  const fieldControlsOk = !phase || phase === "action";
   const show =
     mobile &&
     opts.state === "play" &&
     opts.mode === "extrovert" &&
-    !opts.gameover;
+    !opts.gameover &&
+    fieldControlsOk;
 
   rootEl.classList.toggle("hidden", !show);
   rootEl.setAttribute("aria-hidden", show ? "false" : "true");
 
-  const actionMode = show && opts.encounterPhase === "action";
+  const actionMode = show && phase === "action";
   faceEl?.classList.toggle("hidden", !actionMode);
   rootEl.classList.toggle("action-mode", actionMode);
   document.body.classList.toggle("mobile-action-mode", actionMode);

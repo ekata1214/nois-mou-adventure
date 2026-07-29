@@ -11,12 +11,25 @@ export function isPortraitViewport() {
   return window.innerHeight > window.innerWidth;
 }
 
+function applyAppViewportVars(vw, vh) {
+  const root = document.documentElement;
+  root.style.setProperty("--app-w", `${Math.round(vw)}px`);
+  root.style.setProperty("--app-h", `${Math.round(vh)}px`);
+}
+
 /** 縦持ちのとき CSS で横画面レイアウトに回転 */
 export function syncMobileLandscape() {
   const mobile = isMobileDevice();
   document.body.classList.toggle("is-mobile", mobile);
   const force = mobile && isPortraitViewport();
   document.body.classList.toggle("force-landscape", force);
+
+  if (force) {
+    applyAppViewportVars(window.innerHeight, window.innerWidth);
+  } else {
+    const vv = window.visualViewport;
+    applyAppViewportVars(vv?.width ?? window.innerWidth, vv?.height ?? window.innerHeight);
+  }
   return force;
 }
 
