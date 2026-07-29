@@ -34,6 +34,11 @@ function bindHoldButton(btn, onPress, onRelease) {
   const press = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    try {
+      btn.setPointerCapture?.(e.pointerId);
+    } catch (_) {
+      /* ignore */
+    }
     btn.classList.add("pressed");
     onPress();
   };
@@ -46,6 +51,8 @@ function bindHoldButton(btn, onPress, onRelease) {
   btn.addEventListener("pointerup", release);
   btn.addEventListener("pointercancel", release);
   btn.addEventListener("pointerleave", release);
+  btn.addEventListener("contextmenu", (e) => e.preventDefault());
+  btn.addEventListener("selectstart", (e) => e.preventDefault());
 }
 
 export function syncMobileControls(opts = {}) {
@@ -71,6 +78,20 @@ export function initMobileControls(hooks = {}) {
   rootEl = document.getElementById("mobile-controls");
   faceEl = document.getElementById("mobile-face");
   if (!rootEl || !isMobileDevice()) return;
+
+  const blockBrowserChrome = (e) => {
+    e.preventDefault();
+  };
+  document.addEventListener("contextmenu", blockBrowserChrome, { passive: false });
+  document.addEventListener("selectstart", blockBrowserChrome, { passive: false });
+  document.addEventListener(
+    "touchstart",
+    (e) => {
+      // Keep multi-touch game input; only kill long-press callout chrome.
+      if (e.target?.closest?.("input, textarea, a[href]")) return;
+    },
+    { passive: true }
+  );
 
   rootEl.querySelectorAll("[data-dpad]").forEach((btn) => {
     const dir = btn.dataset.dpad;

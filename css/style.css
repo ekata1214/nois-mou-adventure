@@ -13,6 +13,10 @@ body {
   width: 100%;
   height: 100%;
   height: 100dvh;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -20,6 +24,7 @@ body {
   color: #f2f2f2;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #app {
@@ -30,6 +35,19 @@ body {
   height: 100dvh;
   overflow: hidden;
   background: #000;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Allow typing only in real inputs */
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 #title-screen {
@@ -147,6 +165,9 @@ body {
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 #hud.hidden {
@@ -722,6 +743,9 @@ body {
   inset: 0;
   z-index: 7;
   pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 #action-combat-hud.hidden {
@@ -1059,6 +1083,9 @@ body.is-mobile #action-combat-hud {
   inset: 0;
   z-index: 8;
   pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .mobile-controls.hidden {
@@ -1077,6 +1104,9 @@ body.is-mobile #action-combat-hud {
   gap: 0;
   pointer-events: auto;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .dpad-btn {
@@ -1084,7 +1114,11 @@ body.is-mobile #action-combat-hud {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  touch-action: manipulation;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   padding: 0;
 }
 
@@ -1152,7 +1186,11 @@ body.is-mobile #action-combat-hud {
   align-items: center;
   justify-content: center;
   gap: 0;
-  touch-action: manipulation;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   padding: 0;
 }
 
