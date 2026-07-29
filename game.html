@@ -8,21 +8,21 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>ムー君の冒険 — NOU</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="css/style.css?v=20260729nolongpress" />
-  <link rel="stylesheet" href="css/game-back.css?v=20260729swipe" />
+  <link rel="stylesheet" href="css/style.css?v=20260729gameui" />
+  <link rel="stylesheet" href="css/game-back.css?v=20260729gameui" />
 </head>
 <body>
   <div id="app">
-    <div id="edge-back-hint" class="edge-back-hint" aria-hidden="true">スワイプで戻る</div>
-    <button type="button" id="hub-back-btn" class="hub-back-btn" aria-label="アーカイブに戻る">‹ 戻る</button>
+    <div id="edge-back-hint" class="edge-back-hint" aria-hidden="true">スワイプでホームへ</div>
+    <button type="button" id="hub-back-btn" class="hub-back-btn" aria-label="ホームページに戻る">ホーム</button>
     <div id="title-screen">
-      <p class="brand">UNGR ARCHIVE PRESENTS</p>
+      <p class="brand">UNGR ARCHIVE</p>
       <img id="title-art" src="assets/title.png" alt="ムー君の冒険" />
-      <p class="start-hint">CLICK / SPACE / TAP to enter NOU</p>
-      <p class="start-hint mobile-hint">MOBILE — D-PAD move · DS buttons in combat</p>
-      <p class="start-hint mobile-hint">左端を右へスワイプでアーカイブへ</p>
-      <p class="start-hint"><a href="mobile.html" style="color:#6ec8ff;text-decoration:none;letter-spacing:0.14em">携帯でプレイ →</a></p>
-      <p class="credit">Nois Mou — World Scale Prototype · v20260709lamp</p>
+      <div class="title-actions">
+        <button type="button" id="start-btn" class="title-btn title-btn-primary">スタート</button>
+        <button type="button" id="title-home-btn" class="title-btn title-btn-ghost">ホームに戻る</button>
+      </div>
+      <p class="title-note">携帯は横画面推奨 · 左端スワイプでもホームへ</p>
     </div>
     <canvas id="game" class="hidden" width="1280" height="720" tabindex="0"></canvas>
 
@@ -145,6 +145,7 @@
         <span id="mood-label">静寂</span>
         <button id="gather-toggle" type="button" class="mode-switch small gather-toggle">採集 OFF</button>
         <button id="to-shell" type="button" class="mode-switch small">殻へ戻る</button>
+        <button id="hud-home-btn" type="button" class="mode-switch small hud-home-btn">ホーム</button>
       </div>
     </div>
     <p id="gather-hint" class="gather-hint hidden">G — 採集モード</p>
@@ -169,6 +170,6 @@
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=20260729nolongpress2"></script>
+  <script type="module" src="js/main.js?v=20260729gameui"></script>
 </body>
 </html>
