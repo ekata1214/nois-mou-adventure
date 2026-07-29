@@ -1,8 +1,8 @@
 .hub-back-btn {
-  position: fixed;
+  position: absolute;
   top: max(12px, env(safe-area-inset-top, 0px));
   left: max(10px, env(safe-area-inset-left, 0px));
-  z-index: 40;
+  z-index: 60;
   min-height: 40px;
   padding: 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.22);
@@ -32,11 +32,11 @@
 }
 
 .edge-back-hint {
-  position: fixed;
+  position: absolute;
   left: 0;
   top: 50%;
   transform: translate(-100%, -50%);
-  z-index: 45;
+  z-index: 55;
   padding: 10px 14px;
   background: rgba(229, 9, 20, 0.92);
   color: #fff;

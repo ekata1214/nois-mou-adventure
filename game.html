@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>ムー君の冒険 — NOU</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="css/style.css?v=20260729gameoverfix" />
-  <link rel="stylesheet" href="css/game-back.css?v=20260729gameui" />
+  <link rel="stylesheet" href="css/style.css?v=20260729pokemonrpg" />
+  <link rel="stylesheet" href="css/game-back.css?v=20260729pokemonrpg" />
 </head>
 <body>
   <div id="app">
@@ -108,20 +108,50 @@
 
     <div id="encounter-screen" class="hidden">
       <div id="combat-flash" class="hidden"></div>
-      <div class="encounter-panel">
-        <p class="encounter-brand">ENCOUNTER</p>
-        <p id="combat-type" class="combat-type"></p>
-        <h2 id="entity-name">感情の気配</h2>
-        <p id="entity-line">……</p>
-        <img id="entity-visual" src="" alt="" />
-        <div class="choice-grid">
-          <button type="button" data-choice="kill">殺す</button>
-          <button type="button" data-choice="eat">食べる</button>
-          <button type="button" data-choice="ignore">無視する</button>
-          <button type="button" data-choice="friend">友達になる</button>
+      <div class="encounter-panel rpg-stage">
+        <div class="rpg-enemy-status">
+          <p class="rpg-status-label">ENEMY</p>
+          <h2 id="entity-name">感情の気配</h2>
+          <div class="rpg-hp-row">
+            <span class="rpg-hp-label">HP</span>
+            <div class="meter-track rpg-hp-track"><div id="rpg-enemy-hp-fill" class="gauge-fill hp"></div></div>
+          </div>
+          <p id="combat-type" class="combat-type"></p>
         </div>
-        <p id="choice-result" class="choice-result"></p>
-        <button id="encounter-close" type="button" class="mode-switch hidden">立ち去る</button>
+
+        <div class="rpg-enemy-actor" aria-hidden="true">
+          <img id="entity-visual" src="" alt="" />
+          <div class="rpg-plat"></div>
+        </div>
+
+        <div class="rpg-player-actor" aria-hidden="true">
+          <img id="rpg-player-visual" src="assets/muu/back.png" alt="ムー君" />
+          <div class="rpg-plat"></div>
+        </div>
+
+        <div class="rpg-player-status">
+          <p class="rpg-player-name">ムー君</p>
+          <div class="rpg-hp-row">
+            <span class="rpg-hp-label">HP</span>
+            <div class="meter-track rpg-hp-track"><div id="rpg-player-hp-fill" class="gauge-fill hp"></div></div>
+          </div>
+          <p id="rpg-player-hp-text" class="rpg-hp-num">100/100</p>
+        </div>
+
+        <div class="rpg-command">
+          <div class="choice-grid">
+            <button type="button" data-choice="kill">殺す</button>
+            <button type="button" data-choice="eat">食べる</button>
+            <button type="button" data-choice="ignore">無視する</button>
+            <button type="button" data-choice="friend">友達になる</button>
+          </div>
+          <button id="encounter-close" type="button" class="mode-switch hidden">立ち去る</button>
+        </div>
+
+        <div class="rpg-message">
+          <p id="entity-line">……</p>
+          <p id="choice-result" class="choice-result"></p>
+        </div>
       </div>
     </div>
 
@@ -170,6 +200,6 @@
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=20260729dpadonly"></script>
+  <script type="module" src="js/main.js?v=20260729pokemonrpg"></script>
 </body>
 </html>

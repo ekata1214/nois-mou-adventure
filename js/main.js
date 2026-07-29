@@ -144,6 +144,10 @@ const actionCombatBar = document.getElementById("action-combat-bar");
 const entityNameEl = document.getElementById("entity-name");
 const entityLineEl = document.getElementById("entity-line");
 const entityVisualEl = document.getElementById("entity-visual");
+const rpgPlayerVisualEl = document.getElementById("rpg-player-visual");
+const rpgEnemyHpFill = document.getElementById("rpg-enemy-hp-fill");
+const rpgPlayerHpFill = document.getElementById("rpg-player-hp-fill");
+const rpgPlayerHpText = document.getElementById("rpg-player-hp-text");
 const choiceResultEl = document.getElementById("choice-result");
 const encounterCloseBtn = document.getElementById("encounter-close");
 const areaLabel = document.getElementById("area-label");
@@ -181,7 +185,8 @@ const chapterLabelEl = document.getElementById("chapter-label");
 const chapterGoalEl = document.getElementById("chapter-goal");
 const tutorialToast = document.getElementById("tutorial-toast");
 
-const BASE_SPEED = 255;
+const BASE_SPEED = 340;
+const MOVE_RESPONSIVENESS = 22;
 const SPRITE_W = 116;
 const SPRITE_H = 80;
 const SPRITE_SQUASH = 0.88;
@@ -437,6 +442,8 @@ let zoomTimer = 0;
 let actionCombat = null;
 let actionPulse = { slash: false, punch: false, dodge: false, flee: false };
 let actionTouchGuard = false;
+let moveVel = { x: 0, y: 0 };
+let rpgEnemyHpPct = 100;
 let actionTouchFlee = false;
 
 function queueAction(kind) {
@@ -682,6 +689,12 @@ function startGame() {
   }
 }
 
+function restoreFieldHud() {
+  if (state === "play" && mode === "extrovert") {
+    hud.classList.remove("hidden");
+  }
+}
+
 function hardClearEncounter() {
   encounterCloseQueued = false;
   encounterPhase = null;
@@ -699,9 +712,10 @@ function hardClearEncounter() {
   encounterLocked = false;
   zoomTimer = 0;
   encounterScreen.classList.add("hidden");
-  encounterScreen.classList.remove("zoom-backdrop", "flash-only");
+  encounterScreen.classList.remove("zoom-backdrop", "flash-only", "rpg-mode");
   encounterPanel?.classList.remove("hidden");
   actionCombatHud.classList.add("hidden");
+  restoreFieldHud();
 }
 
 function triggerGameOver({ fromVoid = false } = {}) {
@@ -852,6 +866,13 @@ async function enterNou() {
   refreshMobileControls();
 }
 
+function syncRpgBattleHud() {
+  const hp = Math.max(0, Math.round(soul.hp ?? HP_MAX));
+  if (rpgPlayerHpFill) rpgPlayerHpFill.style.width = `${(hp / HP_MAX) * 100}%`;
+  if (rpgPlayerHpText) rpgPlayerHpText.textContent = `${hp}/${HP_MAX}`;
+  if (rpgEnemyHpFill) rpgEnemyHpFill.style.width = `${Math.max(0, Math.min(100, rpgEnemyHpPct))}%`;
+}
+
 function refreshGauges() {
   const hp = soul.hp ?? HP_MAX;
   const human = getHumanGauge(soul);
@@ -866,6 +887,7 @@ function refreshGauges() {
   const maxed = human >= 99.5;
   humanFill.classList.toggle("max", maxed);
   shellHumanFill.classList.toggle("max", maxed);
+  if (encounterPhase === "rpg") syncRpgBattleHud();
 }
 
 function refreshSoulUI() {
@@ -1123,18 +1145,26 @@ function beginCombatAfterZoom() {
   if (combatStyle === "rpg") {
     encounterPhase = "rpg";
     actionCombatHud.classList.add("hidden");
-    encounterScreen.classList.remove("hidden", "flash-only");
-    encounterScreen.classList.add("zoom-backdrop");
+    hud.classList.add("hidden");
+    encounterScreen.classList.remove("hidden", "flash-only", "zoom-backdrop");
+    encounterScreen.classList.add("rpg-mode");
     encounterPanel?.classList.remove("hidden");
     combatTypeEl.textContent = "COMBAT — RPG";
     choiceResultEl.textContent = "";
     encounterCloseBtn.classList.add("hidden");
     choiceButtons.forEach((b) => (b.disabled = false));
+    player.dir = "back";
+    if (rpgPlayerVisualEl) {
+      rpgPlayerVisualEl.src = sprites?.back?.src || "assets/muu/back.png";
+    }
+    rpgEnemyHpPct = 100;
+    syncRpgBattleHud();
     focusGameCanvas();
   } else {
     encounterPhase = "action";
+    hud.classList.add("hidden");
     encounterScreen.classList.add("hidden");
-    encounterScreen.classList.remove("flash-only", "zoom-backdrop");
+    encounterScreen.classList.remove("flash-only", "zoom-backdrop", "rpg-mode");
     actionCombat = createActionCombat(activeEntity, layout.center, {
       pattern: activeEntity.pattern,
       difficulty: getDifficulty(soul),
@@ -1209,9 +1239,10 @@ function finishEncounterClose() {
   actionCombat = null;
   actionCombatHud.classList.add("hidden");
   encounterScreen.classList.add("hidden");
-  encounterScreen.classList.remove("zoom-backdrop", "flash-only");
+  encounterScreen.classList.remove("zoom-backdrop", "flash-only", "rpg-mode");
   encounterPanel?.classList.remove("hidden");
   combatTypeEl.textContent = "";
+  restoreFieldHud();
   refreshMobileControls();
 }
 
@@ -1256,7 +1287,7 @@ function closeEncounter() {
   if (!encounterPhase || encounterPhase === "zoom-out") return;
 
   encounterScreen.classList.add("hidden");
-  encounterScreen.classList.remove("zoom-backdrop", "flash-only");
+  encounterScreen.classList.remove("zoom-backdrop", "flash-only", "rpg-mode");
   encounterPanel?.classList.remove("hidden");
   actionCombatHud.classList.add("hidden");
 
@@ -1348,10 +1379,12 @@ function handleChoice(choiceKey) {
   const result = scaleRpgOutcome(resolveChoice(activeEntity, choiceKey, diff), diff);
   soul = applyEncounterChoice(soul, choiceKey, result);
   recordEncounterOutcome(soul, choiceKey !== CHOICE.IGNORE);
+  rpgEnemyHpPct = result.remove ? 0 : Math.max(12, rpgEnemyHpPct - 34);
   choiceResultEl.textContent = result.message;
   choiceButtons.forEach((b) => (b.disabled = true));
   encounterCloseBtn.classList.remove("hidden");
   refreshSoulUI();
+  syncRpgBattleHud();
   checkChapterAdvance();
 
   if (soul.darkEntity > 85) glitch = 0.4;
@@ -1451,20 +1484,34 @@ function drawTapMarker() {
 }
 
 function updatePlayer(dt) {
-  if (isDead(soul)) return;
-  if (encounterLocked && encounterPhase !== "action") return;
-  if (encounterPhase === "action" && actionCombat?.dodgeTimer > 0) return;
+  if (isDead(soul)) {
+    moveVel.x = 0;
+    moveVel.y = 0;
+    return;
+  }
+  if (encounterLocked && encounterPhase !== "action") {
+    moveVel.x = 0;
+    moveVel.y = 0;
+    return;
+  }
+  if (encounterPhase === "action" && actionCombat?.dodgeTimer > 0) {
+    moveVel.x = 0;
+    moveVel.y = 0;
+    return;
+  }
 
   const guardSlow =
     encounterPhase === "action" && buildActionCombatInput().guardHeld ? 0.38 : 1;
   const speed = getMoveSpeed(BASE_SPEED, soul) * guardSlow;
   let dx = 0;
   let dy = 0;
+  let analogMag = 1;
 
   const mobileMove = getMobileMoveVector();
   if (mobileMove.x !== 0 || mobileMove.y !== 0) {
     dx = mobileMove.x;
     dy = mobileMove.y;
+    analogMag = Math.min(1, Math.hypot(dx, dy));
     tapTarget = null;
   } else if (isMovementKeyDown()) {
     if (keys.has("ArrowLeft") || keys.has("KeyA")) dx -= 1;
@@ -1492,23 +1539,37 @@ function updatePlayer(dt) {
     } else {
       player.dir = dy > 0 ? "front" : "back";
     }
+  } else {
+    analogMag = 0;
   }
+
+  const targetVx = dx * speed * analogMag;
+  const targetVy = dy * speed * analogMag;
+  const blend = 1 - Math.exp(-MOVE_RESPONSIVENESS * dt);
+  moveVel.x += (targetVx - moveVel.x) * blend;
+  moveVel.y += (targetVy - moveVel.y) * blend;
+  if (Math.abs(moveVel.x) < 2) moveVel.x = 0;
+  if (Math.abs(moveVel.y) < 2) moveVel.y = 0;
 
   const prevX = player.x;
   const prevY = player.y;
   const inBattleAction = encounterPhase === "action" && battleField;
 
-  const nx = player.x + dx * speed * dt;
+  const nx = player.x + moveVel.x * dt;
   const moveFn = inBattleAction
     ? (x, y, w, h) => canMoveBattleField(battleField, x, y, w, h)
     : (x, y, w, h) => canMove(world.tiles, x, y, w, h);
 
   if (moveFn(nx - player.w / 2, player.y - player.h, player.w, player.h)) {
     player.x = nx;
+  } else {
+    moveVel.x = 0;
   }
-  const ny = player.y + dy * speed * dt;
+  const ny = player.y + moveVel.y * dt;
   if (moveFn(player.x - player.w / 2, ny - player.h, player.w, player.h)) {
     player.y = ny;
+  } else {
+    moveVel.y = 0;
   }
 
   const moved = Math.hypot(player.x - prevX, player.y - prevY);
@@ -1785,8 +1846,11 @@ function drawFrame() {
     ctx.globalAlpha = Math.min(1, battleMorph * 1.1);
     drawBattleField(ctx, canvas, battleField, dither, battleScale);
     if (battleMorph > 0.32 && encounterPhase !== "zoom-out") {
-      if (activeEntity?.alive !== false) drawEntity(ctx, activeEntity, camera, dither, entityIcons);
-      drawPlayer();
+      // RPG は HTML の斜め立ちスプライトを使うのでキャンバス上の本体は描かない
+      if (encounterPhase !== "rpg") {
+        if (activeEntity?.alive !== false) drawEntity(ctx, activeEntity, camera, dither, entityIcons);
+        drawPlayer();
+      }
       drawBattleFieldForeground(ctx, canvas, battleField, dither, battleScale);
     }
     ctx.restore();
@@ -1833,7 +1897,7 @@ function drawFrame() {
 }
 
 function loop(time) {
-  const dt = Math.min((time - lastTime) / 1000, 0.033);
+  const dt = Math.min((time - lastTime) / 1000, 0.05);
   lastTime = time;
   dither += dt;
 
