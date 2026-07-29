@@ -602,6 +602,15 @@ img { display: block; max-width: 100%; }
 .nf-dock-btn.is-on .nf-dock-brain,
 .nf-dock-btn:hover .nf-dock-brain { opacity: 1; }
 
+.nf-swipe-back .nf-page.is-on {
+  animation: swipe-in 0.28s var(--ease) both;
+}
+
+@keyframes swipe-in {
+  from { opacity: 0.55; transform: translateX(-18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 .nf-dock-ico { font-size: 15px; line-height: 1; }
 
 .nf-dock-play .nf-dock-ico {

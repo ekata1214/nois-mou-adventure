@@ -115,6 +115,7 @@ import { patternLabel } from "./enemy-patterns.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
 import { createShellRoomView } from "./shell-room.js?v=20260706craftlift";
 import { bindMobileViewport, getViewportSize, tryLockLandscape } from "./mobile-viewport.js";
+import { bindEdgeSwipeBack } from "./swipe-back.js";
 import {
   preloadVoidCosmos,
   drawVoidCosmosBackground,
@@ -555,9 +556,34 @@ async function beginPlay() {
 }
 
 function onTitleActivate(e) {
-  if (e.target.closest("a")) return;
+  if (e.target.closest("a, button, #hub-back-btn")) return;
   e.preventDefault();
   beginPlay();
+}
+
+function returnToHub() {
+  if (document.body.classList.contains("is-returning-hub")) return;
+  document.body.classList.add("is-returning-hub");
+  const hint = document.getElementById("edge-back-hint");
+  hint?.classList.add("show");
+  sessionStorage.removeItem("ungr-from-hub");
+  setTimeout(() => {
+    location.href = "index.html";
+  }, 260);
+}
+
+function bindHubBack() {
+  const btn = document.getElementById("hub-back-btn");
+  btn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    returnToHub();
+  });
+  bindEdgeSwipeBack(() => {
+    const hint = document.getElementById("edge-back-hint");
+    hint?.classList.add("show");
+    returnToHub();
+  });
 }
 
 function bindTitleScreen() {
@@ -2026,6 +2052,7 @@ async function boot() {
   bindViewport();
   bindInput();
   bindTitleScreen();
+  bindHubBack();
   initMobileControls({ onAction: handleMobileAction });
   refreshMobileControls();
 
