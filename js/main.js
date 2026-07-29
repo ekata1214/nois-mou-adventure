@@ -1472,14 +1472,6 @@ function updatePlayer(dt) {
     if (keys.has("ArrowUp") || keys.has("KeyW")) dy -= 1;
     if (keys.has("ArrowDown") || keys.has("KeyS")) dy += 1;
     tapTarget = null;
-  } else if (isTouchDevice && tapTarget) {
-    const dist = Math.hypot(tapTarget.x - player.x, tapTarget.y - player.y);
-    if (dist < 14) {
-      tapTarget = null;
-    } else {
-      dx = tapTarget.x - player.x;
-      dy = tapTarget.y - player.y;
-    }
   } else if (!isTouchDevice && touch.dragging) {
     dx = touch.x;
     dy = touch.y;
@@ -2044,10 +2036,10 @@ function bindInput() {
     (e) => {
       if (mode !== "extrovert") return;
       if (encounterLocked && encounterPhase !== "action") return;
+      // Mobile: D-pad only — ignore canvas taps for movement.
       if (isTouchDevice) {
         e.preventDefault();
-        if (encounterPhase === "action") return;
-        tapTarget = screenToWorld(e.clientX, e.clientY);
+        tapTarget = null;
         return;
       }
       touch.active = true;
