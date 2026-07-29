@@ -1335,10 +1335,11 @@ body.is-mobile #action-combat-hud {
 
 .mobile-dpad {
   position: absolute;
-  left: max(14px, env(safe-area-inset-left, 0px));
-  bottom: max(14px, env(safe-area-inset-bottom, 0px));
-  width: 148px;
-  height: 148px;
+  /* 端すぎると親指が届きにくい／誤タップしやすいので内側・少し上へ */
+  left: max(44px, calc(env(safe-area-inset-left, 0px) + 52px));
+  bottom: max(44px, calc(env(safe-area-inset-bottom, 0px) + 56px));
+  width: 132px;
+  height: 132px;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   grid-template-rows: 1fr 1fr 1fr;
@@ -1348,6 +1349,26 @@ body.is-mobile #action-combat-hud {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+  /* 四隅はヒットしない（十字の形だけタッチ対象） */
+  clip-path: polygon(
+    34% 0%,
+    66% 0%,
+    66% 34%,
+    100% 34%,
+    100% 66%,
+    66% 66%,
+    66% 100%,
+    34% 100%,
+    34% 66%,
+    0% 66%,
+    0% 34%,
+    34% 34%
+  );
+}
+
+body.force-landscape .mobile-dpad {
+  left: max(52px, calc(env(safe-area-inset-left, 0px) + 60px));
+  bottom: max(36px, calc(env(safe-area-inset-bottom, 0px) + 44px));
 }
 
 .dpad-btn {
