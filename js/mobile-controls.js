@@ -1,6 +1,7 @@
 /** 携帯 DS 風バーチャルパッド（左: 移動 / 右: アクション） */
 
 import { isMobileDevice } from "./mobile-viewport.js";
+import { isOnDpadCross, normalizePadCoords, resolveDpadDirs } from "./dpad-input.js";
 
 const dpadState = { up: false, down: false, left: false, right: false };
 const analog = { x: 0, y: 0, active: false };
@@ -12,13 +13,8 @@ let onAction = null;
 let dpadPointerId = null;
 
 export function getMobileMoveVector() {
-  if (analog.active) {
-    const len = Math.hypot(analog.x, analog.y);
-    if (len < 0.12) return { x: 0, y: 0 };
-    // 内側は弱め、外側でフル速度（スルスル感）
-    const mag = Math.min(1, (len - 0.12) / 0.78);
-    const curved = Math.pow(mag, 0.85);
-    return { x: (analog.x / len) * curved, y: (analog.y / len) * curved };
+  if (analog.active && (analog.x !== 0 || analog.y !== 0)) {
+    return { x: analog.x, y: analog.y };
   }
 
   let x = 0;
@@ -33,7 +29,7 @@ export function getMobileMoveVector() {
 }
 
 export function isMobileDpadActive() {
-  if (analog.active && (Math.abs(analog.x) > 0.12 || Math.abs(analog.y) > 0.12)) return true;
+  if (analog.active && (analog.x !== 0 || analog.y !== 0)) return true;
   return dpadState.up || dpadState.down || dpadState.left || dpadState.right;
 }
 
@@ -56,29 +52,37 @@ function syncDpadPressedClasses() {
   });
 }
 
-function updateAnalogFromEvent(e) {
-  if (!dpadEl) return;
-  const rect = dpadEl.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-  const radius = Math.min(rect.width, rect.height) * 0.48;
-  let x = (e.clientX - cx) / radius;
-  let y = (e.clientY - cy) / radius;
-  const len = Math.hypot(x, y);
-  if (len > 1) {
-    x /= len;
-    y /= len;
+function applyResolved(resolved) {
+  dpadState.up = resolved.up;
+  dpadState.down = resolved.down;
+  dpadState.left = resolved.left;
+  dpadState.right = resolved.right;
+  analog.x = resolved.x;
+  analog.y = resolved.y;
+  analog.active = resolved.active;
+  if (!resolved.active) {
+    analog.x = 0;
+    analog.y = 0;
   }
-  analog.x = x;
-  analog.y = y;
-  analog.active = true;
-
-  const dead = 0.28;
-  dpadState.left = x < -dead;
-  dpadState.right = x > dead;
-  dpadState.up = y < -dead;
-  dpadState.down = y > dead;
   syncDpadPressedClasses();
+}
+
+function updateAnalogFromEvent(e, { starting = false } = {}) {
+  if (!dpadEl) return false;
+  const rect = dpadEl.getBoundingClientRect();
+  const { x, y } = normalizePadCoords(e.clientX, e.clientY, rect);
+
+  // 開始時は十字アーム上のみ。ドラッグ継続中は少し外まで許容
+  if (starting) {
+    if (!isOnDpadCross(x, y)) return false;
+  } else if (!isOnDpadCross(x, y, 0.55) && Math.hypot(x, y) > 1.25) {
+    applyResolved(resolveDpadDirs(0, 0));
+    return true;
+  }
+
+  const resolved = resolveDpadDirs(x, y, { wasActive: analog.active || !starting });
+  applyResolved(resolved);
+  return true;
 }
 
 function bindDpadPad(pad) {
@@ -88,6 +92,8 @@ function bindDpadPad(pad) {
     "pointerdown",
     (e) => {
       if (dpadPointerId !== null) return;
+      const ok = updateAnalogFromEvent(e, { starting: true });
+      if (!ok) return;
       e.preventDefault();
       e.stopPropagation();
       dpadPointerId = e.pointerId;
@@ -96,7 +102,6 @@ function bindDpadPad(pad) {
       } catch (_) {
         /* ignore */
       }
-      updateAnalogFromEvent(e);
     },
     { passive: false }
   );
@@ -106,7 +111,7 @@ function bindDpadPad(pad) {
     (e) => {
       if (e.pointerId !== dpadPointerId) return;
       e.preventDefault();
-      updateAnalogFromEvent(e);
+      updateAnalogFromEvent(e, { starting: false });
     },
     { passive: false }
   );
@@ -144,7 +149,6 @@ function bindHoldButton(btn, onPress, onRelease) {
   btn.addEventListener("pointerdown", press);
   btn.addEventListener("pointerup", release);
   btn.addEventListener("pointercancel", release);
-  // pointerleave はスライド操作を切るので付けない
   btn.addEventListener("contextmenu", (e) => e.preventDefault());
   btn.addEventListener("selectstart", (e) => e.preventDefault());
 }
@@ -152,7 +156,6 @@ function bindHoldButton(btn, onPress, onRelease) {
 export function syncMobileControls(opts = {}) {
   if (!rootEl) return;
   const mobile = isMobileDevice();
-  // RPG / ズーム中は十字キーを隠す（ACTION戦闘だけ操作UIを出す）
   const phase = opts.encounterPhase;
   const fieldControlsOk = !phase || phase === "action";
   const show =
