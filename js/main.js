@@ -586,6 +586,33 @@ function bindHubBack() {
   });
 }
 
+function blockMobileTextChrome() {
+  const allow = (el) => el?.closest?.("input, textarea, a[href], [contenteditable='true']");
+  document.addEventListener(
+    "contextmenu",
+    (e) => {
+      if (allow(e.target)) return;
+      e.preventDefault();
+    },
+    { passive: false }
+  );
+  document.addEventListener(
+    "selectstart",
+    (e) => {
+      if (allow(e.target)) return;
+      e.preventDefault();
+    },
+    { passive: false }
+  );
+  document.addEventListener(
+    "gesturestart",
+    (e) => {
+      e.preventDefault();
+    },
+    { passive: false }
+  );
+}
+
 function bindTitleScreen() {
   titleScreen.addEventListener("click", onTitleActivate);
   titleScreen.addEventListener("pointerup", onTitleActivate, { passive: false });
