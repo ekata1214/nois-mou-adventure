@@ -273,6 +273,9 @@ export function isDead(soul) {
 }
 
 export function resumeAfterGameOver(soul) {
+  // Death left hp at 0; without a revive the next frame re-triggers game over.
+  soul.hp = Math.max(Math.round(HP_MAX * 0.55), soul.hp ?? 0);
+  soul.darkEntity = clamp((soul.darkEntity ?? 0) * 0.85, 0, 100);
   saveSoul(soul);
   return soul;
 }

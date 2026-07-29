@@ -354,11 +354,17 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
     state.userOrbit = true;
   });
 
+  let lastResizeW = 0;
+  let lastResizeH = 0;
+
   function resize() {
     const parent = canvas.parentElement;
-    const w = parent?.clientWidth || canvas.clientWidth || 696;
-    const h = parent?.clientHeight || canvas.clientHeight || 424;
+    const w = Math.floor(parent?.clientWidth || canvas.clientWidth || 696);
+    const h = Math.floor(parent?.clientHeight || canvas.clientHeight || 424);
     if (w < 1 || h < 1) return;
+    if (w === lastResizeW && h === lastResizeH) return;
+    lastResizeW = w;
+    lastResizeH = h;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
