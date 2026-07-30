@@ -145,9 +145,9 @@ export function feedSoul(soul, text) {
   return { soul, reply: soul.lastReply, kind, healed: heal };
 }
 
-function isMeaningfulAnswer(text) {
+function isMeaningfulAnswer(text, minLen = 100) {
   const compact = text.replace(/\s/g, "");
-  if (compact.length < 100) return false;
+  if (compact.length < minLen) return false;
   if (new Set(compact).size < 10) return false;
   if (/^(.)\1{19,}/.test(compact)) return false;
   return true;
@@ -180,7 +180,7 @@ export function answerShellQuestion(soul, text, question, minLen = 100, opts = {
   const lampBonus = opts.lampActive ? 4 : 0;
   const effectiveMin = Math.max(80, minLen - (opts.memoCrafted ? 8 : 0) - lampBonus);
 
-  if (trimmed.length < effectiveMin || !isMeaningfulAnswer(trimmed)) {
+  if (trimmed.length < effectiveMin || !isMeaningfulAnswer(trimmed, effectiveMin)) {
     const reply =
       trimmed.length < effectiveMin
         ? pick(SHELL_SHORT_REPLIES)
@@ -218,6 +218,7 @@ export function tickSoul(soul, dt, opts = {}) {
   const { playing = false, inNou = false, craftMods = null } = opts;
   const darkRate = craftMods?.darkRate ?? 1;
   const hpDrainMult = craftMods?.hpDrain ?? 1;
+  const shellHeal = craftMods?.shellHealBonus ?? 0;
 
   if (playing) {
     soul.playTimeSeconds = (soul.playTimeSeconds ?? 0) + dt;
@@ -230,6 +231,10 @@ export function tickSoul(soul, dt, opts = {}) {
   const elapsed = (Date.now() - soul.lastFeedAt) / 1000;
   if (elapsed > 45) {
     soul.darkEntity = Math.min(100, soul.darkEntity + dt * 2.2 * darkRate);
+  }
+
+  if (playing && shellHeal > 0) {
+    soul.hp = clamp((soul.hp ?? HP_MAX) + shellHeal * dt, 0, HP_MAX);
   }
 
   if (playing && inNou && soul.hp > 0) {

@@ -1,12 +1,18 @@
 /** 十字キー入力の幾何判定（UI 非依存・テスト可能） */
 
 /** パッド矩形 → 中心原点・半辺=1 の正規化座標 */
-export function normalizePadCoords(clientX, clientY, rect) {
+export function normalizePadCoords(clientX, clientY, rect, { forceLandscape = false } = {}) {
   const half = Math.min(rect.width, rect.height) / 2 || 1;
-  return {
-    x: (clientX - (rect.left + rect.width / 2)) / half,
-    y: (clientY - (rect.top + rect.height / 2)) / half,
-  };
+  let x = (clientX - (rect.left + rect.width / 2)) / half;
+  let y = (clientY - (rect.top + rect.height / 2)) / half;
+  // CSS rotate(90deg) の #app 内では画面座標と見た目の上下左右が入れ替わる
+  if (forceLandscape) {
+    const lx = -y;
+    const ly = x;
+    x = lx;
+    y = ly;
+  }
+  return { x, y };
 }
 
 /**

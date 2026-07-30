@@ -35,45 +35,51 @@ let unlocked = false;
 let enabled = false;
 let currentRegion = "";
 let currentTrack = "";
-let fadeTimer = null;
+/** @type {WeakMap<HTMLAudioElement, ReturnType<typeof setInterval>>} */
+const fadeTimers = new WeakMap();
 
 players.forEach((p) => {
   p.loop = true;
   p.preload = "auto";
+  p.volume = 0;
 });
 
 function pickTrack(regionKey) {
-  const pool = REGION_POOLS[regionKey] ?? REGION_POOLS.hub;
-  const keys = pool.filter((key) => TRACKS[key]);
-  const options =
-    keys.length > 1 ? keys.filter((key) => TRACKS[key] !== currentTrack) : keys;
+  const options = REGION_POOLS[regionKey] ?? REGION_POOLS.hub;
+  const keys = options.length ? options : Object.keys(TRACKS);
   const key = options[Math.floor(Math.random() * options.length)] ?? keys[0];
   return TRACKS[key];
 }
 
-function cancelFade() {
-  if (fadeTimer) {
-    clearInterval(fadeTimer);
-    fadeTimer = null;
+function cancelFade(audio) {
+  if (!audio) {
+    players.forEach((p) => cancelFade(p));
+    return;
+  }
+  const timer = fadeTimers.get(audio);
+  if (timer) {
+    clearInterval(timer);
+    fadeTimers.delete(audio);
   }
 }
 
 function fadeVolume(audio, from, to, ms, onDone) {
-  cancelFade();
+  cancelFade(audio);
   const steps = 24;
   const stepMs = ms / steps;
   let i = 0;
   audio.volume = from;
-  fadeTimer = setInterval(() => {
+  const timer = setInterval(() => {
     i += 1;
     const t = i / steps;
     audio.volume = from + (to - from) * t;
     if (i >= steps) {
-      cancelFade();
+      cancelFade(audio);
       audio.volume = to;
       onDone?.();
     }
   }, stepMs);
+  fadeTimers.set(audio, timer);
 }
 
 export function unlockBgm() {
@@ -130,13 +136,16 @@ export function onMapRegionChange(regionKey, { force = false } = {}) {
   next.volume = 0;
 
   next.play().catch(() => {});
+  // 入・出を同時にフェード（共有タイマーだと入側がキャンセルされていた）
   fadeVolume(next, 0, BGM_VOLUME, FADE_MS);
   if (!cur.paused && cur.volume > 0.01) {
     fadeVolume(cur, cur.volume, 0, FADE_MS, () => {
       cur.pause();
     });
   } else {
+    cancelFade(cur);
     cur.pause();
+    cur.volume = 0;
   }
   active = 1 - active;
 }

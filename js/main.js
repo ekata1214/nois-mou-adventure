@@ -109,8 +109,8 @@ import {
   isLampActive,
   hasCraft,
 } from "./craft-effects.js";
-import { getDifficulty, recordEncounterOutcome, scaleRpgOutcome } from "./difficulty.js";
-import { syncChapter, getChapterProgress, chapterMuuLine } from "./story.js";
+import { getDifficulty, recordEncounterOutcome } from "./difficulty.js";
+import { syncChapter, getChapterProgress, chapterMuuLine, CHAPTERS } from "./story.js";
 import { patternLabel } from "./enemy-patterns.js";
 import { pickShellQuestion, SHELL_ANSWER_MIN } from "./shell-questions.js";
 import { createShellRoomView } from "./shell-room.js?v=20260729gameoverfix";
@@ -125,7 +125,8 @@ import {
   initMobileControls,
   syncMobileControls,
   getMobileMoveVector,
-} from "./mobile-controls.js?v=20260729dpadfix";
+  clearMobileInput,
+} from "./mobile-controls.js?v=20260730bugsweep";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -295,12 +296,15 @@ function gatherUiSnapshot() {
     .sort()
     .map((id) => `${id}:${inv[id]}`)
     .join(",");
-  return `${(soul.crafted ?? []).join(",")}|${invKey}|${soul.lampUntil ?? 0}|${soul.potReadyAt ?? 0}`;
+  const potReady = soul.potReadyAt && Date.now() >= soul.potReadyAt ? 1 : 0;
+  const lampOn = soul.lampUntil && Date.now() < soul.lampUntil ? 1 : 0;
+  return `${(soul.crafted ?? []).join(",")}|${invKey}|${soul.lampUntil ?? 0}|${soul.potReadyAt ?? 0}|${potReady}|${lampOn}`;
 }
 
 function CHAPTERS_NEXT(ch) {
-  const next = ["NOUへ", "採集5個", "クラフト1つ", "使う", "人間60%", "——"];
-  return next[ch] ?? "——";
+  const next = CHAPTERS[ch + 1];
+  if (!next) return "——";
+  return next.hint || next.goal || "——";
 }
 
 function refreshProgressUI() {
@@ -379,6 +383,7 @@ function clearMovementKeys() {
   touch.dragging = false;
   touch.x = 0;
   touch.y = 0;
+  clearMobileInput();
 }
 
 function isMovementKeyDown() {
@@ -416,8 +421,16 @@ function shouldAcceptMovementKeys() {
 function focusGameCanvas() {
   if (canvas && typeof canvas.focus === "function") canvas.focus({ preventScroll: true });
 }
-const isTouchDevice =
-  window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+const isTouchDevice = (() => {
+  try {
+    return (
+      window.matchMedia("(pointer: coarse)").matches ||
+      window.matchMedia("(pointer: coarse) and (hover: none)").matches
+    );
+  } catch {
+    return "ontouchstart" in window && navigator.maxTouchPoints > 0;
+  }
+})();
 let tapTarget = null;
 const TOUCH_DRAG_THRESHOLD = 10;
 let touch = { x: 0, y: 0, active: false, dragging: false, originX: 0, originY: 0 };
@@ -744,10 +757,22 @@ function triggerGameOver({ fromVoid = false } = {}) {
   refreshMobileControls();
 }
 
+function fieldVoidProbe() {
+  if (mode !== "extrovert") return false;
+  // 戦闘中はバトル座標がワールド外になり VOID 誤判定するため、スナップショットを使う
+  if (battleField || (encounterPhase && encounterPhase !== "zoom-out")) {
+    if (overworldSnapshot) {
+      return isInVoid(world.tiles, overworldSnapshot.playerX, overworldSnapshot.playerY);
+    }
+    return false;
+  }
+  return isInVoid(world.tiles, player.x, player.y);
+}
+
 function triggerGameOverIfDead() {
   if (state === "gameover") return;
   if (!isDead(soul)) return;
-  const fromVoid = mode === "extrovert" && isInVoid(world.tiles, player.x, player.y);
+  const fromVoid = mode === "extrovert" && fieldVoidProbe();
   triggerGameOver({ fromVoid });
 }
 
@@ -771,6 +796,8 @@ function fullReset() {
   hardClearEncounter();
   soul = resetProgress(soul);
   state = "play";
+  gatherMode = false;
+  document.body.classList.remove("gather-active");
   gameoverScreen.classList.add("hidden");
   initWorld();
   player.x = world.spawnX;
@@ -891,7 +918,7 @@ function refreshGauges() {
 }
 
 function refreshSoulUI() {
-  const inVoid = state === "play" && mode === "extrovert" && isInVoid(world.tiles, player.x, player.y);
+  const inVoid = state === "play" && mode === "extrovert" && fieldVoidProbe();
   darkFill.style.width = `${soul.darkEntity}%`;
   moodLabel.textContent = getMoodLabel(soul, { inVoid });
   refreshGauges();
@@ -1281,6 +1308,7 @@ function openEncounter(entity, presetStyle = null) {
   prepEncounterUI(entity);
   showEncounterFlash();
   playVoice("encounter_open", { volume: 0.8 });
+  refreshMobileControls();
 }
 
 function closeEncounter() {
@@ -1296,6 +1324,7 @@ function closeEncounter() {
     encounterPhase = "zoom-out";
     zoomTimer = 0;
     actionCombat = null;
+    refreshMobileControls();
     return;
   }
 
@@ -1317,12 +1346,13 @@ function updateActionCombatFrame(dt) {
     actionCombatHint.textContent = `Z切 X殴 C守 V避${fleeNote}`;
   }
 
-  if (result.events?.playerHit) {
+  if (result.events?.playerHit && actionCombat.phase !== "win") {
     soul.hp = Math.max(0, (soul.hp ?? HP_MAX) - result.events.playerHit);
     playVoice(result.events.guardHit ? "hmm" : "low_hp", { volume: 0.5 });
     refreshGauges();
     if (isDead(soul)) {
       recordEncounterOutcome(soul, false);
+      saveSoul(soul);
       // Skip zoom-out teardown — go straight to game over to avoid a hitchy double path.
       hardClearEncounter();
       triggerGameOverIfDead();
@@ -1344,9 +1374,11 @@ function updateActionCombatFrame(dt) {
     if (!actionCombat.rewardsApplied) {
       actionCombat.rewardsApplied = true;
       const diff = getDifficulty(soul);
-      const outcome = scaleRpgOutcome(resolveChoice(activeEntity, CHOICE.IGNORE, diff), diff);
+      // resolveChoice が既に難易度を織り込む。二重 scale しない
+      const outcome = resolveChoice(activeEntity, CHOICE.IGNORE, diff);
       soul = applyEncounterChoice(soul, CHOICE.IGNORE, outcome);
       recordEncounterOutcome(soul, false);
+      saveSoul(soul);
       refreshSoulUI();
       checkChapterAdvance();
     }
@@ -1356,14 +1388,17 @@ function updateActionCombatFrame(dt) {
     if (result.victory && actionCombat && !actionCombat.rewardsApplied) {
       actionCombat.rewardsApplied = true;
       const diff = getDifficulty(soul);
-      const outcome = scaleRpgOutcome(resolveChoice(activeEntity, CHOICE.KILL, diff), diff);
+      const outcome = resolveChoice(activeEntity, CHOICE.KILL, diff);
       soul = applyEncounterChoice(soul, CHOICE.KILL, outcome);
       recordEncounterOutcome(soul, true);
+      saveSoul(soul);
       refreshSoulUI();
       checkChapterAdvance();
       if (soul.darkEntity > 85) glitch = 0.4;
-    } else if (!result.victory) {
+    } else if (!result.victory && !actionCombat?.rewardsApplied) {
+      // flee で既に記録済みの場合は二重カウントしない
       recordEncounterOutcome(soul, false);
+      saveSoul(soul);
     }
     if (!encounterCloseQueued) {
       encounterCloseQueued = true;
@@ -1376,9 +1411,11 @@ function handleChoice(choiceKey) {
   if (!activeEntity || encounterPhase !== "rpg") return;
   playVoice(voiceForChoice(choiceKey), { volume: 0.85 });
   const diff = getDifficulty(soul);
-  const result = scaleRpgOutcome(resolveChoice(activeEntity, choiceKey, diff), diff);
+  const result = resolveChoice(activeEntity, choiceKey, diff);
   soul = applyEncounterChoice(soul, choiceKey, result);
-  recordEncounterOutcome(soul, choiceKey !== CHOICE.IGNORE);
+  const died = isDead(soul);
+  recordEncounterOutcome(soul, !died && choiceKey !== CHOICE.IGNORE);
+  saveSoul(soul);
   rpgEnemyHpPct = result.remove ? 0 : Math.max(12, rpgEnemyHpPct - 34);
   choiceResultEl.textContent = result.message;
   choiceButtons.forEach((b) => (b.disabled = true));
@@ -1388,7 +1425,7 @@ function handleChoice(choiceKey) {
   checkChapterAdvance();
 
   if (soul.darkEntity > 85) glitch = 0.4;
-  if (isDead(soul)) {
+  if (died) {
     hardClearEncounter();
     triggerGameOverIfDead();
   }
@@ -1572,12 +1609,26 @@ function updatePlayer(dt) {
     moveVel.y = 0;
   }
 
+  // ACTION 戦闘は arenaRadius に揃える（battlefield の広い円だとリング外へはみ出す）
+  if (inBattleAction && actionCombat?.arenaCenter) {
+    const c = actionCombat.arenaCenter;
+    const r = actionCombat.arenaRadius ?? 210;
+    const adx = player.x - c.x;
+    const ady = player.y - c.y;
+    const adist = Math.hypot(adx, ady);
+    if (adist > r) {
+      const s = r / adist;
+      player.x = c.x + adx * s;
+      player.y = c.y + ady * s;
+    }
+  }
+
   const moved = Math.hypot(player.x - prevX, player.y - prevY);
   if (moved > 0.5) {
     stepDistance += moved;
     if (stepDistance >= STEP_INTERVAL) {
       stepDistance = 0;
-      const inVoid = isInVoid(world.tiles, player.x, player.y);
+      const inVoid = fieldVoidProbe();
       playFootstep({ inVoid });
     }
   } else {
@@ -1588,7 +1639,7 @@ function updatePlayer(dt) {
     areaLabel.textContent = `${getBattleAreaLabel(battleField)} / ${getMoodLabel(soul)}`;
     moodLabel.textContent = getMoodLabel(soul);
   } else {
-    const inVoid = isInVoid(world.tiles, player.x, player.y);
+    const inVoid = fieldVoidProbe();
     areaLabel.textContent = `${getAreaName(player.x, player.y, world.tiles)} / ${getMoodLabel(soul, { inVoid })}`;
     moodLabel.textContent = getMoodLabel(soul, { inVoid });
   }
@@ -1913,7 +1964,7 @@ function loop(time) {
     soul = tickSoul(soul, dt, {
       playing: true,
       inNou: mode === "extrovert",
-      inVoid: mode === "extrovert" && isInVoid(world.tiles, player.x, player.y),
+      inVoid: fieldVoidProbe(),
       craftMods,
     });
     refreshGauges();
@@ -1950,6 +2001,8 @@ function loop(time) {
       shellLampWasActive = lampOn;
       syncShellLamp();
     }
+    // 鉢の準備完了・ランプ終了を UI に反映
+    refreshGatherUI();
     shellBgmCheckTimer += dt;
     if (shellBgmCheckTimer > 5) {
       shellBgmCheckTimer = 0;
