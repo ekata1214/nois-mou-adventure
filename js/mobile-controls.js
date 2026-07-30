@@ -1,22 +1,18 @@
 /** 携帯 DS 風バーチャルパッド（左: 移動 / 右: アクション） */
 
 import { isMobileDevice } from "./mobile-viewport.js";
-import { isOnDpadCross, normalizePadCoords, resolveDpadDirs } from "./dpad-input.js?v=20260729dpadfix";
+import { dpadDirFromPoint, resolveDpadDirsFromDir } from "./dpad-input.js?v=20260730dpadbtn";
 
 const dpadState = { up: false, down: false, left: false, right: false };
-const analog = { x: 0, y: 0, active: false };
 
 let rootEl = null;
 let faceEl = null;
 let dpadEl = null;
 let onAction = null;
 let dpadPointerId = null;
+let activeDir = null;
 
 export function getMobileMoveVector() {
-  if (analog.active && (analog.x !== 0 || analog.y !== 0)) {
-    return { x: analog.x, y: analog.y };
-  }
-
   let x = 0;
   let y = 0;
   if (dpadState.left) x -= 1;
@@ -29,14 +25,11 @@ export function getMobileMoveVector() {
 }
 
 export function isMobileDpadActive() {
-  if (analog.active && (analog.x !== 0 || analog.y !== 0)) return true;
   return dpadState.up || dpadState.down || dpadState.left || dpadState.right;
 }
 
-function clearAnalog() {
-  analog.x = 0;
-  analog.y = 0;
-  analog.active = false;
+function clearDpad() {
+  activeDir = null;
   dpadPointerId = null;
   Object.keys(dpadState).forEach((k) => {
     dpadState[k] = false;
@@ -46,7 +39,7 @@ function clearAnalog() {
 
 /** 遭遇開始・ズーム等でモバイル入力を完全リセット */
 export function clearMobileInput() {
-  clearAnalog();
+  clearDpad();
   rootEl?.querySelectorAll(".face-btn.pressed").forEach((b) => b.classList.remove("pressed"));
   onAction?.({ kind: "reset", phase: "up" });
 }
@@ -59,37 +52,22 @@ function syncDpadPressedClasses() {
   });
 }
 
-function applyResolved(resolved) {
+function applyDir(dir) {
+  activeDir = dir;
+  const resolved = resolveDpadDirsFromDir(dir);
   dpadState.up = resolved.up;
   dpadState.down = resolved.down;
   dpadState.left = resolved.left;
   dpadState.right = resolved.right;
-  analog.x = resolved.x;
-  analog.y = resolved.y;
-  analog.active = resolved.active;
-  if (!resolved.active) {
-    analog.x = 0;
-    analog.y = 0;
-  }
   syncDpadPressedClasses();
 }
 
-function updateAnalogFromEvent(e, { starting = false } = {}) {
+function updateFromPoint(clientX, clientY, { starting = false } = {}) {
   if (!dpadEl) return false;
-  const rect = dpadEl.getBoundingClientRect();
-  const forceLandscape = document.body.classList.contains("force-landscape");
-  const { x, y } = normalizePadCoords(e.clientX, e.clientY, rect, { forceLandscape });
-
-  // 開始時は十字アーム上のみ。ドラッグ継続中は少し外まで許容
-  if (starting) {
-    if (!isOnDpadCross(x, y)) return false;
-  } else if (!isOnDpadCross(x, y, 0.55) && Math.hypot(x, y) > 1.25) {
-    applyResolved(resolveDpadDirs(0, 0));
-    return true;
-  }
-
-  const resolved = resolveDpadDirs(x, y, { wasActive: analog.active || !starting });
-  applyResolved(resolved);
+  const dir = dpadDirFromPoint(clientX, clientY, dpadEl);
+  if (starting && !dir) return false;
+  // 指がアーム外に出たら停止（押しっぱなし誤爆を防ぐ）
+  applyDir(dir);
   return true;
 }
 
@@ -100,7 +78,7 @@ function bindDpadPad(pad) {
     "pointerdown",
     (e) => {
       if (dpadPointerId !== null) return;
-      const ok = updateAnalogFromEvent(e, { starting: true });
+      const ok = updateFromPoint(e.clientX, e.clientY, { starting: true });
       if (!ok) return;
       e.preventDefault();
       e.stopPropagation();
@@ -119,7 +97,7 @@ function bindDpadPad(pad) {
     (e) => {
       if (e.pointerId !== dpadPointerId) return;
       e.preventDefault();
-      updateAnalogFromEvent(e, { starting: false });
+      updateFromPoint(e.clientX, e.clientY, { starting: false });
     },
     { passive: false }
   );
@@ -127,20 +105,22 @@ function bindDpadPad(pad) {
   const end = (e) => {
     if (e.pointerId !== dpadPointerId) return;
     e.preventDefault();
-    clearAnalog();
+    clearDpad();
   };
   pad.addEventListener("pointerup", end);
   pad.addEventListener("pointercancel", end);
   pad.addEventListener("lostpointercapture", () => {
-    if (dpadPointerId !== null) clearAnalog();
+    if (dpadPointerId !== null) clearDpad();
   });
 }
 
 function bindHoldButton(btn, onPress, onRelease) {
   if (!btn) return;
+  let pid = null;
   const press = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    pid = e.pointerId;
     try {
       btn.setPointerCapture?.(e.pointerId);
     } catch (_) {
@@ -150,13 +130,21 @@ function bindHoldButton(btn, onPress, onRelease) {
     onPress();
   };
   const release = (e) => {
+    if (pid !== null && e.pointerId !== pid) return;
     e.preventDefault();
+    pid = null;
     btn.classList.remove("pressed");
     onRelease();
   };
   btn.addEventListener("pointerdown", press);
   btn.addEventListener("pointerup", release);
   btn.addEventListener("pointercancel", release);
+  btn.addEventListener("lostpointercapture", () => {
+    if (pid === null) return;
+    pid = null;
+    btn.classList.remove("pressed");
+    onRelease();
+  });
   btn.addEventListener("contextmenu", (e) => e.preventDefault());
   btn.addEventListener("selectstart", (e) => e.preventDefault());
 }
@@ -189,14 +177,6 @@ export function initMobileControls(hooks = {}) {
   faceEl = document.getElementById("mobile-face");
   dpadEl = rootEl?.querySelector(".mobile-dpad") ?? null;
   if (!rootEl || !isMobileDevice()) return;
-
-  document.addEventListener(
-    "touchstart",
-    (e) => {
-      if (e.target?.closest?.("input, textarea, a[href]")) return;
-    },
-    { passive: true }
-  );
 
   bindDpadPad(dpadEl);
 
