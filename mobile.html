@@ -202,7 +202,6 @@
       const localNote = document.getElementById("local-note");
       const lanExample = document.getElementById("lan-example");
 
-      playLink.href = isLocal ? "index.html" : "../".replace("..", ".") && (isLocal ? "index.html" : PAGES_HOME);
       playLink.href = isLocal ? "index.html" : PAGES_HOME;
       if (gameLink) gameLink.href = isLocal ? "game.html" : PAGES_GAME;
       urlEl.textContent = homeUrl;
