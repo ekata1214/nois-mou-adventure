@@ -475,30 +475,44 @@ function resolveMuuWorldXZ(manifest, roomRoot, roomFit) {
   if (roomRoot) {
     roomRoot.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(roomRoot);
-    const cx = (box.min.x + box.max.x) * 0.5 + ox;
-    const cz = (box.min.z + box.max.z) * 0.5 + oz;
-    console.info("[shell-muu] placement: center", `x=${cx.toFixed(2)} z=${cz.toFixed(2)}`);
-    return { x: cx, z: cz };
+    if (!box.isEmpty() && Number.isFinite(box.min.x) && Number.isFinite(box.max.x)) {
+      const cx = (box.min.x + box.max.x) * 0.5 + ox;
+      const cz = (box.min.z + box.max.z) * 0.5 + oz;
+      console.info("[shell-muu] placement: center", `x=${cx.toFixed(2)} z=${cz.toFixed(2)}`);
+      return { x: cx, z: cz };
+    }
   }
   const pos = manifest?.position ?? [0, 0, (roomFit?.dist ?? 2) * 0.28];
   return { x: pos[0] ?? 0, z: pos[2] ?? 0 };
 }
 
 async function probeGlbUrl(url) {
-  const head = await fetch(url, { method: "HEAD" });
-  if (!head.ok) return { ok: false, reason: `HTTP ${head.status}` };
-  const bytes = Number(head.headers.get("content-length") || 0);
-  if (bytes > 0 && bytes < MIN_GLB_BYTES) return { ok: false, reason: `too small (${bytes}B)` };
-
-  const probe = await fetch(url, { headers: { Range: "bytes=0-11" } });
-  if (!probe.ok && probe.status !== 206) return { ok: false, reason: "probe failed" };
-  const buf = new Uint8Array(await probe.arrayBuffer());
-  if (new TextDecoder().decode(buf).startsWith("version ")) {
-    return { ok: false, reason: "LFS pointer" };
+  try {
+    const head = await fetch(url, { method: "HEAD" });
+    if (head.ok) {
+      const bytes = Number(head.headers.get("content-length") || 0);
+      if (bytes > 0 && bytes < MIN_GLB_BYTES) return { ok: false, reason: `too small (${bytes}B)` };
+    }
+  } catch {
+    // HEAD 非対応ホストは GET プローブへ
   }
-  const isGlb = buf[0] === 0x67 && buf[1] === 0x6c && buf[2] === 0x54 && buf[3] === 0x46;
-  if (!isGlb) return { ok: false, reason: "not GLB" };
-  return { ok: true, bytes };
+
+  try {
+    const probe = await fetch(url, { headers: { Range: "bytes=0-11" } });
+    if (!probe.ok && probe.status !== 206) {
+      // Range 拒否でも本体ロードを試す余地を残す
+      return { ok: true, reason: "probe skipped" };
+    }
+    const buf = new Uint8Array(await probe.arrayBuffer());
+    if (new TextDecoder().decode(buf).startsWith("version ")) {
+      return { ok: false, reason: "LFS pointer" };
+    }
+    const isGlb = buf[0] === 0x67 && buf[1] === 0x6c && buf[2] === 0x54 && buf[3] === 0x46;
+    if (!isGlb && buf.length >= 4) return { ok: false, reason: "not glb magic" };
+    return { ok: true };
+  } catch {
+    return { ok: true, reason: "probe error — try load" };
+  }
 }
 
 async function loadGlb(basePath, manifest) {

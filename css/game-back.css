@@ -57,3 +57,7 @@ body.is-returning-hub #app {
   transform: translateX(12%);
   transition: opacity 0.28s ease, transform 0.28s ease;
 }
+
+body.force-landscape.is-returning-hub #app {
+  transform: translate(-50%, -50%) rotate(90deg) translateX(12%);
+}

@@ -44,6 +44,13 @@ function clearAnalog() {
   dpadEl?.querySelectorAll(".dpad-btn.pressed").forEach((b) => b.classList.remove("pressed"));
 }
 
+/** 遭遇開始・ズーム等でモバイル入力を完全リセット */
+export function clearMobileInput() {
+  clearAnalog();
+  rootEl?.querySelectorAll(".face-btn.pressed").forEach((b) => b.classList.remove("pressed"));
+  onAction?.({ kind: "reset", phase: "up" });
+}
+
 function syncDpadPressedClasses() {
   if (!dpadEl) return;
   dpadEl.querySelectorAll("[data-dpad]").forEach((btn) => {
@@ -70,7 +77,8 @@ function applyResolved(resolved) {
 function updateAnalogFromEvent(e, { starting = false } = {}) {
   if (!dpadEl) return false;
   const rect = dpadEl.getBoundingClientRect();
-  const { x, y } = normalizePadCoords(e.clientX, e.clientY, rect);
+  const forceLandscape = document.body.classList.contains("force-landscape");
+  const { x, y } = normalizePadCoords(e.clientX, e.clientY, rect, { forceLandscape });
 
   // 開始時は十字アーム上のみ。ドラッグ継続中は少し外まで許容
   if (starting) {
@@ -167,7 +175,7 @@ export function syncMobileControls(opts = {}) {
 
   rootEl.classList.toggle("hidden", !show);
   rootEl.setAttribute("aria-hidden", show ? "false" : "true");
-  if (!show) clearAnalog();
+  if (!show) clearMobileInput();
 
   const actionMode = show && phase === "action";
   faceEl?.classList.toggle("hidden", !actionMode);
@@ -182,11 +190,6 @@ export function initMobileControls(hooks = {}) {
   dpadEl = rootEl?.querySelector(".mobile-dpad") ?? null;
   if (!rootEl || !isMobileDevice()) return;
 
-  const blockBrowserChrome = (e) => {
-    e.preventDefault();
-  };
-  document.addEventListener("contextmenu", blockBrowserChrome, { passive: false });
-  document.addEventListener("selectstart", blockBrowserChrome, { passive: false });
   document.addEventListener(
     "touchstart",
     (e) => {
@@ -205,10 +208,9 @@ export function initMobileControls(hooks = {}) {
   });
 
   window.addEventListener("blur", () => {
-    clearAnalog();
-    rootEl?.querySelectorAll(".face-btn.pressed").forEach((b) => {
-      b.classList.remove("pressed");
-    });
-    onAction?.({ kind: "reset", phase: "up" });
+    clearMobileInput();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) clearMobileInput();
   });
 }

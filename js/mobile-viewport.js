@@ -25,7 +25,10 @@ export function syncMobileLandscape() {
   document.body.classList.toggle("force-landscape", force);
 
   if (force) {
-    applyAppViewportVars(window.innerHeight, window.innerWidth);
+    const vv = window.visualViewport;
+    const w = vv?.height ?? window.innerHeight;
+    const h = vv?.width ?? window.innerWidth;
+    applyAppViewportVars(w, h);
   } else {
     const vv = window.visualViewport;
     applyAppViewportVars(vv?.width ?? window.innerWidth, vv?.height ?? window.innerHeight);
@@ -37,9 +40,10 @@ export function syncMobileLandscape() {
 export function getViewportSize() {
   syncMobileLandscape();
   if (document.body.classList.contains("force-landscape")) {
+    const vv = window.visualViewport;
     return {
-      vw: window.innerHeight,
-      vh: window.innerWidth,
+      vw: vv?.height ?? window.innerHeight,
+      vh: vv?.width ?? window.innerWidth,
     };
   }
   const vv = window.visualViewport;

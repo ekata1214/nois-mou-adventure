@@ -287,7 +287,7 @@ export async function createShellRoomView(canvas, basePath = "assets/room", hook
     dispose() {},
   };
   try {
-    muu = await attachShellMuu3d(scene, fit, "assets/muu", roomRoot, manifest, {
+    muu = await attachShellMuu3d(scene, fit, "assets/muu", roomMissing ? null : roomRoot, manifest, {
       onLoopChange: hooks.onMuuLoopChange,
     });
   } catch (err) {
