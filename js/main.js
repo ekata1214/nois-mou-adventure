@@ -126,7 +126,7 @@ import {
   syncMobileControls,
   getMobileMoveVector,
   clearMobileInput,
-} from "./mobile-controls.js?v=20260730bugsweep";
+} from "./mobile-controls.js?v=20260730dpadbtn";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
