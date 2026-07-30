@@ -130,6 +130,7 @@ img { display: block; max-width: 100%; }
   overflow: hidden;
   background: #000;
   -webkit-tap-highlight-color: transparent;
+  color: inherit;
 }
 
 .nf-billboard-art {
@@ -140,6 +141,7 @@ img { display: block; max-width: 100%; }
   object-fit: cover;
   object-position: center 35%;
   transform: scale(1.04);
+  pointer-events: none;
 }
 
 .nf-billboard-shade {
@@ -161,7 +163,6 @@ img { display: block; max-width: 100%; }
   min-height: inherit;
   padding: 28px 4vw 36px;
   max-width: 640px;
-  pointer-events: none;
 }
 
 .nf-eyebrow {
@@ -192,18 +193,25 @@ img { display: block; max-width: 100%; }
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 8px;
+  pointer-events: auto;
 }
 
 .nf-btn-play,
 .nf-btn-info {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   min-height: 42px;
   padding: 0 18px;
+  border: none;
   border-radius: 4px;
+  font: inherit;
   font-size: 15px;
   font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nf-btn-play {
@@ -216,8 +224,10 @@ img { display: block; max-width: 100%; }
   color: #fff;
 }
 
-.nf-billboard:hover .nf-btn-play { background: #e6e6e6; }
-.nf-billboard:active { filter: brightness(0.96); }
+.nf-btn-play:hover { background: #e6e6e6; }
+.nf-btn-info:hover { background: rgba(109, 109, 110, 0.9); }
+.nf-btn-play:active,
+.nf-btn-info:active { transform: translateY(1px); }
 
 .nf-billboard.is-leaving {
   opacity: 0.35;

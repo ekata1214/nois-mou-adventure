@@ -250,10 +250,15 @@ function bindGameLaunch() {
     e.preventDefault();
     launchGame(e.currentTarget.getAttribute("href") || "game.html");
   };
-  mouLaunch?.addEventListener("click", go);
-  document.getElementById("dock-play")?.addEventListener("click", go);
-  document.getElementById("top-play")?.addEventListener("click", go);
-  document.getElementById("dock-play-card")?.addEventListener("click", go);
+  // ホーム全体ではなく、明示的な PLAY リンクだけゲームへ
+  [
+    "billboard-play",
+    "dock-play",
+    "top-play",
+    "dock-play-card",
+  ].forEach((id) => {
+    document.getElementById(id)?.addEventListener("click", go);
+  });
 }
 
 playerDialog?.addEventListener("close", () => {
