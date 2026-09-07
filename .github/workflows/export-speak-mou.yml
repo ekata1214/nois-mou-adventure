@@ -4,11 +4,9 @@ on:
   push:
     paths:
       - "assets/muu/**/*.blend"
-      - "scripts/blender/**"
+      - "scripts/blender/export-speak-mou.py"
       - "scripts/export-speak-mou.sh"
-      - ".github/workflows/export-speak-mou.yml"
       - "!assets/muu/actions/**"
-      - "!scripts/blender/build-mou-actions.py"
   workflow_dispatch:
 
 permissions:
