@@ -4,13 +4,13 @@ import {collectFragment,makeVessel,inscribe} from './shell-life-state.js';
 import {createFieldAudio} from './field-audio.js';
 import {buildFieldAdventure} from './field-adventure.js?v=20260908shell';
 import {CAMPS,nextAdventureGoal} from './adventure-state.js?v=20260908shell';
-import {createFieldCombat} from './field-combat.js?v=20260908shell';
+import {createFieldCombat} from './field-combat.js?v=20260908sculpt';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createMouMotion } from './mou-motion.js?v=20260908shell';
 import { createMouAppearance } from './mou-appearance.js?v=20260907physics';
 import { advanceCharacter, canOccupy } from './field-physics.js?v=20260908shell';
-import { buildMeadow } from './meadow-world.js?v=20260908print';
+import { buildMeadow } from './meadow-world.js?v=20260908sculpt';
 import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable, resolveFieldPosition, cameraClearance, supportHeight, waterDepth } from './explore-state.js?v=20260908shell';
 
 const $=id=>document.getElementById(id);
