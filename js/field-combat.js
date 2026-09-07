@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import {terrainHeight} from './explore-state.js?v=20260907journey';
-import {advanceCharacter,canOccupy} from './field-physics.js?v=20260907journey';
+import {terrainHeight} from './explore-state.js?v=20260908shell';
+import {advanceCharacter,canOccupy} from './field-physics.js?v=20260908shell';
 import {createEncounters,createFighter,startStrike,startDodge,stepFighter,hitFighter,applyStrike,stepEncounter} from './field-encounters.js';
-import {buildEncounterViews} from './encounter-views.js?v=20260907journey';
+import {buildEncounterViews} from './encounter-views.js?v=20260908shell';
 
 export function createFieldCombat(scene,player,colliders,surfaces,saved,onCalm,onDefeat){
   const fighter=createFighter(),enemies=createEncounters(saved);let locked=null;
@@ -35,7 +35,7 @@ export function createFieldCombat(scene,player,colliders,surfaces,saved,onCalm,o
         stepFighter(fighter,dt);
         for(const hit of applyStrike(fighter,player.position,enemies,visible))if(hit.calmed){fighter.hp=Math.min(fighter.maxHp,fighter.hp+1);onCalm(hit.enemy);}
         const p={...player.position,hp:options.peaceful?0:fighter.hp};
-        for(const e of enemies)stepEncounter(e,p,dt*(options.gentle?.8:1),{visible,move(e,vx,vz,dt){const speed=Math.hypot(vx,vz);let ix=speed?vx/speed:0,iz=speed?vz/speed:0;
+        for(const e of enemies)stepEncounter(e,e.mode==='rpg'?{...p,hp:0}:p,dt*(options.gentle?.8:1),{visible,move(e,vx,vz,dt){const speed=Math.hypot(vx,vz);let ix=speed?vx/speed:0,iz=speed?vz/speed:0;
         // Small local steering lets walkers skirt trunks; committed lunges stay straight.
         if(speed&&e.phase!=='lunge'){
           const probe=(x,z)=>canOccupy({x:e.body.x+x*.85,y:e.body.y,z:e.body.z+z*.85},colliders);

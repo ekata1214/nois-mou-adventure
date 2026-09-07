@@ -2,9 +2,9 @@ import {ENTITY_DEFS} from './entities.js';
 import {PATTERNS} from './enemy-patterns.js';
 
 export const ENCOUNTER_DEFS=[
-  {id:'ember',type:'anger',pattern:'charger',x:-24,z:-9,hp:42},
-  {id:'thorn',type:'envy',pattern:'strafe',x:-51,z:-36,hp:48},
-  {id:'shade',type:'loneliness',pattern:'charger',x:-76,z:-64,hp:60},
+  {id:'ember',type:'anger',pattern:'charger',x:24,z:-9,hp:42,mode:'action'},
+  {id:'thorn',type:'envy',pattern:'strafe',x:-51,z:-36,hp:48,mode:'rpg'},
+  {id:'shade',type:'loneliness',pattern:'charger',x:76,z:64,hp:60,mode:'action'},
 ];
 export function createEncounters(saved={}){return ENCOUNTER_DEFS.map(d=>({...d,name:ENTITY_DEFS[d.type].name,color:ENTITY_DEFS[d.type].color,maxHp:d.hp,hp:saved[d.id]?0:d.hp,homeX:d.x,homeZ:d.z,y:0,heading:0,phase:saved[d.id]?'calmed':'patrol',timer:0,elapsed:0,flash:0,attackHit:false,friendly:saved[d.id]==='friend',body:{x:d.x,y:0,z:d.z,vx:0,vy:0,vz:0,grounded:true}}));}
 export function createFighter(){return {hp:5,maxHp:5,stamina:100,regenWait:0,action:null,actionTime:0,actionDuration:0,hitApplied:false,invincible:0,combo:0,heading:0,dodgeX:0,dodgeZ:0};}
@@ -31,7 +31,7 @@ export function applyStrike(f,player,enemies,visible=()=>true){
   f.hitApplied=true;const hits=[];
   for(const e of enemies){
     const dx=e.x-player.x,dz=e.z-player.z,d=Math.hypot(dx,dz);
-    if(e.hp<=0||d>3.05||Math.abs(e.y-player.y)>1.8||!visible(player,e))continue;
+    if(e.mode==='rpg'||e.hp<=0||d>3.05||Math.abs(e.y-player.y)>1.8||!visible(player,e))continue;
     if(d>.2&&(dx*Math.sin(f.heading)+dz*Math.cos(f.heading))/d<.3)continue;
     e.hp=Math.max(0,e.hp-(f.action==='strike2'?18:16));e.flash=.3;e.timer=.48;e.phase=e.hp?'stagger':'calmed';
     if(e.body){e.body.vx+=Math.sin(f.heading)*3;e.body.vz+=Math.cos(f.heading)*3;}

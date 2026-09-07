@@ -26,6 +26,7 @@ jobs:
         run: npm install --prefix "$RUNNER_TEMP/field-checks" --ignore-scripts --no-audit --no-fund three@0.170.0
       - name: Saves, physics, combat, and adventure
         run: |
+          node scripts/test-shell-life.mjs
           node scripts/test-explore.mjs
           node scripts/test-field-physics.mjs
           node scripts/test-field-encounters.mjs
