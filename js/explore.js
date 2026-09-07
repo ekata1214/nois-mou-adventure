@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createMouMotion } from './mou-motion.js?v=20260907motion';
-import { createMouAppearance } from './mou-appearance.js?v=20260907living';
-import { buildMeadow } from './meadow-world.js?v=20260907living';
-import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable, resolveFieldPosition, cameraClearance, supportHeight, stepVertical } from './explore-state.js?v=20260907living';
+import { createMouAppearance } from './mou-appearance.js?v=20260907physics';
+import { advanceCharacter, canOccupy } from './field-physics.js?v=20260907physics';
+import { buildMeadow } from './meadow-world.js?v=20260907physics';
+import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable, resolveFieldPosition, cameraClearance, supportHeight, waterDepth } from './explore-state.js?v=20260907physics';
 
 const $=id=>document.getElementById(id);
 const canvas=$('world');
@@ -75,7 +76,7 @@ const fallback=sprite('assets/muu/back.png',2.2,0,1.1,0);scene.remove(fallback);
 let avatar=null,motion=null,appearance=null;
 // One existing GLB, loaded in the background. Exploration is usable while it downloads.
 const modelNote=$('loading-note');
-new GLTFLoader().load('assets/muu/mou-actions.glb?v=20260907living',gltf=>{
+new GLTFLoader().load('assets/muu/mou-actions.glb?v=20260907physics',gltf=>{
   const root=gltf.scene;root.updateMatrixWorld(true);
   const box=new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3());
   if(!Number.isFinite(size.y)||size.y<=0)return;
@@ -90,6 +91,7 @@ new GLTFLoader().load('assets/muu/mou-actions.glb?v=20260907living',gltf=>{
 },event=>{if(event.total)modelNote.textContent=`野原は準備できました。ムー君の3Dを読込中 ${Math.round(event.loaded/event.total*100)}%（先に遊べます）`;},()=>{modelNote.textContent='今回は元のムー君の絵で遊べます。3Dモデルは読み込めませんでした。';});
 
 let yaw=Math.PI*1.25,pitch=.22,verticalSpeed=0,grounded=true,flight=null,active=false,runToggle=false;
+const body={x:0,y:0,z:0,vx:0,vy:0,vz:0,grounded:true};
 let nearest=null,leapTarget=null,lastRegion=null,elapsed=0,lastTime=0,toastTimer;
 const keys=new Set(),held=new Map();let drag=null;
 const dialogs=[$('welcome'),$('conversation'),$('shell'),$('memory')];
@@ -101,7 +103,7 @@ function updateHUD(){
   $('trail-progress').textContent=`野原の記憶 ${state.discoveries.length} / 3`;
   $('trail-hint').textContent=state.discoveries.length===3?'道の先まで来た。気配に会って、殻に持ち帰ろう。':'土の道をたどって、光る石碑を探そう。';
 }
-function clearInput(){keys.clear();held.clear();drag=null;runToggle=false;$('run').setAttribute('aria-pressed','false');}
+function clearInput(){keys.clear();held.clear();drag=null;runToggle=false;body.vx=body.vz=0;$('run').setAttribute('aria-pressed','false');}
 window.addEventListener('blur',clearInput);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)clearInput();});
 window.addEventListener('keydown',e=>{
@@ -122,13 +124,14 @@ $('run').onclick=()=>{runToggle=!runToggle;$('run').setAttribute('aria-pressed',
 $('jump').onclick=jump;$('leap').onclick=leap;$('interact').onclick=interact;
 $('wave').onclick=wave;
 function wave(){if(!active||modalOpen()||!grounded||flight)return;motion?.gesture('wave');}
-function jump(){if(!active||modalOpen()||flight||!grounded)return;verticalSpeed=9;grounded=false;}
+function jump(){if(!active||modalOpen()||flight||!grounded)return;verticalSpeed=waterDepth(player.position.x,player.position.z,player.position.y)>.3?6.5:9;grounded=false;}
 function leap(){
   if(!active||modalOpen()||!leapTarget||flight)return;
   flight={from:player.position.clone(),to:new THREE.Vector3(leapTarget.x,leapTarget.y,leapTarget.z),t:0};verticalSpeed=0;
   toast(`「${leapTarget.word}」へ、思考をつなぐ。`);
 }
 const supportSurfaces=[...platforms,...meadow.stumps];
+const physicsColliders=[...meadow.colliders,...platforms.map(p=>({x:p.x,z:p.z,halfX:3,halfZ:2,bottom:p.y-.5,top:p.y,walkable:true}))];
 function standingHeight(x,z,previousY){return supportHeight(x,z,previousY,supportSurfaces);}
 function openDialog(d){clearInput();d.showModal();}
 $('welcome').addEventListener('cancel',e=>{if(!active)e.preventDefault();});
@@ -198,22 +201,21 @@ function update(dt){
     const dirs=[...held.values()];
     const forward=(keys.has('KeyW')||keys.has('ArrowUp')||dirs.includes('forward')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')||dirs.includes('back')?1:0);
     const side=(keys.has('KeyD')||keys.has('ArrowRight')||dirs.includes('right')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')||dirs.includes('left')?1:0);
-    const length=Math.hypot(side,forward)||1,speed=(runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight')?8:4)*dt;
-    moveX=(forward*Math.sin(yaw)-side*Math.cos(yaw))/length*speed;
-    moveZ=(forward*Math.cos(yaw)+side*Math.sin(yaw))/length*speed;
-    player.position.x=THREE.MathUtils.clamp(player.position.x+moveX,-110,110);player.position.z=THREE.MathUtils.clamp(player.position.z+moveZ,-110,110);
-    // Resolve solid trunks and large rocks without trapping the player on contact.
-    const resolved=resolveFieldPosition(player.position.x,player.position.z,player.position.y,meadow.colliders);
-    player.position.x=resolved.x;player.position.z=resolved.z;
+    const length=Math.hypot(side,forward)||1,speed=runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight')?8:4;
+    const direction={x:(forward*Math.sin(yaw)-side*Math.cos(yaw))/length,z:(forward*Math.cos(yaw)+side*Math.sin(yaw))/length,speed};
+    Object.assign(body,{x:player.position.x,y:player.position.y,z:player.position.z,vy:verticalSpeed,grounded});
+    advanceCharacter(body,direction,dt,physicsColliders,supportSurfaces);
+    player.position.set(body.x,body.y,body.z);verticalSpeed=body.vy;grounded=body.grounded;
     moveX=player.position.x-beforeX;moveZ=player.position.z-beforeZ;
-    const floor=standingHeight(player.position.x,player.position.z,player.position.y);
-    const vertical=stepVertical(player.position.y,verticalSpeed,grounded,floor,dt);
-    player.position.y=vertical.y;verticalSpeed=vertical.velocity;grounded=vertical.grounded;
   }
   if(flight&&movingAllowed){
+    const previous=player.position.clone();
     flight.t=Math.min(1,flight.t+dt/1.05);const t=flight.t,s=t*t*(3-2*t);
     player.position.lerpVectors(flight.from,flight.to,s);player.position.y+=Math.sin(Math.PI*t)*5;
-    if(t===1){flight=null;grounded=true;}
+    const distance=previous.distanceTo(player.position),steps=Math.max(1,Math.ceil(distance/.1));let blocked=false;
+    for(let i=1;i<=steps;i++)if(!canOccupy(previous.clone().lerp(player.position,i/steps),physicsColliders)){blocked=true;break;}
+    if(blocked){player.position.copy(previous);flight=null;grounded=false;verticalSpeed=0;body.vx=body.vz=0;toast('行く手がふさがっている。別の場所から、思考をつなごう。');}
+    else if(t===1){flight=null;grounded=true;body.vx=body.vz=0;}
   }
   if(avatar && (moveX||moveZ)){
     const target=Math.atan2(moveX,moveZ);
@@ -228,6 +230,7 @@ function update(dt){
     if(relation==='follow'&&movingAllowed){
       const target=player.position.clone().add(new THREE.Vector3(Math.sin(yaw+2+i)*3,0,Math.cos(yaw+2+i)*3));
       n.obj.position.x=THREE.MathUtils.damp(n.obj.position.x,target.x,2,dt);n.obj.position.z=THREE.MathUtils.damp(n.obj.position.z,target.z,2,dt);
+      const contact=resolveFieldPosition(n.obj.position.x,n.obj.position.z,terrainHeight(n.obj.position.x,n.obj.position.z),meadow.colliders);n.obj.position.x=contact.x;n.obj.position.z=contact.z;
     }
     n.obj.position.y=terrainHeight(n.obj.position.x,n.obj.position.z)+1.7+Math.sin(elapsed+i)*.12;
     n.label.position.copy(n.obj.position).add(new THREE.Vector3(0,2.5,0));
@@ -250,5 +253,5 @@ function update(dt){
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 window.addEventListener('resize',resize);resize();camera.position.set(0,7,10);
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();active=false;$('fatal').hidden=false;});
-function frame(ms){requestAnimationFrame(frame);const dt=Math.min((ms-lastTime)/1000,.04);lastTime=ms;if(document.hidden)return;update(dt);renderer.render(scene,camera);}
+function frame(ms){requestAnimationFrame(frame);const dt=Math.min((ms-lastTime)/1000,.1);lastTime=ms;if(document.hidden)return;update(dt);renderer.render(scene,camera);}
 updateHUD();modelNote.textContent='野原は準備できました。ムー君の3Dは後から読み込まれます。';$('begin').disabled=false;openDialog($('welcome'));requestAnimationFrame(frame);

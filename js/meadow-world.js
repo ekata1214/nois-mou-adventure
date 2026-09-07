@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { terrainHeight } from './explore-state.js?v=20260907living';
+import {buildPond} from './pond-water.js?v=20260907physics';
+import { terrainHeight } from './explore-state.js?v=20260907physics';
 
 // A deterministic, entirely local landscape. No additional image downloads.
 export const MEMORY_PLACES = [
@@ -136,15 +137,7 @@ export function buildMeadow(scene,renderer,sun) {
   }
   grass.count=touchDevice?Math.floor(count*.55):count;grass.receiveShadow=true;scene.add(grass);
   // A shallow pool, kept outside the route, with animated ripples and a visible bed.
-  const waterMat=new THREE.MeshStandardMaterial({color:0x7ea69b,transparent:true,opacity:.68,roughness:.2,metalness:.32,side:THREE.DoubleSide});
-  waterMat.onBeforeCompile=shader=>{
-    shader.uniforms.waterTime=wind;
-    shader.vertexShader='varying vec2 waterUV;\n'+shader.vertexShader;
-    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nwaterUV=position.xy;');
-    shader.fragmentShader='uniform float waterTime; varying vec2 waterUV;\n'+shader.fragmentShader;
-    shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\nnormal=normalize(normal+vec3(sin(waterUV.x*2.8+waterTime)*.12,cos(waterUV.y*3.2+waterTime*.8)*.12,0.));');
-  };
-  const water=new THREE.Mesh(new THREE.CircleGeometry(8.8,80),waterMat);water.rotation.x=-Math.PI/2;water.position.set(-19,-1.6,-46);water.receiveShadow=true;scene.add(water);
+  const pond=buildPond(scene);
   for(let i=0;i<42;i++){const a=random()*6.28,r=8.2+random()*2.3,x=-19+Math.cos(a)*r,z=-46+Math.sin(a)*r;add(rockGeo,stone,x,terrainHeight(x,z)-.1,z,.25+random()*.5,.2+random()*.35,.3+random()*.4);}
   // A weathered arch is the visible destination at the end of the winding path.
   const archY=terrainHeight(-65,-62);
@@ -167,5 +160,5 @@ export function buildMeadow(scene,renderer,sun) {
   dustGeo.setAttribute('position',new THREE.Float32BufferAttribute(dust,3));
   const particles=new THREE.Points(dustGeo,new THREE.PointsMaterial({color:0xffe9af,size:.065,transparent:true,opacity:.6,depthWrite:false}));scene.add(particles);
   const sky=new THREE.Mesh(new THREE.SphereGeometry(300,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{},vertexShader:'varying vec3 vWorld; void main(){vWorld=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'varying vec3 vWorld; void main(){vec3 d=normalize(vWorld); float h=smoothstep(-.05,.65,d.y); vec3 c=mix(vec3(.76,.77,.64),vec3(.22,.40,.47),h); float s=pow(max(dot(d,normalize(vec3(-.5,.7,-.5))),0.),180.); c+=vec3(1.,.72,.36)*s*.8; gl_FragColor=vec4(c,1.);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}'}));scene.add(sky);
-  return {colliders,markers,stumps,update(time,player){wind.value=time;particles.position.y=Math.sin(time*.14)*.4;sky.position.copy(player);sun.position.set(player.x-35,player.y+55,player.z-35);sun.target.position.copy(player);for(const p of markers){p.light.rotation.y=time*.7;p.light.position.y=p.y+1.3+Math.sin(time*1.4)*.1;}}};
+  return {colliders,markers,stumps,pond,update(time,player){wind.value=time;pond.update(time,player);particles.position.y=Math.sin(time*.14)*.4;sky.position.copy(player);sun.position.set(player.x-35,player.y+55,player.z-35);sun.target.position.copy(player);for(const p of markers){p.light.rotation.y=time*.7;p.light.position.y=p.y+1.3+Math.sin(time*1.4)*.1;}}};
 }

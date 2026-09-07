@@ -1,4 +1,5 @@
 export const KEY = 'nois-mou-explore-v1';
+export const POND={x:-19,z:-46,radius:8.8,level:-1.6,depth:1.25};
 export const REGIONS = [
   { id:'ki', name:'喜 / ほどける野原', note:'まだ知らないことが、光っている。', color:0xc5b87b, sky:0x708f88, x:-1,z:-1, word:'好奇心' },
   { id:'do', name:'怒 / 赤い残響', note:'言えなかった言葉が、立ち上がる。', color:0x915b4c, sky:0x86665e, x:1,z:-1, word:'なぜ' },
@@ -8,8 +9,13 @@ export const REGIONS = [
 export function terrainHeight(x,z){
   const base=Math.sin(x*.075)*2.3+Math.cos(z*.085)*1.8+Math.sin((x+z)*.043)*2;
   const hill=8*Math.exp(-((x+65)**2+(z+62)**2)/650);
-  const pool=Math.exp(-((x+19)**2+(z+46)**2)/65);
-  return (base+hill)*(1-pool)-3.3*pool;
+  const distance=Math.hypot(x-POND.x,z-POND.z),radius=POND.radius;
+  if(distance<=radius)return POND.level-POND.depth*(1-(distance/radius)**2)**2;
+  const bank=Math.min(1,(distance-radius)/6),blend=bank*bank*(3-2*bank);
+  return (POND.level+.5*Math.sin(Math.PI*bank))*(1-blend)+(base+hill)*blend;
+}
+export function waterDepth(x,z,y=terrainHeight(x,z)){
+  return Math.hypot(x-POND.x,z-POND.z)<POND.radius?Math.max(0,POND.level-y):0;
 }
 export function regionAt(x,z){ return REGIONS.find(r=>r.x===(x<0?-1:1)&&r.z===(z<0?-1:1)); }
 export function freshState(){ return {collected:[],friends:{},lamp:false,memos:[],visited:[],discoveries:[]}; }
