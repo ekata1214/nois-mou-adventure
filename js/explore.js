@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createMouMotion } from './mou-motion.js?v=20260907motion';
 import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable } from './explore-state.js';
 
 const $=id=>document.getElementById(id);
@@ -83,19 +84,19 @@ const npcs=REGIONS.map((r,i)=>{
 });
 const player=new THREE.Group();player.position.set(0,terrainHeight(0,0),0);scene.add(player);
 const fallback=sprite('assets/muu/back.png',2.2,0,1.1,0);scene.remove(fallback);player.add(fallback);
-let avatar=null,mixer=null,modelBaseY=0;
+let avatar=null,motion=null;
 // One existing GLB, loaded in the background. Exploration is usable while it downloads.
 const modelNote=$('loading-note');
-new GLTFLoader().load('assets/muu/speak-mou.glb',gltf=>{
+new GLTFLoader().load('assets/muu/mou-actions.glb?v=20260907motion',gltf=>{
   const root=gltf.scene;root.updateMatrixWorld(true);
   const box=new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3());
   if(!Number.isFinite(size.y)||size.y<=0)return;
   root.scale.setScalar(2.05/size.y);box.setFromObject(root);const center=box.getCenter(new THREE.Vector3());
-  root.position.set(-center.x,-box.min.y,-center.z);modelBaseY=root.position.y;
+  root.position.set(-center.x,-box.min.y,-center.z);
   player.add(root);avatar=root;fallback.visible=false;
-  const clip=gltf.animations.find(c=>c.duration>.5);
-  if(clip){mixer=new THREE.AnimationMixer(root);mixer.clipAction(clip).play();}
-  modelNote.textContent='ムー君も準備できました。';
+  motion=createMouMotion(root,gltf.animations);
+  $('wave').disabled=!motion.ready;
+  modelNote.textContent='ムー君の動作も準備できました。';
 },event=>{if(event.total)modelNote.textContent=`野原は準備できました。ムー君の3Dを読込中 ${Math.round(event.loaded/event.total*100)}%（先に遊べます）`;},()=>{modelNote.textContent='今回は元のムー君の絵で遊べます。3Dモデルは読み込めませんでした。';});
 
 let yaw=Math.PI,pitch=.3,verticalSpeed=0,grounded=true,flight=null,active=false,runToggle=false;
@@ -115,7 +116,7 @@ window.addEventListener('keydown',e=>{
   if(modalOpen()||!active)return;
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   keys.add(e.code);if(e.repeat)return;
-  if(e.code==='Space')jump();if(e.code==='KeyQ')leap();if(e.code==='KeyE')interact();
+  if(e.code==='Space')jump();if(e.code==='KeyQ')leap();if(e.code==='KeyE')interact();if(e.code==='KeyR')wave();
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));
 canvas.addEventListener('pointerdown',e=>{if(modalOpen())return;canvas.focus();drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);});
@@ -127,6 +128,8 @@ document.querySelectorAll('[data-dir]').forEach(button=>{
 });
 $('run').onclick=()=>{runToggle=!runToggle;$('run').setAttribute('aria-pressed',String(runToggle));};
 $('jump').onclick=jump;$('leap').onclick=leap;$('interact').onclick=interact;
+$('wave').onclick=wave;
+function wave(){if(!active||modalOpen()||!grounded||flight)return;motion?.gesture('wave');}
 function jump(){if(!active||modalOpen()||flight||!grounded)return;verticalSpeed=9;grounded=false;}
 function leap(){
   if(!active||modalOpen()||!leapTarget||flight)return;
@@ -146,7 +149,7 @@ function interact(){
   if(nearest.kind==='portal'){openShell();return;}
   if(nearest.kind==='shard'){
     const shard=nearest.item;if(state.collected.includes(shard.id))return;
-    state.collected.push(shard.id);shard.obj.visible=false;save();toast('記憶のかけらを、ひとつ預かった。');return;
+    state.collected.push(shard.id);shard.obj.visible=false;motion?.gesture('pickup');save();toast('記憶のかけらを、ひとつ預かった。');return;
   }
   const npc=nearest.item;$('npc-name').textContent=npc.name;
   $('npc-line').textContent=state.friends[npc.id]?'……覚えてるよ。今日は、どう過ごそうか。':npc.line;
@@ -205,8 +208,12 @@ function update(dt){
     player.position.lerpVectors(flight.from,flight.to,s);player.position.y+=Math.sin(Math.PI*t)*5;
     if(t===1){flight=null;grounded=true;}
   }
-  if(avatar){if(moveX||moveZ)player.rotation.y=Math.atan2(moveX,moveZ);avatar.position.y=modelBaseY+(moveX||moveZ?Math.sin(elapsed*13)*.045:0);}
-  mixer?.update(movingAllowed?dt:0);
+  if(avatar && (moveX||moveZ)){
+    const target=Math.atan2(moveX,moveZ);
+    const delta=Math.atan2(Math.sin(target-player.rotation.y),Math.cos(target-player.rotation.y));
+    player.rotation.y+=delta*(1-Math.exp(-dt*12));
+  }
+  motion?.update(dt,{moving:Math.hypot(moveX,moveZ)>.0001,running:runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight'),grounded,verticalSpeed,flight:!!flight,paused:!movingAllowed});
   for(const shard of shards)if(shard.obj.visible){shard.obj.rotation.y+=dt;shard.obj.position.y=shard.y+Math.sin(elapsed*1.8+shard.id)*.16;}
   npcs.forEach((n,i)=>{
     const relation=state.friends[n.id];n.obj.visible=relation!=='home';n.label.visible=n.obj.visible;
