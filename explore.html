@@ -6,30 +6,40 @@
   <meta name="theme-color" content="#10151b" />
   <title>思考の野原 — ムー君の冒険 / UNGR ARCHIVE</title>
   <link rel="icon" href="assets/ungr-avatar.jpg" />
-  <link rel="stylesheet" href="css/explore.css?v=20260907mobile" />
+  <link rel="stylesheet" href="css/explore.css?v=20260907journey" />
   <script type="importmap">{"imports":{"three":"https://esm.sh/three@0.170.0","three/addons/":"https://esm.sh/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
   <canvas id="world" aria-label="思考の野原。WASDまたは矢印キーで移動、画面をドラッグして見回す" tabindex="0"></canvas>
   <header class="world-header"><a href="index.html" class="home-link" aria-label="UNGR ARCHIVE ホームへ">← <span>UNGR ARCHIVE</span></a><span class="edition">ムー君の冒険 / 3D探索・試作</span><button id="help-open" aria-label="操作説明">操作 ?</button></header>
   <section class="location" aria-label="現在地"><p id="region-label">NOU / 思考の野原</p><h1 id="region-name">まだ名前のない場所</h1><p id="region-desc">気になる方へ、歩いてみる。</p></section>
-  <div class="compass" id="compass" aria-label="向いている方角">N</div>
-  <aside class="journal"><span id="inventory">記憶のかけら 0</span><span id="friend-count">友達 0</span><button id="shell-button">殻へ帰る ↗</button></aside>
+  <button class="compass" id="compass" aria-label="視点を正面に戻す">N</button>
+  <aside class="journal"><span id="inventory">記憶のかけら 0</span><span id="friend-count">友達 0</span><button id="journey-open">地図・持ちもの</button></aside>
   <aside class="trail"><span class="eyebrow">FIELD NOTES / 01</span><strong id="trail-progress">野原の記憶 0 / 3</strong><p id="trail-hint">土の道をたどって、光る石碑を探そう。</p></aside>
   <p id="toast" class="toast" role="status" aria-live="polite"></p>
   <div class="nearby"><p id="nearby-label"></p><button id="interact" hidden>触れる <kbd>E</kbd></button></div>
   <div id="touch-pad" class="touch-pad" aria-label="移動パッド"><button data-dir="forward" aria-label="前へ">↑</button><button data-dir="left" aria-label="左へ">←</button><span></span><button data-dir="right" aria-label="右へ">→</button><button data-dir="back" aria-label="後ろへ">↓</button></div>
-  <aside class="combat-hud"><span id="vitality" aria-label="体力">♥♥♥♥♥</span><progress id="stamina" max="100" value="100" aria-label="スタミナ"></progress><small id="combat-status"></small></aside>
+  <aside class="combat-hud"><span id="vitality" aria-label="体力">♥♥♥♥♥</span><progress id="stamina" max="100" value="100" aria-label="スタミナ"></progress><small id="combat-status"></small><button id="objective-button"><span id="objective-arrow">↑</span> <span id="objective"></span></button></aside>
   <div class="combat-actions"><button id="lock-on" aria-pressed="false">注目 <kbd>T</kbd></button><button id="dodge">回避 <kbd>C</kbd></button><button id="strike">思考を振る <kbd>F</kbd></button></div>
-  <div class="actions"><button id="wave" disabled>手を振る <kbd>R</kbd></button><button id="run" aria-pressed="false">走る</button><button id="jump">跳ぶ <kbd>Space</kbd></button><button id="leap" disabled>思考へ <kbd>Q</kbd></button></div>
+  <div class="actions"><button id="run" aria-pressed="false">走る</button><button id="jump">跳ぶ <kbd>Space</kbd></button><button id="leap" disabled>思考へ <kbd>Q</kbd></button></div>
   <p class="desktop-hint">WASD 移動 · Shift 走る · Space 跳ぶ · ドラッグ 見回す · Q 思考へ · E 触れる · R 手を振る</p>
-  <dialog id="welcome" aria-labelledby="welcome-title"><p class="eyebrow">NOIS MOU / FIELD NOTES 01</p><h2 id="welcome-title">ほどける野原</h2><p>ムー君は、人間の思考の中でしか生きられない。</p><p>土の道をたどって、水辺、木陰、丘の遺跡へ。3つの石碑に耳をすませ、気配と出会い、拾った記憶を殻へ持ち帰ろう。</p><p>野原の3体の気配は、光ってから突進する。Fで思考を振り、Cで避け、Tで注目。静まった気配とは友達にもなれる。戦わずに通り過ぎてもいい。</p><div class="controls-guide"><span>移動</span><b>WASD / 矢印 / 左下のパッド</b><span>見回す</span><b>右側の空いた画面をドラッグ</b><span>攻撃・回避・注目</span><b>F・C・T / 右下のボタン</b><span>跳ぶ・思考へ</span><b>Space・Q / 右下のボタン</b><span>話す・拾う</span><b>E / 「触れる」ボタン</b></div><p class="small">小さな3D探索の試作です。進行はこの端末に保存され、これまでの冒険のセーブはそのまま残ります。</p><p id="loading-note" class="small" role="status">野原を準備しています…</p><button id="begin" class="primary" disabled>野原へ入る</button><a class="quiet-link" href="game.html">これまでの冒険を遊ぶ ↗</a></dialog>
+  <button id="resume-play" hidden>一時停止中 · タップして再開</button>
+  <dialog id="welcome" aria-labelledby="welcome-title"><p class="eyebrow">NOIS MOU / FIELD NOTES 01</p><h2 id="welcome-title">ほどける野原</h2><p>気になる方へ歩く。光るものに触れる。疲れたら焚き火で休む。</p><p>まずは近くの宝箱へ。風の布を見つけたら、高い場所から滑空して丘の祠を目指そう。</p><p>迷ったら「地図・持ちもの」。戦闘はゆっくり設定で始まります。戦わずに探索する設定も選べます。</p><div class="controls-guide"><span>移動</span><b>WASD / 矢印 / 左下のパッド</b><span>見回す</span><b>右側の空いた画面をドラッグ</b><span>攻撃・回避・注目</span><b>F・C・T / 右下のボタン</b><span>跳ぶ・思考へ</span><b>Space・Q / 右下のボタン</b><span>話す・拾う</span><b>E / 「触れる」ボタン</b></div><p class="small">小さな3D探索の試作です。進行はこの端末に保存され、これまでの冒険のセーブはそのまま残ります。</p><p id="loading-note" class="small" role="status">野原を準備しています…</p><button id="begin" class="primary" disabled>野原へ入る</button><a class="quiet-link" href="game.html">これまでの冒険を遊ぶ ↗</a></dialog>
   <dialog id="conversation" aria-labelledby="npc-name"><p class="eyebrow">ENCOUNTER</p><h2 id="npc-name"></h2><p id="npc-line"></p><div id="npc-choices" class="dialog-actions"></div><button id="leave-npc" class="quiet">今は、立ち去る</button></dialog>
   <dialog id="shell" aria-labelledby="shell-title"><p class="eyebrow">INTROVERT / 殻</p><h2 id="shell-title">持ち帰った、思考。</h2><p>外で見つけたものが、ここに残る。</p><div id="shell-shelf" class="shell-shelf"></div><p id="shell-friends"></p><label for="memo">今日、残しておきたい言葉</label><textarea id="memo" maxlength="160" rows="3" placeholder="短くてもいい。"></textarea><div class="dialog-actions"><button id="save-memo">壁に残す</button><button id="craft-lamp">かけら3つで灯りを作る</button></div><ul id="memo-wall"></ul><p id="save-notice" class="small" role="status"></p><button id="return-field" class="primary">野原へ戻る</button><a class="quiet-link" href="game.html">これまでの冒険・3Dの殻へ ↗</a></dialog>
   <div id="fatal" hidden role="alert"><h2>野原を開けませんでした。</h2><p>通信環境や端末の3D対応を確認して、もう一度開いてください。</p><a href="explore.html">再読み込み</a><a href="index.html">ホームへ</a></div>
   <script>window.addEventListener('error',function(e){if(e.target.tagName==='SCRIPT'||e.message){document.getElementById('fatal').hidden=false}},true);</script>
   <dialog id="memory" aria-labelledby="memory-name"><p class="eyebrow">LANDSCAPE / 記憶の風景</p><h2 id="memory-name"></h2><p id="memory-text"></p><p id="memory-progress" class="small"></p><button id="leave-memory" class="primary">もう少し、歩こう</button></dialog>
-  <dialog id="defeat"><p class="eyebrow">TAKE A BREATH</p><h2>少し、ひと休み。</h2><p>集めた記憶も、できた友達も、そのまま。入口からもう一度歩こう。</p><button id="retry" class="primary">入口で息を整える</button></dialog>
-  <script type="module" src="js/explore.js?v=20260907mobile"></script>
+  <dialog id="defeat"><p class="eyebrow">TAKE A BREATH</p><h2>少し、ひと休み。</h2><p>集めた記憶も、できた友達も、そのまま。休憩した場所からもう一度歩こう。</p><button id="retry" class="primary">休憩所で息を整える</button></dialog>
+  <dialog id="journey" aria-labelledby="journey-title"><button id="close-journey-top" class="journal-close" aria-label="野原に戻る">閉じる ×</button>
+    <p class="eyebrow">FIELD JOURNAL</p><h2 id="journey-title">地図と持ちもの</h2><p id="quest-text"></p>
+    <div class="field-map" role="group" aria-label="野原の地図。上が北。印を押すと目的地に設定"><span class="map-north">北 ↑</span><span class="map-pond"></span><span class="map-path"></span><div id="map-pins"></div><span id="map-player" aria-label="現在地">●</span></div>
+    <p class="small">● 現在地　♨ 焚き火　▣ 宝箱（祠は丘の宝箱の周り）</p><p id="map-selected" role="status">印を押すと、その場所へ案内します。</p><label for="map-destination">目的地を選ぶ</label><select id="map-destination"></select><button id="guide-next">次の目標を案内</button>
+    <h3>持ちものと休憩</h3><p id="bag-count"></p><p id="camp-note"></p><div class="dialog-actions"><button id="eat-meal">料理を食べる · 体力3回復</button><button id="cook-meal">木の実2個で料理</button><button id="rest-camp">ここで休む</button></div>
+    <h3>見つけた休憩所へ</h3><div id="travel-list" class="dialog-actions"></div>
+    <h3>自分のペースで</h3><label class="option"><input id="gentle" type="checkbox" checked> 戦闘をゆっくりにする</label><label class="option"><input id="peaceful" type="checkbox"> 戦わずに探索する</label>
+    <div class="dialog-actions"><button id="shell-button">殻へ帰る</button><button id="wave" disabled>手を振る</button></div><button id="close-journey" class="primary">野原へ戻る</button>
+  </dialog>
+  <script type="module" src="js/explore.js?v=20260907journey"></script>
 </body>
 </html>

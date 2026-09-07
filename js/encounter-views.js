@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {terrainHeight} from './explore-state.js?v=20260907encounters';
+import {terrainHeight} from './explore-state.js?v=20260907journey';
 
 export function buildEncounterViews(scene,enemies){
   const texture=new THREE.TextureLoader().load('assets/icons/giger/eyeball.png');texture.colorSpace=THREE.SRGBColorSpace;
@@ -7,15 +7,27 @@ export function buildEncounterViews(scene,enemies){
   const views=enemies.map((e,index)=>{
     const group=new THREE.Group();scene.add(group);
     const armor=new THREE.MeshStandardMaterial({color:e.color,roughness:.53,metalness:.38});
+    armor.color.lerp(new THREE.Color(0x454039),.55);
     const dark=new THREE.MeshStandardMaterial({color:0x302e29,roughness:.65,metalness:.35});
     const core=new THREE.Mesh(new THREE.SphereGeometry(.61,24,16),armor);core.scale.set(1,.85,1);core.castShadow=true;group.add(core);
     const faceMaterial=new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide});
     faceMaterial.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\nif(max(diffuseColor.r,max(diffuseColor.g,diffuseColor.b))<.095)discard;');};
-    const face=new THREE.Mesh(new THREE.PlaneGeometry(1.95,1.95),faceMaterial);face.position.z=.58;core.add(face);
+    const face=new THREE.Mesh(new THREE.PlaneGeometry(1.95,1.95),faceMaterial);face.position.z=.58;core.add(face);face.scale.setScalar(.64);face.position.z=.63;
     for(let i=0;i<6;i++){
       const a=i/6*Math.PI*2,spike=new THREE.Mesh(new THREE.ConeGeometry(.09,.48,7),dark);
       spike.position.set(Math.cos(a)*.65,Math.sin(a)*.5,-.1);spike.rotation.z=a-Math.PI/2;spike.castShadow=true;core.add(spike);
     }
+    // A physical eye socket and overlapping carapace make the original emblem a creature.
+    const socket=new THREE.Mesh(new THREE.TorusGeometry(.37,.11,10,32),dark);socket.position.set(0,.06,.58);core.add(socket);
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(.31,24,16),new THREE.MeshStandardMaterial({color:0xd8c8a9,roughness:.25}));eye.scale.set(1,.88,.65);eye.position.set(0,.06,.67);core.add(eye);
+    const iris=new THREE.Mesh(new THREE.SphereGeometry(.17,18,12),new THREE.MeshStandardMaterial({color:index===0?0xd09a42:index===1?0x80bdb1:0xa6adc9,roughness:.25,emissive:0x302314}));iris.scale.z=.28;iris.position.set(0,.06,.86);core.add(iris);
+    const pupil=new THREE.Mesh(new THREE.SphereGeometry(.08,12,8),dark);pupil.scale.set(.6,1.4,.3);pupil.position.set(0,.06,.91);core.add(pupil);
+    for(let j=0;j<5;j++){const plate=new THREE.Mesh(new THREE.SphereGeometry(.42,12,8),armor);plate.position.set(Math.sin(j*2.4)*.38,.25+Math.cos(j*2.4)*.22,-.3-j*.085);plate.scale.set(1,.42,1.1);plate.rotation.z=j*.4;plate.castShadow=true;core.add(plate);}
+    for(const side of [-1,1]){
+      const horn=new THREE.Mesh(new THREE.ConeGeometry(index===0?.16:.09,index===1?1.2:.7,7),dark);horn.position.set(side*.5,.56,-.18);horn.rotation.z=-side*.45;core.add(horn);
+      const jaw=new THREE.Mesh(new THREE.ConeGeometry(.14,.5,7),armor);jaw.position.set(side*.39,-.4,.49);jaw.rotation.z=side*.7+Math.PI;core.add(jaw);
+    }
+    if(index===2){for(let j=0;j<7;j++){const rib=new THREE.Mesh(new THREE.TorusGeometry(.52+j*.025,.025,6,20,Math.PI*1.6),dark);rib.position.set(0,-j*.065,-.2-j*.08);rib.rotation.x=.55;core.add(rib);}}
     const legs=Array.from({length:4},()=>[0,1].map(()=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(.055,.09,1,7),dark);m.castShadow=true;group.add(m);return m;}));
     const tell=new THREE.Mesh(new THREE.RingGeometry(1.12,1.3,48),new THREE.MeshBasicMaterial({color:0xff9f4a,transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));tell.rotation.x=-Math.PI/2;tell.position.y=.045;group.add(tell);
     const lane=new THREE.Mesh(new THREE.PlaneGeometry(.7,3.4),tell.material.clone());lane.rotation.x=-Math.PI/2;lane.position.set(0,.055,2);group.add(lane);
@@ -36,7 +48,7 @@ export function buildEncounterViews(scene,enemies){
       v.group.position.set(e.x,e.y,e.z);v.group.rotation.y=e.heading;
       const calm=e.phase==='calmed',windup=e.phase==='windup';
       v.core.position.y=(calm?.8:1.25)+Math.sin(time*(windup?18:3)+i)* (windup?.055:.035);
-      const scale=calm?.85:windup?1+Math.sin(time*18)*.055:1;v.core.scale.set(scale,scale*.85,scale);
+      const scale=calm?.85:windup?1+Math.sin(time*18)*.055:1;v.core.scale.set(scale*(i===0?1.13:i===1?.82:1),scale*(i===2?1.14:.85),scale*(i===1?1.2:1));
       v.armor.emissive.setHex(e.flash>0?0xffd497:calm?0x426d58:windup?0x7b260c:0x000000);v.armor.emissiveIntensity=e.flash>0?1:.6;
       v.faceMaterial.color.setHex(calm?0xb9ebc9:windup?0xffb15e:0xffffff);
       for(let j=0;j<4;j++){
@@ -48,6 +60,9 @@ export function buildEncounterViews(scene,enemies){
         segment(v.legs[j][0],a,b);segment(v.legs[j][1],b,c);
       }
       v.tell.visible=windup;v.lane.visible=windup;
+      // Lay warning vertices onto the terrain instead of floating across slopes.
+      if(windup){for(const m of [v.tell,v.lane]){const p=m.geometry.attributes.position;for(let k=0;k<p.count;k++){const lx=p.getX(k)+m.position.x,lz=-p.getY(k)+m.position.z,wx=e.x+Math.cos(e.heading)*lx+Math.sin(e.heading)*lz,wz=e.z-Math.sin(e.heading)*lx+Math.cos(e.heading)*lz;p.setZ(k,terrainHeight(wx,wz)-e.y+.02);}p.needsUpdate=true;}}
+
       v.tell.material.opacity=.4+Math.sin(time*13)*.25;
       const hpVisible=!calm&&(locked===e.id||!['patrol','return'].includes(e.phase));
       v.bar.visible=v.barBack.visible=hpVisible;v.bar.scale.x=e.hp/e.maxHp;v.bar.position.x=-(1-e.hp/e.maxHp)*.88;

@@ -1,6 +1,8 @@
+import {buildFieldSky} from './field-sky.js?v=20260907journey';
+import {CAMPS,CHESTS,RUNES,BERRIES} from './adventure-state.js?v=20260907journey';
 import * as THREE from 'three';
 import {buildPond} from './pond-water.js?v=20260907physics';
-import { terrainHeight } from './explore-state.js?v=20260907physics';
+import { terrainHeight } from './explore-state.js?v=20260907journey';
 
 // A deterministic, entirely local landscape. No additional image downloads.
 export const MEMORY_PLACES = [
@@ -103,12 +105,13 @@ export function buildMeadow(scene,renderer,sun) {
   const rockGeo=rockVariants[0];
   for(let i=0;i<165;i++) {
     const x=(random()-.58)*195,z=(random()-.58)*195;
+    if([...CAMPS,...CHESTS,...RUNES,...BERRIES].some(p=>Math.hypot(x-p.x,z-p.z)<3.4))continue;
     if(stumpSpots.some(p=>Math.hypot(x-p[0],z-p[1])<p[3]+2))continue;
     if(MEMORY_PLACES.some(p=>Math.hypot(x-p.x,z-p.z)<3))continue;
     if(pathDistance(x,z)<4||Math.hypot(x+19,z+46)<12)continue;
     const s=.3+random()**3*3.5;
     const rock=add(rockVariants[i%5],rockMaterial,x,terrainHeight(x,z)-s*.2,z,s,s*(.5+random()),s*.85);rock.rotation.y=random()*6.28;
-    if(s>1)colliders.push({x,z,r:s*.8});
+    if(s>1)colliders.push({x,z,r:s,top:rock.position.y+rock.scale.y*.8,h:Math.max(.1,rock.scale.y*.8-s*.2)});
   }
   // Real volumes instead of camera-facing tree cards; crowns share one draw call.
   const leafCanvas=document.createElement('canvas');leafCanvas.width=leafCanvas.height=128;
@@ -122,8 +125,10 @@ export function buildMeadow(scene,renderer,sun) {
   const crowns=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshStandardMaterial({map:leafTexture,color:0xc3d59a,alphaTest:.45,side:THREE.DoubleSide,roughness:.9}),10000);
   const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.22,.43,1,8),bark,400);
   let crownCount=0,trunkCount=0;
+  const canopy=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,2),new THREE.MeshStandardMaterial({color:0x547742,roughness:1,flatShading:true}),300);let canopyCount=0;
   for(let i=0;i<100;i++) {
     const x=-100+random()*175,z=-103+random()*183;
+    if([...CAMPS,...CHESTS,...RUNES,...BERRIES].some(p=>Math.hypot(x-p.x,z-p.z)<3.4))continue;
     if(stumpSpots.some(p=>Math.hypot(x-p[0],z-p[1])<p[3]+3))continue;
     if(MEMORY_PLACES.some(p=>Math.hypot(x-p.x,z-p.z)<3))continue;
     if(pathDistance(x,z)<5||Math.hypot(x+19,z+46)<14||Math.hypot(x+65,z+62)<13||Math.hypot(x,z)<9)continue;
@@ -133,6 +138,7 @@ export function buildMeadow(scene,renderer,sun) {
     for(let j=0;j<3;j++) {
       const a=j*2.1;dummy.position.set(x+Math.cos(a)*.65,y+h*.8,z+Math.sin(a)*.65);dummy.rotation.set(Math.sin(a)*.6,0,Math.cos(a)*.6);dummy.scale.set(.45,h*.45,.45);dummy.updateMatrix();trunks.setMatrixAt(trunkCount++,dummy.matrix);
     }
+    for(let j=0;j<3;j++){const a=j*2.1;dummy.position.set(x+Math.cos(a)*width*.45,y+h+Math.sin(j)*.4,z+Math.sin(a)*width*.45);dummy.rotation.set(.1,j,0);dummy.scale.set(width*.82,width*.48,width*.85);dummy.updateMatrix();canopy.setMatrixAt(canopyCount++,dummy.matrix);}
     for(let j=0;j<95;j++) {
       const a=random()*6.28,r=Math.sqrt(random())*width*1.45;
       dummy.position.set(x+Math.cos(a)*r,y+h+.5+(random()-.5)*width*1.5,z+Math.sin(a)*r);
@@ -140,6 +146,7 @@ export function buildMeadow(scene,renderer,sun) {
       crowns.setColorAt(crownCount++,new THREE.Color().setHSL(.24+random()*.035,.3,.7+random()*.15));
     }
   }
+  canopy.count=canopyCount;canopy.castShadow=canopy.receiveShadow=true;scene.add(canopy);
   crowns.count=crownCount;trunks.count=trunkCount;crowns.castShadow=trunks.castShadow=true;crowns.receiveShadow=trunks.receiveShadow=true;scene.add(crowns,trunks);
   const wind={value:0};
   const bladeGeo=new THREE.BufferGeometry(),blades=[];
@@ -160,9 +167,18 @@ export function buildMeadow(scene,renderer,sun) {
     grass.setColorAt(count++,new THREE.Color().setHSL(.235+random()*.045,.53,.43+random()*.14));
   }
   grass.count=touchDevice?Math.floor(count*.55):count;grass.receiveShadow=true;scene.add(grass);
+  const flowers=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.085,0),new THREE.MeshStandardMaterial({color:0xffefd0,roughness:1}),220);
+  for(let i=0;i<220;i++){const a=i*2.399,r=2+Math.sqrt(i)*.22,cx=i%2?-39:-14,cz=i%2?-28:-39,x=cx+Math.sin(a)*r,z=cz+Math.cos(a)*r;dummy.position.set(x,terrainHeight(x,z)+.3,z);dummy.scale.set(1,.55,1);dummy.rotation.set(0,a,0);dummy.updateMatrix();flowers.setMatrixAt(i,dummy.matrix);}flowers.receiveShadow=true;scene.add(flowers);
   // A shallow pool, kept outside the route, with animated ripples and a visible bed.
   const pond=buildPond(scene);
   for(let i=0;i<42;i++){const a=random()*6.28,r=8.2+random()*2.3,x=-19+Math.cos(a)*r,z=-46+Math.sin(a)*r;add(rockGeo,rockMaterial,x,terrainHeight(x,z)-.1,z,.25+random()*.5,.2+random()*.35,.3+random()*.4);}
+  // A wooden lakeside pier, supported down to the pond bed.
+  for(let j=0;j<20;j++){
+    const z=-61+j*.85,y=-.43;
+    add(new THREE.BoxGeometry(2.5,.18,.83),bark,-19,y-.09,z);
+    stumps.push({x:-19,z,y,halfX:1.25,halfZ:.425});colliders.push({x:-19,z,halfX:1.25,halfZ:.425,bottom:y-.18,top:y,walkable:true});
+    if(j%4===0)for(const side of [-1,1]){const bed=terrainHeight(-19+side*1.2,z),h=y+.85-bed;add(new THREE.CylinderGeometry(.065,.1,h,6),bark,-19+side*1.2,bed+h/2,z);}
+  }
   // A weathered arch is the visible destination at the end of the winding path.
   const archY=terrainHeight(-65,-62);
   for(const side of [-1,1])for(let j=0;j<5;j++)add(new THREE.BoxGeometry(1.5,1.15,1.8),stone,-65+side*4,archY+.58+j*1.18,-62);
@@ -170,7 +186,8 @@ export function buildMeadow(scene,renderer,sun) {
     const a=i/10*Math.PI;
     const m=add(new THREE.BoxGeometry(1.24,1.65,1.8),stone,-65+Math.cos(a)*4,archY+5.9+Math.sin(a)*4,-62);m.rotation.z=a-Math.PI/2;
   }
-  colliders.push({x:-69,z:-62,r:1,h:7},{x:-61,z:-62,r:1,h:7});
+  colliders.push({x:-69,z:-62,halfX:.8,halfZ:.9,bottom:archY,top:archY+6.2},{x:-61,z:-62,halfX:.8,halfZ:.9,bottom:archY,top:archY+6.2});
+  for(let i=0;i<11;i++){const a=i/10*Math.PI;colliders.push({x:-65+Math.cos(a)*4,z:-62,halfX:.7,halfZ:.9,bottom:archY+5.9+Math.sin(a)*4-.8,top:archY+5.9+Math.sin(a)*4+.8});}
   for(let i=0;i<16;i++) {const a=random()*6.28,r=7+random()*5;add(rockGeo,rockMaterial,-65+Math.cos(a)*r,archY-.2,-62+Math.sin(a)*r,.9,.35,.7);}
   const markers=MEMORY_PLACES.map(place=>{
     const y=terrainHeight(place.x,place.z);
@@ -183,6 +200,6 @@ export function buildMeadow(scene,renderer,sun) {
   for(let i=0;i<180;i++)dust.push(-85+random()*100,1+random()*12,-85+random()*100);
   dustGeo.setAttribute('position',new THREE.Float32BufferAttribute(dust,3));
   const particles=new THREE.Points(dustGeo,new THREE.PointsMaterial({color:0xffe9af,size:.065,transparent:true,opacity:.6,depthWrite:false}));scene.add(particles);
-  const sky=new THREE.Mesh(new THREE.SphereGeometry(300,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{},vertexShader:'varying vec3 vWorld; void main(){vWorld=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'varying vec3 vWorld; void main(){vec3 d=normalize(vWorld); float h=smoothstep(-.05,.65,d.y); vec3 c=mix(vec3(.76,.77,.64),vec3(.22,.40,.47),h); float s=pow(max(dot(d,normalize(vec3(-.5,.7,-.5))),0.),180.); c+=vec3(1.,.72,.36)*s*.8; gl_FragColor=vec4(c,1.);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}'}));scene.add(sky);
-  return {colliders,markers,stumps,pond,update(time,player){wind.value=time;pond.update(time,player);particles.position.y=Math.sin(time*.14)*.4;sky.position.copy(player);sun.position.set(player.x-35,player.y+55,player.z-35);sun.target.position.copy(player);for(const p of markers){p.light.rotation.y=time*.7;p.light.position.y=p.y+1.3+Math.sin(time*1.4)*.1;}}};
+  const sky=buildFieldSky(scene);
+  return {colliders,markers,stumps,pond,rockMaterial,update(time,player){wind.value=time;pond.update(time,player);particles.position.y=Math.sin(time*.14)*.4;sky.update(time,player);sun.position.set(player.x-35,player.y+55,player.z-35);sun.target.position.copy(player);for(const p of markers){p.light.rotation.y=time*.7;p.light.position.y=p.y+1.3+Math.sin(time*1.4)*.1;}}};
 }

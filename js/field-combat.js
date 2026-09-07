@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import {terrainHeight} from './explore-state.js?v=20260907encounters';
-import {advanceCharacter,canOccupy} from './field-physics.js?v=20260907physics';
+import {terrainHeight} from './explore-state.js?v=20260907journey';
+import {advanceCharacter,canOccupy} from './field-physics.js?v=20260907journey';
 import {createEncounters,createFighter,startStrike,startDodge,stepFighter,hitFighter,applyStrike,stepEncounter} from './field-encounters.js';
-import {buildEncounterViews} from './encounter-views.js';
+import {buildEncounterViews} from './encounter-views.js?v=20260907journey';
 
 export function createFieldCombat(scene,player,colliders,surfaces,saved,onCalm,onDefeat){
   const fighter=createFighter(),enemies=createEncounters(saved);let locked=null;
@@ -23,18 +23,27 @@ export function createFieldCombat(scene,player,colliders,surfaces,saved,onCalm,o
     }return true;
   }
   function target(){const e=enemies.find(e=>e.id===locked);return e&&e.hp>0&&Math.hypot(e.x-player.position.x,e.z-player.position.z)<20?e:null;}
-  return {fighter,enemies,
+  return {fighter,enemies,visible,
+    unlock(){locked=null;},
     target,
     lock(){if(locked){locked=null;return;}locked=enemies.filter(e=>e.hp>0&&Math.hypot(e.x-player.position.x,e.z-player.position.z)<16&&visible(player.position,e)).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z))[0]?.id;},
-    strike(){const e=target();return startStrike(fighter,e?Math.atan2(e.x-player.position.x,e.z-player.position.z):player.rotation.y);},
+    strike(){const e=target()||enemies.filter(e=>e.hp>0&&Math.hypot(e.x-player.position.x,e.z-player.position.z)<3.6&&visible(player.position,e)&&Math.cos(Math.atan2(e.x-player.position.x,e.z-player.position.z)-player.rotation.y)>.25).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z))[0];return startStrike(fighter,e?Math.atan2(e.x-player.position.x,e.z-player.position.z):player.rotation.y);},
     dodge(x,z){return startDodge(fighter,x,z);},
-    reset(){Object.assign(fighter,createFighter(),{invincible:3});locked=null;for(const e of enemies)if(e.hp>0){Object.assign(e,{x:e.homeX,z:e.homeZ,y:terrainHeight(e.homeX,e.homeZ),hp:e.maxHp,phase:'patrol',timer:0});Object.assign(e.body,{x:e.x,y:e.y,z:e.z,vx:0,vy:0,vz:0,grounded:true});}},
-    update(dt,time,camera,enabled){
+    reset(){const maxHp=fighter.maxHp;Object.assign(fighter,createFighter(),{maxHp,hp:maxHp,invincible:3});locked=null;for(const e of enemies)if(e.hp>0){Object.assign(e,{x:e.homeX,z:e.homeZ,y:terrainHeight(e.homeX,e.homeZ),hp:e.maxHp,phase:'patrol',timer:0});Object.assign(e.body,{x:e.x,y:e.y,z:e.z,vx:0,vy:0,vz:0,grounded:true});}},
+    update(dt,time,camera,enabled,options={}){
       if(enabled){
         stepFighter(fighter,dt);
-        for(const hit of applyStrike(fighter,player.position,enemies,visible))if(hit.calmed){fighter.hp=Math.min(5,fighter.hp+1);onCalm(hit.enemy);}
-        const p={...player.position,hp:fighter.hp};
-        for(const e of enemies)stepEncounter(e,p,dt,{visible,move(e,vx,vz,dt){const speed=Math.hypot(vx,vz);advanceCharacter(e.body,{x:speed?vx/speed:0,z:speed?vz/speed:0,speed},dt,colliders,surfaces);e.x=e.body.x;e.y=e.body.y;e.z=e.body.z;},damage(){if(hitFighter(fighter)&&fighter.hp===0)onDefeat();}});
+        for(const hit of applyStrike(fighter,player.position,enemies,visible))if(hit.calmed){fighter.hp=Math.min(fighter.maxHp,fighter.hp+1);onCalm(hit.enemy);}
+        const p={...player.position,hp:options.peaceful?0:fighter.hp};
+        for(const e of enemies)stepEncounter(e,p,dt*(options.gentle?.8:1),{visible,move(e,vx,vz,dt){const speed=Math.hypot(vx,vz);let ix=speed?vx/speed:0,iz=speed?vz/speed:0;
+        // Small local steering lets walkers skirt trunks; committed lunges stay straight.
+        if(speed&&e.phase!=='lunge'){
+          const probe=(x,z)=>canOccupy({x:e.body.x+x*.85,y:e.body.y,z:e.body.z+z*.85},colliders);
+          if(!probe(ix,iz)){for(const angle of [.7,-.7,1.3,-1.3]){const x=ix*Math.cos(angle)-iz*Math.sin(angle),z=ix*Math.sin(angle)+iz*Math.cos(angle);if(probe(x,z)){ix=x;iz=z;break;}}}
+        }
+        advanceCharacter(e.body,{x:ix,z:iz,speed},dt,colliders,surfaces);const dx=e.body.x-player.position.x,dz=e.body.z-player.position.z,d=Math.hypot(dx,dz);
+        if(d<1.05&&Math.abs(e.body.y-player.position.y)<1.7){const nx=d>.001?dx/d:Math.sin(e.heading),nz=d>.001?dz/d:Math.cos(e.heading),projected={x:player.position.x+nx*1.05,y:e.body.y,z:player.position.z+nz*1.05};if(canOccupy(projected,colliders)){e.body.x=projected.x;e.body.z=projected.z;}}
+        e.x=e.body.x;e.y=e.body.y;e.z=e.body.z;},damage(){if(hitFighter(fighter)){if(options.gentle)fighter.invincible=1.6;if(fighter.hp===0)onDefeat();}}});
       }
       if(!target())locked=null;
       slash.visible=['strike','strike2'].includes(fighter.action)&&fighter.actionTime>.1&&fighter.actionTime<.4;
