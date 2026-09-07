@@ -54,6 +54,14 @@
   },
   "notices": [
     {
+      "id": "thought-field",
+      "label": "NEW / PLAY",
+      "title": "思考の野原 — 3D探索の試作",
+      "body": "喜怒哀楽を歩く。言葉へ飛び移り、気配と友達になる。",
+      "href": "explore.html",
+      "date": "2026-09-07"
+    },
+    {
       "id": "mou-live",
       "label": "PLAYABLE",
       "title": "ムー君の冒険 — ワールド試作公開中",

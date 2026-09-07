@@ -15,9 +15,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=20260729swipe" />
+  <link rel="stylesheet" href="css/app.css?v=20260907archive" />
 </head>
 <body>
+  <a class="skip-link" href="#screen">コンテンツへ</a>
   <div id="app" class="nf-app" data-tab="home">
     <header class="nf-top">
       <a class="nf-logo" href="#home" data-go="home" aria-label="UNGR ARCHIVE ホーム">
@@ -32,44 +33,50 @@
       <a class="nf-top-play" href="game.html" id="top-play">PLAY</a>
     </header>
 
-    <main class="nf-main" id="screen">
+    <main class="nf-main" id="screen" tabindex="-1">
       <section class="nf-page is-on" data-page="home" aria-label="ホーム">
-        <section id="mou-launch" class="nf-billboard" aria-label="ムー君の冒険">
-          <img class="nf-billboard-art" src="assets/title.png" alt="" />
+        <section id="mou-launch" class="nf-billboard" aria-label="UNGR ARCHIVE">
+          <img class="nf-billboard-art" src="assets/ungr-avatar.jpg" alt="" />
           <span class="nf-billboard-shade"></span>
           <div class="nf-billboard-copy">
-            <p class="nf-eyebrow">UNGR ARCHIVE</p>
-            <h1 class="nf-billboard-title">アングラアーカイブ</h1>
-            <p class="nf-billboard-desc">脳の中の議論をする場。批評・映画・表現の保管庫と、ムー君の冒険。</p>
+            <p class="nf-eyebrow">CULTURE · CRITIQUE · INNER WORLDS</p>
+            <h1 class="nf-billboard-title">脳の中の<br />議論をする場。</h1>
+            <p class="nf-billboard-desc">なぜ好きか。なぜ嫌いか。<br />映像と言葉、ときどき冒険。視点の痕跡をここに。</p>
             <div class="nf-billboard-actions">
-              <a class="nf-btn-play" href="game.html" id="billboard-play"><span class="nf-play-ico">▶</span> ムー君を遊ぶ</a>
-              <button type="button" class="nf-btn-info" data-go="feed">動画を見る</button>
+              <button type="button" class="nf-btn-play" data-go="feed"><span class="nf-play-ico">▶</span> アーカイブを見る</button>
+              <a class="nf-btn-info" href="game.html" id="billboard-play">ムー君の冒険 ↗</a>
             </div>
           </div>
         </section>
 
         <section class="nf-row">
-          <h2 class="nf-row-title">新着アーカイブ</h2>
+          <div class="nf-row-heading"><h2 class="nf-row-title">新着アーカイブ <small>RECENT RELEASES</small></h2><button class="nf-text-link" data-go="feed">すべて見る ↗</button></div>
           <div id="home-feed" class="nf-rail"></div>
         </section>
 
+        <section class="nf-row nf-world-row">
+          <div class="nf-row-heading"><h2 class="nf-row-title">思考の中へ <small>PLAYABLE ARCHIVE</small></h2><span class="nf-edition">NOIS MOU / 01</span></div>
+          <div class="nf-world-feature">
+            <img src="assets/title.png" alt="ムー君の冒険の世界" loading="lazy" />
+            <div class="nf-world-copy">
+              <p class="nf-eyebrow">ムー君の冒険</p>
+              <h2>誰かの思考に、<br />迷い込む。</h2>
+              <p>喜怒哀楽を歩く。気配と友達になる。<br />見つけたものを、自分の殻へ。</p>
+              <div class="nf-billboard-actions"><a class="nf-btn-play" href="explore.html">3Dの野原を歩く ↗</a><a class="nf-btn-info" href="game.html" id="dock-play-card">これまでの冒険</a></div>
+              <span class="nf-world-note">3D探索は試作版 · スマホ / PC · 既存の冒険とは別セーブ</span>
+            </div>
+          </div>
+        </section>
         <section class="nf-row">
-          <h2 class="nf-row-title">お知らせ</h2>
+          <h2 class="nf-row-title">お知らせ <small>NOTES</small></h2>
           <div id="notice-list" class="nf-notices"></div>
         </section>
-
-        <section class="nf-row nf-row-game">
-          <h2 class="nf-row-title">いま再生できる</h2>
-          <a class="nf-poster-wide" href="game.html" id="dock-play-card">
-            <img src="assets/title.png" alt="ムー君の冒険" />
-            <span>ムー君の冒険 — タップしてプレイ</span>
-          </a>
-        </section>
+        <footer class="nf-footer"><span>UNGR ARCHIVE</span><span>議論が華。 @ungr.archive</span><button data-go="about">この場所について ↗</button></footer>
       </section>
 
       <section class="nf-page" data-page="feed" aria-label="動画" hidden>
         <header class="nf-page-head">
-          <h2>動画</h2>
+          <p class="nf-eyebrow">THE COLLECTION</p><h2>視点のアーカイブ</h2>
           <p>議論とカルチャーの保管庫</p>
         </header>
         <div class="nf-chips">
@@ -82,7 +89,7 @@
           <button type="button" class="nf-chip" data-filter="game">ゲーム</button>
           <button type="button" class="nf-chip" data-filter="about">紹介</button>
         </div>
-        <div id="media-list" class="nf-media-list"></div>
+        <p id="media-count" class="nf-result-count" aria-live="polite"></p><div id="media-list" class="nf-media-list"></div>
       </section>
 
       <section class="nf-page" data-page="about" aria-label="情報" hidden>
@@ -126,7 +133,7 @@
 
   <div id="boot-fade" class="boot-fade" hidden></div>
 
-  <dialog id="player-dialog" class="player-dialog">
+  <dialog id="player-dialog" class="player-dialog" aria-labelledby="player-title">
     <form method="dialog" class="player-bar">
       <p id="player-title"></p>
       <button value="close" type="submit">閉じる</button>
@@ -137,6 +144,6 @@
     <a id="player-open" href="#" target="_blank" rel="noopener">YouTubeで開く</a>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260729swipe"></script>
+  <script type="module" src="js/app.js?v=20260907archive"></script>
 </body>
 </html>

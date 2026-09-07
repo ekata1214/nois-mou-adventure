@@ -3,17 +3,13 @@ import { normalizePadCoords, resolveDpadDirs, isOnDpadCross } from "../js/dpad-i
 import { scaleRpgOutcome } from "../js/difficulty.js";
 import { resolveChoice, CHOICE, ENTITY_DEFS } from "../js/entities.js";
 
-// landscape remap: screen up (negative y) → local left? 
-// CSS rotate(90deg): visual UP is physical LEFT (−x). We map localX=-y, localY=x
-// so physical left (−x, 0) → after? Wait we remap AFTER normalize from rect.
-// Touching visual top of rotated pad: in screen space that's left of AABB → x negative
-// Actually getBoundingClientRect of rotated element is AABB. This is approximate.
+// Legacy normalization now stays in screen space. Production controls resolve
+// the actual button under the finger; they no longer rotate an analog AABB.
 {
   const rect = { left: 0, top: 0, width: 100, height: 100 };
-  const n = normalizePadCoords(50, 10, rect, { forceLandscape: true });
-  // y = (10-50)/50 = -0.8 → localX = -(-0.8)=0.8, localY = 0
-  assert.ok(Math.abs(n.x - 0.8) < 0.01);
-  assert.ok(Math.abs(n.y) < 0.01);
+  const n = normalizePadCoords(50, 10, rect);
+  assert.equal(n.x, 0);
+  assert.ok(Math.abs(n.y + 0.8) < 0.01);
 }
 
 // no double-scale: resolveChoice already applies rpgHpMult
