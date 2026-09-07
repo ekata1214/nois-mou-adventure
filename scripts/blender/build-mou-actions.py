@@ -20,6 +20,33 @@ for bone in rig.pose.bones:
     for constraint in list(bone.constraints):
         bone.constraints.remove(constraint)
 
+# Reshape the rest mesh AND the bind skeleton, so the silhouette is consistent
+# in every clip rather than faked with a single idle pose or object scaling.
+def masculine_point(point):
+    p=point.copy();z=p.z
+    shoulder=math.exp(-((z-1.4)/.19)**2)*max(0,min(1,(1.6-z)/.15))
+    hips=math.exp(-((z-.92)/.17)**2)
+    waist=math.exp(-((z-1.15)/.14)**2)
+    p.x += max(-.23,min(.23,p.x))*(.20*shoulder-.12*hips+.055*waist)
+    return p
+for obj in bpy.data.objects:
+    if obj.type!='MESH':continue
+    for vertex in obj.data.vertices:
+        vertex.co=masculine_point(vertex.co)
+        if any(m and m.name=='.Human' for m in obj.data.materials):
+            z=vertex.co.z
+            if vertex.co.y<0:
+                chest=math.exp(-((z-1.33)/.13)**2)*math.exp(-(vertex.co.x/.22)**4)
+                vertex.co.y*=1-.22*chest
+            else:vertex.co.y*=1-.18*math.exp(-((z-.92)/.17)**2)
+    if any(m and m.name=='.Human' for m in obj.data.materials):obj.name='Mou_Body'
+bpy.context.view_layer.objects.active=rig
+rig.select_set(True)
+bpy.ops.object.mode_set(mode='EDIT')
+for bone in rig.data.edit_bones:
+    bone.head=masculine_point(bone.head);bone.tail=masculine_point(bone.tail)
+bpy.ops.object.mode_set(mode='OBJECT')
+
 def rotation(name, axis, angle):
     bone = rig.pose.bones.get(name)
     if not bone: return
@@ -31,7 +58,7 @@ def relax_arm(side):
     if not bone: return
     rest = bone.bone.matrix_local.to_quaternion()
     current = rest @ Vector((0, 1, 0))
-    target = Vector((.12 if side == 'L' else -.12, 0, -1)).normalized()
+    target = Vector((.19 if side == 'L' else -.19, 0, -1)).normalized()
     bone.rotation_quaternion = rest.inverted() @ current.rotation_difference(target) @ rest
 
 CLIPS = {'idle': 2.4, 'walk': 1.0, 'run': .64, 'jump': .36,
@@ -51,12 +78,13 @@ for name, duration in CLIPS.items():
         for side in ['L','R']:
             relax_arm(side)
             rotation('forearm.'+side, (1,0,0), -.12)
-        rotation('spine.002', (1,0,0), .015 * math.sin(phase))
-        rotation('head', (0,0,1), .035 * math.sin(phase))
+            rotation('thigh.'+side,(0,1,0),-.035 if side=='L' else .035)
+        rotation('spine.002', (1,0,0), .008 * math.sin(phase))
+        rotation('head', (0,0,1), .012 * math.sin(phase))
         if name in ['walk','run']:
-            running = name == 'run'; stride = .65 if running else .36
+            running = name == 'run'; stride = .67 if running else .40
             rotation('spine.001', (1,0,0), .12 if running else .035)
-            rotation('spine.002', (0,0,1), math.sin(phase)*.055)
+            rotation('spine.002', (0,0,1), math.sin(phase)*.018)
             for side, offset in [('L',0),('R',math.pi)]:
                 swing = math.sin(phase + offset)
                 rotation('thigh.'+side,(1,0,0),stride*swing)
@@ -95,15 +123,37 @@ for name, duration in CLIPS.items():
     track.mute = True
 rig.animation_data.action = bpy.data.actions['idle']
 bpy.context.scene.frame_set(1)
-# Preserve source packed textures. Unavailable image nodes cannot be exported;
-# remove only their links, retaining the material's existing numeric defaults.
+# Packed images are lazy-loaded by the glTF importer: has_data=False does NOT
+# mean missing. Touch pixels before deciding whether an image is unavailable.
+for image in bpy.data.images:
+    if image.packed_file:
+        _ = image.pixels[:4]
 for material in bpy.data.materials:
     if not material.use_nodes: continue
     for node in list(material.node_tree.nodes):
         if node.type == 'TEX_IMAGE' and node.image:
             image = node.image
-            if not image.has_data or not image.size[0]:
+            if not image.size[0] and not image.packed_file:
                 material.node_tree.nodes.remove(node)
+# The source body base-color export points at a mask rather than skin albedo.
+# Use the owner's requested skin tone; preserve the source face/teeth images.
+skin = bpy.data.materials.get('.Human')
+if skin:
+    skin.node_tree.nodes.clear()
+    bsdf=skin.node_tree.nodes.new('ShaderNodeBsdfPrincipled')
+    bsdf.inputs['Base Color'].default_value=(.62,.355,.235,1)
+    bsdf.inputs['Roughness'].default_value=.64
+    bsdf.inputs['Subsurface Weight'].default_value=.08
+    output=skin.node_tree.nodes.new('ShaderNodeOutputMaterial')
+    skin.node_tree.links.new(bsdf.outputs['BSDF'],output.inputs['Surface'])
+brain = next(m for m in bpy.data.materials if 'Brain Meat' in m.name)
+bsdf=next(n for n in brain.node_tree.nodes if n.type=='BSDF_PRINCIPLED')
+brain_image=bpy.data.images.load(str(OUT/'brain-baked.png'),check_existing=True)
+brain_image.pack()
+texture=brain.node_tree.nodes.new('ShaderNodeTexImage');texture.image=brain_image
+brain.node_tree.links.new(texture.outputs['Color'],bsdf.inputs['Base Color'])
+bsdf.inputs['Roughness'].default_value=.38
+bsdf.inputs['Specular IOR Level'].default_value=.35
 (OUT/'actions').mkdir(exist_ok=True)
 bpy.ops.wm.save_as_mainfile(filepath=str(OUT/'actions'/'mou-actions.blend'))
 props=bpy.ops.export_scene.gltf.get_rna_type().properties
