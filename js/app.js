@@ -39,6 +39,10 @@ function showPage(name) {
   });
   dockBtns.forEach((b) => b.classList.toggle("is-on", b.dataset.go === name));
   topLinks.forEach((b) => b.classList.toggle("is-on", b.dataset.go === name));
+  [...dockBtns, ...topLinks].forEach((b) => {
+    if (b.dataset.go === name) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
   document.getElementById("screen")?.scrollTo({ top: 0 });
 }
 
@@ -173,6 +177,7 @@ function renderHomeFeed(videos) {
 
 function renderMedia(videos) {
   const list = filter === "all" ? videos : videos.filter((v) => v.kind === filter);
+  document.getElementById("media-count").textContent = `${list.length} 作品 / ${filter === "all" ? "すべての視点" : KIND[filter]}`;
   if (!list.length) {
     mediaList.innerHTML = `<p style="color:var(--nf-muted);padding:12px 0">このカテゴリはまだ空です。</p>`;
     return;
@@ -227,9 +232,10 @@ function renderAbout(brand) {
 
 function bindFilters(videos) {
   chips.forEach((chip) => {
+    chip.setAttribute("aria-pressed", String(chip.dataset.filter === filter));
     chip.addEventListener("click", () => {
       filter = chip.dataset.filter;
-      chips.forEach((c) => c.classList.toggle("is-on", c === chip));
+      chips.forEach((c) => { c.classList.toggle("is-on", c === chip); c.setAttribute("aria-pressed", String(c === chip)); });
       renderMedia(videos);
     });
   });
@@ -238,7 +244,7 @@ function bindFilters(videos) {
 function launchGame(href) {
   mouLaunch?.classList.add("is-leaving");
   bootFade.hidden = false;
-  sessionStorage.setItem("ungr-from-hub", "1");
+  try { sessionStorage.setItem("ungr-from-hub", "1"); } catch { /* Navigation also works without storage. */ }
   requestAnimationFrame(() => bootFade.classList.add("show"));
   setTimeout(() => {
     location.href = href;
@@ -247,6 +253,7 @@ function launchGame(href) {
 
 function bindGameLaunch() {
   const go = (e) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
     launchGame(e.currentTarget.getAttribute("href") || "game.html");
   };
@@ -270,6 +277,7 @@ async function boot() {
   bindNav();
   bindGameLaunch();
   const res = await fetch(`data/archive.json?v=${Date.now()}`);
+  if (!res.ok) throw new Error(`Archive ${res.status}`);
   archive = await res.json();
   renderNotices(archive.notices);
   renderHomeFeed(archive.videos);
@@ -277,6 +285,12 @@ async function boot() {
   renderMedia(archive.videos);
   renderAbout(archive.brand);
 }
+
+window.addEventListener("pageshow", () => {
+  bootFade.hidden = true;
+  bootFade.classList.remove("show");
+  mouLaunch?.classList.remove("is-leaving");
+});
 
 boot().catch((err) => {
   console.error(err);

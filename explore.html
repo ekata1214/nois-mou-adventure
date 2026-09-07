@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#10151b" />
+  <title>思考の野原 — ムー君の冒険 / UNGR ARCHIVE</title>
+  <link rel="icon" href="assets/ungr-avatar.jpg" />
+  <link rel="stylesheet" href="css/explore.css?v=20260907" />
+  <script type="importmap">{"imports":{"three":"https://esm.sh/three@0.170.0","three/addons/":"https://esm.sh/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+  <canvas id="world" aria-label="思考の野原。WASDまたは矢印キーで移動、画面をドラッグして見回す" tabindex="0"></canvas>
+  <header class="world-header"><a href="index.html" class="home-link" aria-label="UNGR ARCHIVE ホームへ">← <span>UNGR ARCHIVE</span></a><span class="edition">ムー君の冒険 / 3D探索・試作</span><button id="help-open" aria-label="操作説明">操作 ?</button></header>
+  <section class="location" aria-label="現在地"><p id="region-label">NOU / 思考の野原</p><h1 id="region-name">まだ名前のない場所</h1><p id="region-desc">気になる方へ、歩いてみる。</p></section>
+  <div class="compass" id="compass" aria-label="向いている方角">N</div>
+  <aside class="journal"><span id="inventory">記憶のかけら 0</span><span id="friend-count">友達 0</span><button id="shell-button">殻へ帰る ↗</button></aside>
+  <p id="toast" class="toast" role="status" aria-live="polite"></p>
+  <div class="nearby"><p id="nearby-label"></p><button id="interact" hidden>触れる <kbd>E</kbd></button></div>
+  <div id="touch-pad" class="touch-pad" aria-label="移動パッド"><button data-dir="forward" aria-label="前へ">↑</button><button data-dir="left" aria-label="左へ">←</button><span></span><button data-dir="right" aria-label="右へ">→</button><button data-dir="back" aria-label="後ろへ">↓</button></div>
+  <div class="actions"><button id="run" aria-pressed="false">走る</button><button id="jump">跳ぶ <kbd>Space</kbd></button><button id="leap" disabled>思考へ <kbd>Q</kbd></button></div>
+  <p class="desktop-hint">WASD 移動 · Shift 走る · Space 跳ぶ · ドラッグ 見回す · Q 思考へ · E 触れる</p>
+  <dialog id="welcome" aria-labelledby="welcome-title"><p class="eyebrow">NOIS MOU / FIELD NOTES 01</p><h2 id="welcome-title">思考の野原</h2><p>ムー君は、人間の思考の中でしか生きられない。</p><p>喜怒哀楽の野原を歩き、浮かぶ言葉へ飛び移る。気配と話して、拾った記憶を殻へ持ち帰ろう。</p><div class="controls-guide"><span>移動</span><b>WASD / 矢印 / 左下のパッド</b><span>見回す</span><b>画面をドラッグ</b><span>跳ぶ・思考へ</span><b>Space・Q / 右下のボタン</b><span>話す・拾う</span><b>E / 「触れる」ボタン</b></div><p class="small">小さな3D探索の試作です。進行はこの端末に保存され、これまでの冒険のセーブはそのまま残ります。</p><p id="loading-note" class="small" role="status">野原を準備しています…</p><button id="begin" class="primary" disabled>野原へ入る</button><a class="quiet-link" href="game.html">これまでの冒険を遊ぶ ↗</a></dialog>
+  <dialog id="conversation" aria-labelledby="npc-name"><p class="eyebrow">ENCOUNTER</p><h2 id="npc-name"></h2><p id="npc-line"></p><div id="npc-choices" class="dialog-actions"></div><button id="leave-npc" class="quiet">今は、立ち去る</button></dialog>
+  <dialog id="shell" aria-labelledby="shell-title"><p class="eyebrow">INTROVERT / 殻</p><h2 id="shell-title">持ち帰った、思考。</h2><p>外で見つけたものが、ここに残る。</p><div id="shell-shelf" class="shell-shelf"></div><p id="shell-friends"></p><label for="memo">今日、残しておきたい言葉</label><textarea id="memo" maxlength="160" rows="3" placeholder="短くてもいい。"></textarea><div class="dialog-actions"><button id="save-memo">壁に残す</button><button id="craft-lamp">かけら3つで灯りを作る</button></div><ul id="memo-wall"></ul><p id="save-notice" class="small" role="status"></p><button id="return-field" class="primary">野原へ戻る</button><a class="quiet-link" href="game.html">これまでの冒険・3Dの殻へ ↗</a></dialog>
+  <div id="fatal" hidden role="alert"><h2>野原を開けませんでした。</h2><p>通信環境や端末の3D対応を確認して、もう一度開いてください。</p><a href="explore.html">再読み込み</a><a href="index.html">ホームへ</a></div>
+  <script>window.addEventListener('error',function(e){if(e.target.tagName==='SCRIPT'||e.message){document.getElementById('fatal').hidden=false}},true);</script>
+  <script type="module" src="js/explore.js?v=20260907"></script>
+</body>
+</html>
