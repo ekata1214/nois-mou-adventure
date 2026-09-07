@@ -76,14 +76,38 @@ export function buildMeadow(scene,renderer,sun) {
     const a=i/34*Math.PI*2,r=150+random()*40,x=Math.sin(a)*r,z=Math.cos(a)*r;
     add(new THREE.IcosahedronGeometry(1,2),stone,x,-10,z,24+random()*26,15+random()*29,25+random()*25);
   }
-  const rockGeo=new THREE.IcosahedronGeometry(1,2);
+  // Shared weathered variants: broad fractures, smaller mineral grain, moss on top.
+  const rockCanvas=document.createElement('canvas');rockCanvas.width=rockCanvas.height=256;
+  const rockContext=rockCanvas.getContext('2d'),pixels=rockContext.createImageData(256,256);
+  for(let y=0;y<256;y++)for(let x=0;x<256;x++){
+    const u=x/256*Math.PI*2,v=y/256*Math.PI*2;
+    const veins=Math.sin(u*3+Math.sin(v*2)*1.5)+Math.cos(v*4+Math.sin(u));
+    const fracture=Math.exp(-Math.abs(veins)*28),grain=(Math.sin(x*127.1+y*311.7)*43758.5453)%1;
+    const n=155+24*Math.sin(u+Math.cos(v*2))+12*grain-fracture*65;
+    pixels.data.set([n,n*.98,n*.91,255],(y*256+x)*4);
+  }
+  rockContext.putImageData(pixels,0,0);
+  const rockMap=new THREE.CanvasTexture(rockCanvas);rockMap.colorSpace=THREE.SRGBColorSpace;rockMap.wrapS=rockMap.wrapT=THREE.RepeatWrapping;
+  const rockMaterial=new THREE.MeshStandardMaterial({map:rockMap,bumpMap:rockMap,bumpScale:.12,roughness:1,vertexColors:true});
+  const rockVariants=Array.from({length:5},(_,variant)=>{
+    const geo=new THREE.IcosahedronGeometry(1,2),p=geo.attributes.position,colors=[];
+    for(let i=0;i<p.count;i++){
+      let x=p.getX(i),y=p.getY(i),z=p.getZ(i);
+      const warp=1+.14*Math.sin(x*5+variant)*Math.cos(z*4+y*3)+.08*Math.sin(y*8+variant);
+      x*=warp;z*=warp;y=Math.min(.8,y*warp);p.setXYZ(i,x,y,z);
+      const moss=y>.25?Math.max(0,Math.sin(x*7+z*5+variant))*.3:0;
+      const shade=.67+.16*Math.sin(x*3+y*2+variant);colors.push(shade-moss*.3,shade+moss*.08,shade*.94-moss*.4);
+    }
+    geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.computeVertexNormals();return geo;
+  });
+  const rockGeo=rockVariants[0];
   for(let i=0;i<165;i++) {
     const x=(random()-.58)*195,z=(random()-.58)*195;
     if(stumpSpots.some(p=>Math.hypot(x-p[0],z-p[1])<p[3]+2))continue;
     if(MEMORY_PLACES.some(p=>Math.hypot(x-p.x,z-p.z)<3))continue;
     if(pathDistance(x,z)<4||Math.hypot(x+19,z+46)<12)continue;
     const s=.3+random()**3*3.5;
-    const rock=add(rockGeo,stone,x,terrainHeight(x,z)-s*.2,z,s,s*(.5+random()),s*.85);rock.rotation.y=random()*6.28;
+    const rock=add(rockVariants[i%5],rockMaterial,x,terrainHeight(x,z)-s*.2,z,s,s*(.5+random()),s*.85);rock.rotation.y=random()*6.28;
     if(s>1)colliders.push({x,z,r:s*.8});
   }
   // Real volumes instead of camera-facing tree cards; crowns share one draw call.
@@ -138,7 +162,7 @@ export function buildMeadow(scene,renderer,sun) {
   grass.count=touchDevice?Math.floor(count*.55):count;grass.receiveShadow=true;scene.add(grass);
   // A shallow pool, kept outside the route, with animated ripples and a visible bed.
   const pond=buildPond(scene);
-  for(let i=0;i<42;i++){const a=random()*6.28,r=8.2+random()*2.3,x=-19+Math.cos(a)*r,z=-46+Math.sin(a)*r;add(rockGeo,stone,x,terrainHeight(x,z)-.1,z,.25+random()*.5,.2+random()*.35,.3+random()*.4);}
+  for(let i=0;i<42;i++){const a=random()*6.28,r=8.2+random()*2.3,x=-19+Math.cos(a)*r,z=-46+Math.sin(a)*r;add(rockGeo,rockMaterial,x,terrainHeight(x,z)-.1,z,.25+random()*.5,.2+random()*.35,.3+random()*.4);}
   // A weathered arch is the visible destination at the end of the winding path.
   const archY=terrainHeight(-65,-62);
   for(const side of [-1,1])for(let j=0;j<5;j++)add(new THREE.BoxGeometry(1.5,1.15,1.8),stone,-65+side*4,archY+.58+j*1.18,-62);
@@ -147,7 +171,7 @@ export function buildMeadow(scene,renderer,sun) {
     const m=add(new THREE.BoxGeometry(1.24,1.65,1.8),stone,-65+Math.cos(a)*4,archY+5.9+Math.sin(a)*4,-62);m.rotation.z=a-Math.PI/2;
   }
   colliders.push({x:-69,z:-62,r:1,h:7},{x:-61,z:-62,r:1,h:7});
-  for(let i=0;i<16;i++) {const a=random()*6.28,r=7+random()*5;add(rockGeo,stone,-65+Math.cos(a)*r,archY-.2,-62+Math.sin(a)*r,.9,.35,.7);}
+  for(let i=0;i<16;i++) {const a=random()*6.28,r=7+random()*5;add(rockGeo,rockMaterial,-65+Math.cos(a)*r,archY-.2,-62+Math.sin(a)*r,.9,.35,.7);}
   const markers=MEMORY_PLACES.map(place=>{
     const y=terrainHeight(place.x,place.z);
     const m=add(new THREE.CylinderGeometry(.65,.8,.9,8),stone,place.x,y+.45,place.z);

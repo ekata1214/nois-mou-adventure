@@ -8,7 +8,7 @@ import {advanceCharacter,canOccupy} from '../js/field-physics.js';
 const threeURL=pathToFileURL(process.argv[2]).href,RealThree=await import(threeURL);
 class El {
   constructor(){this.open=false;this.children=[];this.value='';this.dataset={};this.classList={add(){},remove(){},toggle(){}};this.handlers={};}
-  addEventListener(k,f){this.handlers[k]=f;}setAttribute(){}setPointerCapture(){}focus(){}showModal(){this.open=true;}close(){this.open=false;}replaceChildren(){this.children=[];}append(x){this.children.push(x);}
+  addEventListener(k,f){this.handlers[k]=f;}style={setProperty(){}};setAttribute(){}setPointerCapture(){}focus(){}showModal(){this.open=true;}close(){this.open=false;}replaceChildren(){this.children=[];}append(x){this.children.push(x);}
   getContext(){return {fillText(){},fillRect(){},stroke(){},beginPath(){},ellipse(){},fill(){},createImageData(w,h){return {data:new Uint8ClampedArray(w*h*4)};},putImageData(){}};}
 }
 const els=new Map(),get=id=>{if(!els.has(id))els.set(id,new El());return els.get(id);};
@@ -19,7 +19,7 @@ const pondURL='data:text/javascript;base64,'+Buffer.from(pondSource).toString('b
 const worldSource=fs.readFileSync(new URL('../js/meadow-world.js',import.meta.url),'utf8').replace("'three'",JSON.stringify(threeURL)).replace(/'\.\/explore-state\.js\?v=[^']+'/g,JSON.stringify(new URL('../js/explore-state.js',import.meta.url).href)).replace(/'\.\/pond-water\.js\?v=[^']+'/g,JSON.stringify(pondURL));
 const {buildMeadow,pathDistance}=await import('data:text/javascript;base64,'+Buffer.from(worldSource).toString('base64'));
 const THREE={...RealThree,WebGLRenderer:class{constructor(){this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}},TextureLoader:class{load(){return new RealThree.Texture();}}};
-const sandbox={THREE,...State,buildMeadow,advanceCharacter,canOccupy,console,GLTFLoader:class{load(){}},devicePixelRatio:1,innerWidth:1200,innerHeight:800,document,window:{addEventListener(){}},localStorage:{getItem(){return null;},setItem(){}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){}};
+const sandbox={matchMedia(){return {matches:false};},THREE,...State,buildMeadow,advanceCharacter,canOccupy,console,GLTFLoader:class{load(){}},devicePixelRatio:1,innerWidth:1200,innerHeight:800,document,window:{addEventListener(){}},localStorage:{getItem(){return null;},setItem(){}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){}};
 vm.createContext(sandbox);
 for(const file of ['field-encounters','encounter-views','field-combat']){let source=fs.readFileSync(new URL('../js/'+file+'.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export /g,'');if(file==='field-encounters'){sandbox.ENTITY_DEFS=(await import('../js/entities.js')).ENTITY_DEFS;sandbox.PATTERNS=(await import('../js/enemy-patterns.js')).PATTERNS;}vm.runInContext(source,sandbox);}
 vm.runInContext(fs.readFileSync(new URL('../js/explore.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,''),sandbox);
@@ -60,3 +60,9 @@ assert.equal(run('state.encounters.ember'),'calmed');
 run("nearest={kind:'calmed',item:combat.enemies[0]};interact();");assert.equal(run('state.encounters.ember'),'friend');
 run("$('defeat').showModal();$('retry').onclick();");assert.equal(run('combat.fighter.hp'),5);assert.equal(run('state.encounters.ember'),'friend');
 console.log('Combat runtime OK: lock, damage, pause, calm, friend, safe retry.');
+
+run("$('touch-pad').getBoundingClientRect=()=>({left:0,top:0,width:100,height:100});const press={pointerId:77,clientX:90,clientY:10,preventDefault(){}};$('touch-pad').handlers.pointerdown(press);");
+assert.equal(run("held.get(77).join(',')"),'forward,right');
+run("$('touch-pad').handlers.pointermove({pointerId:77,clientX:50,clientY:50});");assert.equal(run('held.get(77).length'),0);
+run("$('touch-pad').handlers.pointercancel({pointerId:77});");assert.equal(run('held.size'),0);
+console.log('Mobile pad OK: diagonal drag, center dead zone, cancellation releases movement.');

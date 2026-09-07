@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createMouMotion } from './mou-motion.js?v=20260907encounters';
 import { createMouAppearance } from './mou-appearance.js?v=20260907physics';
 import { advanceCharacter, canOccupy } from './field-physics.js?v=20260907physics';
-import { buildMeadow } from './meadow-world.js?v=20260907physics';
+import { buildMeadow } from './meadow-world.js?v=20260907mobile';
 import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable, resolveFieldPosition, cameraClearance, supportHeight, waterDepth } from './explore-state.js?v=20260907encounters';
 
 const $=id=>document.getElementById(id);
@@ -13,7 +13,7 @@ let state=freshState(), storageOK=true;
 try{state=sanitizeState(JSON.parse(localStorage.getItem(KEY)));}catch{storageOK=false;}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state));storageOK=true;}catch{storageOK=false;}updateHUD();}
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.setPixelRatio(Math.min(devicePixelRatio,matchMedia('(pointer:coarse)').matches?1.25:1.5));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.05;
@@ -104,7 +104,7 @@ function updateHUD(){
   $('trail-progress').textContent=`野原の記憶 ${state.discoveries.length} / 3`;
   $('trail-hint').textContent=state.discoveries.length===3?'道の先まで来た。気配に会って、殻に持ち帰ろう。':'土の道をたどって、光る石碑を探そう。';
 }
-function clearInput(){keys.clear();held.clear();drag=null;runToggle=false;body.vx=body.vz=0;$('run').setAttribute('aria-pressed','false');}
+function clearInput(){padPointer=null;pad.style.setProperty('--stick-x','0px');pad.style.setProperty('--stick-y','0px');keys.clear();held.clear();drag=null;runToggle=false;body.vx=body.vz=0;$('run').setAttribute('aria-pressed','false');}
 window.addEventListener('blur',clearInput);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)clearInput();});
 window.addEventListener('keydown',e=>{
@@ -115,13 +115,14 @@ window.addEventListener('keydown',e=>{
   if(e.code==='Space')jump();if(e.code==='KeyQ')leap();if(e.code==='KeyE')interact();if(e.code==='KeyR')wave();
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));
-canvas.addEventListener('pointerdown',e=>{if(modalOpen())return;canvas.focus();drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointerdown',e=>{if(modalOpen()||drag)return;canvas.focus();drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);});
 canvas.addEventListener('pointermove',e=>{if(drag?.id!==e.pointerId)return;yaw-=(e.clientX-drag.x)*.006;pitch=THREE.MathUtils.clamp(pitch+(e.clientY-drag.y)*.004,-.1,.95);drag.x=e.clientX;drag.y=e.clientY;});
 for(const type of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(drag?.id===e.pointerId)drag=null;});
-document.querySelectorAll('[data-dir]').forEach(button=>{
-  button.addEventListener('pointerdown',e=>{e.preventDefault();if(modalOpen())return;held.set(e.pointerId,button.dataset.dir);button.setPointerCapture(e.pointerId);});
-  for(const type of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(type,e=>held.delete(e.pointerId));
-});
+const pad=$('touch-pad');let padPointer=null;
+function movePad(e){const r=pad.getBoundingClientRect(),x=(e.clientX-r.left-r.width/2)/(r.width/2),y=(e.clientY-r.top-r.height/2)/(r.height/2);held.set(e.pointerId,[...(y<-.22?['forward']:y>.22?['back']:[]),...(x<-.22?['left']:x>.22?['right']:[])]);pad.style.setProperty('--stick-x',`${Math.max(-1,Math.min(1,x))*30}px`);pad.style.setProperty('--stick-y',`${Math.max(-1,Math.min(1,y))*30}px`);}
+pad.addEventListener('pointerdown',e=>{if(modalOpen()||padPointer!==null)return;e.preventDefault();padPointer=e.pointerId;pad.setPointerCapture(e.pointerId);movePad(e);});
+pad.addEventListener('pointermove',e=>{if(e.pointerId===padPointer)movePad(e);});
+for(const type of ['pointerup','pointercancel','lostpointercapture'])pad.addEventListener(type,e=>{if(e.pointerId!==padPointer)return;held.delete(e.pointerId);padPointer=null;pad.style.setProperty('--stick-x','0px');pad.style.setProperty('--stick-y','0px');});
 $('run').onclick=()=>{runToggle=!runToggle;$('run').setAttribute('aria-pressed',String(runToggle));};
 $('jump').onclick=jump;$('leap').onclick=leap;$('interact').onclick=interact;
 $('wave').onclick=wave;
@@ -137,7 +138,7 @@ const physicsColliders=[...meadow.colliders,...platforms.map(p=>({x:p.x,z:p.z,ha
 const combat=createFieldCombat(scene,player,physicsColliders,supportSurfaces,state.encounters,e=>{state.encounters[e.id]='calmed';save();toast(`${e.name}が静かになった。近づいて、Eで友達になれる。`);},()=>{flight=null;clearInput();openDialog($('defeat'));});
 $('strike').onclick=strike;$('dodge').onclick=dodge;$('lock-on').onclick=()=>combat.lock();
 function strike(){if(active&&!modalOpen()&&grounded&&!flight)combat.strike();}
-function dodge(){if(!active||modalOpen()||!grounded||flight)return;const dirs=[...held.values()],f=(keys.has('KeyW')||keys.has('ArrowUp')||dirs.includes('forward')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')||dirs.includes('back')?1:0),s=(keys.has('KeyD')||keys.has('ArrowRight')||dirs.includes('right')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')||dirs.includes('left')?1:0);combat.dodge(f||s?f*Math.sin(yaw)-s*Math.cos(yaw):-Math.sin(player.rotation.y),f||s?f*Math.cos(yaw)+s*Math.sin(yaw):-Math.cos(player.rotation.y));}
+function dodge(){if(!active||modalOpen()||!grounded||flight)return;const dirs=[...held.values()].flat(),f=(keys.has('KeyW')||keys.has('ArrowUp')||dirs.includes('forward')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')||dirs.includes('back')?1:0),s=(keys.has('KeyD')||keys.has('ArrowRight')||dirs.includes('right')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')||dirs.includes('left')?1:0);combat.dodge(f||s?f*Math.sin(yaw)-s*Math.cos(yaw):-Math.sin(player.rotation.y),f||s?f*Math.cos(yaw)+s*Math.sin(yaw):-Math.cos(player.rotation.y));}
 $('retry').onclick=()=>{player.position.set(-3,terrainHeight(-3,-3),-3);verticalSpeed=0;grounded=true;body.vx=body.vz=0;combat.reset();$('defeat').close();canvas.focus();};
 $('defeat').addEventListener('cancel',e=>e.preventDefault());
 function standingHeight(x,z,previousY){return supportHeight(x,z,previousY,supportSurfaces);}
@@ -208,7 +209,7 @@ function update(dt){
   let moveX=0,moveZ=0;
   if(movingAllowed&&!flight){
     const beforeX=player.position.x,beforeZ=player.position.z;
-    const dirs=[...held.values()];
+    const dirs=[...held.values()].flat();
     const forward=(keys.has('KeyW')||keys.has('ArrowUp')||dirs.includes('forward')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')||dirs.includes('back')?1:0);
     const side=(keys.has('KeyD')||keys.has('ArrowRight')||dirs.includes('right')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')||dirs.includes('left')?1:0);
     const length=Math.hypot(side,forward)||1,speed=runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight')?8:4;
@@ -237,7 +238,7 @@ function update(dt){
   motion?.update(dt,{moving:Math.hypot(moveX,moveZ)>.0001,running:runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight'),grounded,verticalSpeed,flight:!!flight,paused:!movingAllowed,action:combat.fighter.action,actionTime:combat.fighter.actionTime});
   combat.update(dt,elapsed,camera,movingAllowed);
   const f=combat.fighter;$('vitality').textContent='♥'.repeat(f.hp)+'♡'.repeat(5-f.hp);$('stamina').value=f.stamina;
-  $('combat-status').textContent=combat.target()?.name||'F 思考を振る · C 回避 · T 注目';
+  $('combat-status').textContent=combat.target()?.name||(innerWidth<=650||matchMedia('(pointer:coarse)').matches?'左で移動 · 画面をなぞって見回す':'F 思考を振る · C 回避 · T 注目');
   $('lock-on').setAttribute('aria-pressed',String(!!combat.target()));
   document.body.classList.toggle('damaged',f.action==='hurt');
   if(avatar){avatar.rotation.z=f.action==='dodge'?Math.sin(f.actionTime/.48*Math.PI)*.25:f.action==='hurt'?.12:0;avatar.rotation.y=f.action?.startsWith('strike')?Math.sin(f.actionTime/.55*Math.PI)*.65*(f.action==='strike'?1:-1):0;}

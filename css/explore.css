@@ -12,3 +12,24 @@ body:before{background:linear-gradient(#0004,transparent 26%,transparent 72%,#00
 @media(max-width:650px){.desktop-hint,kbd{display:none}.touch-pad{display:grid}.actions{bottom:calc(30px + env(safe-area-inset-bottom,0px))}}
 
 .combat-hud{position:fixed;z-index:2;top:215px;left:28px;display:grid;gap:8px;text-shadow:0 2px 6px #000;pointer-events:none}.combat-hud #vitality{color:#ffd3ae;letter-spacing:5px;font-size:22px}.combat-hud progress{width:150px;height:6px;accent-color:#c9d99a}.combat-hud small{font-size:11px;color:#efe6cd}.combat-actions{position:fixed;z-index:2;right:28px;bottom:110px;display:flex;gap:8px}.combat-actions button{background:#253028df;border-color:#e2cf8a80}.combat-actions button[aria-pressed=true]{background:#6b5930}.damaged:after{content:"";position:fixed;inset:0;box-shadow:inset 0 0 100px #9b332b99;pointer-events:none;z-index:1}@media(max-width:650px){.combat-hud{top:190px;left:16px}.combat-actions{right:16px;bottom:140px;gap:5px}.combat-actions button{padding:8px;font-size:12px}.nearby{bottom:245px}.trail{display:none}}@media(max-height:500px){.combat-hud{top:125px}.combat-actions{bottom:80px}}
+
+/* Thumb reach and safe areas apply to phones in both orientations. */
+.touch-pad{touch-action:none;user-select:none;-webkit-user-select:none}
+.touch-pad span{border-radius:50%;background:#ebdfbd80;transform:translate(var(--stick-x,0px),var(--stick-y,0px));pointer-events:none;border:1px solid #f5e8bf88}
+.combat-actions button{touch-action:manipulation;user-select:none;-webkit-user-select:none}
+@media(pointer:coarse),(max-width:650px){
+  .world-header{padding:10px max(14px,env(safe-area-inset-right)) 10px max(14px,env(safe-area-inset-left))}.edition,.desktop-hint,kbd,.trail{display:none}
+  .location{top:70px;left:max(14px,env(safe-area-inset-left))}.location h1{font-size:21px}.location p:last-child{display:none}.location p:first-child{font-size:9px}
+  .journal{top:78px;right:max(14px,env(safe-area-inset-right));font-size:11px;gap:5px}.journal button{padding:7px 10px}
+  .combat-hud{top:151px;left:max(14px,env(safe-area-inset-left))}.combat-hud #vitality{font-size:19px}.combat-hud small{max-width:180px;font-size:10px}
+  .touch-pad{display:grid;left:max(14px,env(safe-area-inset-left));bottom:calc(24px + env(safe-area-inset-bottom));width:138px;height:138px}
+  .actions{right:max(14px,env(safe-area-inset-right));bottom:calc(20px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(2,72px);gap:6px;max-width:none}
+  .actions button{min-width:0;padding:7px 4px;font-size:12px;min-height:44px}
+  .combat-actions{right:max(14px,env(safe-area-inset-right));bottom:calc(122px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(2,72px);gap:6px}
+  .combat-actions button{min-height:46px;padding:8px 3px;font-size:12px}#strike{grid-column:1 / 3;background:#d6c69ce8;color:#1a2722;font-weight:600}
+  .nearby{bottom:calc(230px + env(safe-area-inset-bottom));width:90%;max-width:90vw}.nearby p{margin:4px}.nearby button{min-height:44px;font-size:13px}.toast{top:32%;font-size:12px}
+}
+@media(pointer:coarse) and (orientation:landscape) and (max-height:550px){
+  .location{top:50px}.location p:first-child{display:none}.location h1{font-size:18px}.combat-hud{top:91px;gap:4px}.combat-hud small{display:none}.journal{top:55px}.compass{top:55px}
+  .nearby{bottom:25px;max-width:35vw}.touch-pad{width:120px;height:120px;bottom:14px}.combat-actions{bottom:116px}.actions{bottom:14px}.toast{top:20%}
+}
