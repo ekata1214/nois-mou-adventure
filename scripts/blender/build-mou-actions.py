@@ -95,15 +95,37 @@ for name, duration in CLIPS.items():
     track.mute = True
 rig.animation_data.action = bpy.data.actions['idle']
 bpy.context.scene.frame_set(1)
-# Preserve source packed textures. Unavailable image nodes cannot be exported;
-# remove only their links, retaining the material's existing numeric defaults.
+# Packed images are lazy-loaded by the glTF importer: has_data=False does NOT
+# mean missing. Touch pixels before deciding whether an image is unavailable.
+for image in bpy.data.images:
+    if image.packed_file:
+        _ = image.pixels[:4]
 for material in bpy.data.materials:
     if not material.use_nodes: continue
     for node in list(material.node_tree.nodes):
         if node.type == 'TEX_IMAGE' and node.image:
             image = node.image
-            if not image.has_data or not image.size[0]:
+            if not image.size[0] and not image.packed_file:
                 material.node_tree.nodes.remove(node)
+# The source body base-color export points at a mask rather than skin albedo.
+# Use the owner's requested skin tone; preserve the source face/teeth images.
+skin = bpy.data.materials.get('.Human')
+if skin:
+    skin.node_tree.nodes.clear()
+    bsdf=skin.node_tree.nodes.new('ShaderNodeBsdfPrincipled')
+    bsdf.inputs['Base Color'].default_value=(.62,.355,.235,1)
+    bsdf.inputs['Roughness'].default_value=.64
+    bsdf.inputs['Subsurface Weight'].default_value=.08
+    output=skin.node_tree.nodes.new('ShaderNodeOutputMaterial')
+    skin.node_tree.links.new(bsdf.outputs['BSDF'],output.inputs['Surface'])
+brain = next(m for m in bpy.data.materials if 'Brain Meat' in m.name)
+bsdf=next(n for n in brain.node_tree.nodes if n.type=='BSDF_PRINCIPLED')
+brain_image=bpy.data.images.load(str(OUT/'brain-baked.png'),check_existing=True)
+brain_image.pack()
+texture=brain.node_tree.nodes.new('ShaderNodeTexImage');texture.image=brain_image
+brain.node_tree.links.new(texture.outputs['Color'],bsdf.inputs['Base Color'])
+bsdf.inputs['Roughness'].default_value=.38
+bsdf.inputs['Specular IOR Level'].default_value=.35
 (OUT/'actions').mkdir(exist_ok=True)
 bpy.ops.wm.save_as_mainfile(filepath=str(OUT/'actions'/'mou-actions.blend'))
 props=bpy.ops.export_scene.gltf.get_rna_type().properties

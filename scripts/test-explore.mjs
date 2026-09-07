@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {freshState,sanitizeState,availableShards,makeFriend,craftLamp,regionAt,terrainHeight,nearestReachable,resolveFieldPosition,cameraClearance} from '../js/explore-state.js';
+import {freshState,sanitizeState,availableShards,makeFriend,craftLamp,regionAt,terrainHeight,nearestReachable,resolveFieldPosition,cameraClearance,supportHeight,stepVertical} from '../js/explore-state.js';
 // Invalid/old local saves must not manufacture crafting resources or relationships.
 const cleaned=sanitizeState({collected:[0,0,3,23,24,-1,'2'],friends:{ki:'follow',do:'invalid',other:'home'},lamp:true,memos:['ok',7],visited:['ki','ki','unknown']});
 assert.deepEqual(cleaned.collected,[0,3,23]);assert.deepEqual(cleaned.friends,{ki:'follow'});assert.deepEqual(cleaned.visited,['ki']);assert.deepEqual(cleaned.memos,['ok']);assert.equal(availableShards(cleaned),0);
@@ -24,3 +24,16 @@ assert.ok(cameraClearance(from,to,[obstacle])<1);
 assert.equal(cameraClearance({x:0,y:30,z:0},{x:1,y:30,z:1},[]),1);
 assert.ok(terrainHeight(-19,-46)<-1.6);
 console.log('meadow: old saves, discoveries, solid objects, overhead clearance, camera obstruction, pool bed OK');
+const stump={x:-7,z:-10,r:1.3,y:terrainHeight(-7,-10)+.8};
+assert.equal(supportHeight(stump.x,stump.z,stump.y+1,[stump]),stump.y);
+assert.equal(supportHeight(stump.x,stump.z,stump.y-.3,[stump]),terrainHeight(stump.x,stump.z));
+assert.equal(supportHeight(stump.x+2,stump.z,stump.y,[stump]),terrainHeight(stump.x+2,stump.z));
+const solid={...stump,top:stump.y,h:.8,walkable:true};
+assert.deepEqual(resolveFieldPosition(stump.x,stump.z,stump.y,[solid]),{x:stump.x,z:stump.z});
+assert.notEqual(resolveFieldPosition(stump.x,stump.z,stump.y-.3,[solid]).x,stump.x);
+let walk={y:2,velocity:0,grounded:true};
+for(let i=0;i<120;i++){walk=stepVertical(walk.y,walk.velocity,walk.grounded,2-(i+1)*.02,1/60);assert.equal(walk.grounded,true);}
+assert.equal(stepVertical(2,9,false,2,1/60).grounded,false);
+assert.equal(stepVertical(3,-3,false,2,1/60).grounded,false);
+assert.equal(stepVertical(2.01,-3,false,2,1/60).y,2);
+console.log('stumps and locomotion: top landing, side walls, jumping off/on, continuous slope grounding OK');

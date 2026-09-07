@@ -12,6 +12,10 @@ const gltf = JSON.parse(binary.toString('utf8', 20, 20 + binary.readUInt32LE(12)
 const names = ['idle','walk','run','jump','fall','land','wave','pickup','thought'];
 assert.deepEqual(gltf.animations.map(a => a.name).sort(), [...names].sort());
 assert.ok(gltf.skins.length > 0);
+const brain=gltf.materials.find(m=>m.name.includes('Brain Meat'));
+assert.ok(brain.pbrMetallicRoughness.baseColorTexture);
+const skin=gltf.materials.find(m=>m.name==='.Human').pbrMetallicRoughness.baseColorFactor;
+assert.ok(skin[0]>skin[1]&&skin[1]>skin[2], 'skin must be warm, not grayscale');
 for (const animation of gltf.animations) assert.ok(animation.channels.length > 10);
 const root = new THREE.Object3D();
 const motion = createMouMotion(root, names.map(name => new THREE.AnimationClip(name, 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [0, 1])])));
@@ -26,4 +30,13 @@ step('idle', {paused:false}, 1.1);
 step('thought', {flight:true}); step('land', {flight:false});
 for (let i=0;i<100;i++) { motion.gesture('wave'); step('wave'); step('run', {moving:true}); step('idle', {moving:false}); }
 motion.dispose();
+const appearanceSource=fs.readFileSync(new URL('../js/mou-appearance.js',import.meta.url),'utf8').replace("'three'",JSON.stringify(threeURL));
+const {createMouAppearance}=await import('data:text/javascript;base64,'+Buffer.from(appearanceSource).toString('base64'));
+const headMaterial=new THREE.MeshStandardMaterial();headMaterial.name='Brain Meat.001';
+const head=new THREE.Mesh(new THREE.SphereGeometry(.2),headMaterial),body=new THREE.Mesh(new THREE.BoxGeometry(),new THREE.MeshStandardMaterial());
+root.add(head,body);const appearance=createMouAppearance(root);assert.equal(appearance.brainCount,1);
+const surface={uniforms:{},vertexShader:'#include <begin_vertex>'},shadow={uniforms:{},vertexShader:'#include <begin_vertex>'};
+head.material.onBeforeCompile(surface);head.customDepthMaterial.onBeforeCompile(shadow);
+appearance.update(4);assert.equal(surface.uniforms.brainTime.value,4);assert.equal(shadow.uniforms.brainTime,surface.uniforms.brainTime);
+assert.ok(surface.vertexShader.includes('transformed += normal'));assert.equal(body.customDepthMaterial,undefined);
 console.log('Mou motion OK: 9 skinned clips, movement priority, jump/fall/landing, gestures, pause, flight landing, repeated transitions.');

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createMouMotion } from './mou-motion.js?v=20260907motion';
-import { buildMeadow } from './meadow-world.js?v=20260907meadow';
-import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable, resolveFieldPosition, cameraClearance } from './explore-state.js?v=20260907meadow';
+import { createMouAppearance } from './mou-appearance.js?v=20260907living';
+import { buildMeadow } from './meadow-world.js?v=20260907living';
+import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable, resolveFieldPosition, cameraClearance, supportHeight, stepVertical } from './explore-state.js?v=20260907living';
 
 const $=id=>document.getElementById(id);
 const canvas=$('world');
@@ -71,10 +72,10 @@ const npcs=REGIONS.map((r,i)=>{
 });
 const player=new THREE.Group();player.position.set(-3,terrainHeight(-3,-3),-3);player.rotation.y=Math.PI*1.25;scene.add(player);
 const fallback=sprite('assets/muu/back.png',2.2,0,1.1,0);scene.remove(fallback);player.add(fallback);
-let avatar=null,motion=null;
+let avatar=null,motion=null,appearance=null;
 // One existing GLB, loaded in the background. Exploration is usable while it downloads.
 const modelNote=$('loading-note');
-new GLTFLoader().load('assets/muu/mou-actions.glb?v=20260907motion',gltf=>{
+new GLTFLoader().load('assets/muu/mou-actions.glb?v=20260907living',gltf=>{
   const root=gltf.scene;root.updateMatrixWorld(true);
   const box=new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3());
   if(!Number.isFinite(size.y)||size.y<=0)return;
@@ -83,6 +84,7 @@ new GLTFLoader().load('assets/muu/mou-actions.glb?v=20260907motion',gltf=>{
   root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
   player.add(root);avatar=root;fallback.visible=false;
   motion=createMouMotion(root,gltf.animations);
+  appearance=createMouAppearance(root);
   $('wave').disabled=!motion.ready;
   modelNote.textContent='ムー君の動作も準備できました。';
 },event=>{if(event.total)modelNote.textContent=`野原は準備できました。ムー君の3Dを読込中 ${Math.round(event.loaded/event.total*100)}%（先に遊べます）`;},()=>{modelNote.textContent='今回は元のムー君の絵で遊べます。3Dモデルは読み込めませんでした。';});
@@ -126,7 +128,8 @@ function leap(){
   flight={from:player.position.clone(),to:new THREE.Vector3(leapTarget.x,leapTarget.y,leapTarget.z),t:0};verticalSpeed=0;
   toast(`「${leapTarget.word}」へ、思考をつなぐ。`);
 }
-function standingHeight(x,z,previousY){let floor=terrainHeight(x,z);for(const p of platforms)if(Math.abs(x-p.x)<3&&Math.abs(z-p.z)<2&&previousY>=p.y-.12)floor=Math.max(floor,p.y);return floor;}
+const supportSurfaces=[...platforms,...meadow.stumps];
+function standingHeight(x,z,previousY){return supportHeight(x,z,previousY,supportSurfaces);}
 function openDialog(d){clearInput();d.showModal();}
 $('welcome').addEventListener('cancel',e=>{if(!active)e.preventDefault();});
 $('help-open').onclick=()=>openDialog($('welcome'));
@@ -191,6 +194,7 @@ function update(dt){
   const movingAllowed=active&&!modalOpen();
   let moveX=0,moveZ=0;
   if(movingAllowed&&!flight){
+    const beforeX=player.position.x,beforeZ=player.position.z;
     const dirs=[...held.values()];
     const forward=(keys.has('KeyW')||keys.has('ArrowUp')||dirs.includes('forward')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')||dirs.includes('back')?1:0);
     const side=(keys.has('KeyD')||keys.has('ArrowRight')||dirs.includes('right')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')||dirs.includes('left')?1:0);
@@ -201,9 +205,10 @@ function update(dt){
     // Resolve solid trunks and large rocks without trapping the player on contact.
     const resolved=resolveFieldPosition(player.position.x,player.position.z,player.position.y,meadow.colliders);
     player.position.x=resolved.x;player.position.z=resolved.z;
+    moveX=player.position.x-beforeX;moveZ=player.position.z-beforeZ;
     const floor=standingHeight(player.position.x,player.position.z,player.position.y);
-    verticalSpeed-=22*dt;player.position.y+=verticalSpeed*dt;
-    if(player.position.y<=floor){player.position.y=floor;verticalSpeed=0;grounded=true;}else grounded=false;
+    const vertical=stepVertical(player.position.y,verticalSpeed,grounded,floor,dt);
+    player.position.y=vertical.y;verticalSpeed=vertical.velocity;grounded=vertical.grounded;
   }
   if(flight&&movingAllowed){
     flight.t=Math.min(1,flight.t+dt/1.05);const t=flight.t,s=t*t*(3-2*t);
@@ -216,6 +221,7 @@ function update(dt){
     player.rotation.y+=delta*(1-Math.exp(-dt*12));
   }
   motion?.update(dt,{moving:Math.hypot(moveX,moveZ)>.0001,running:runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight'),grounded,verticalSpeed,flight:!!flight,paused:!movingAllowed});
+  appearance?.update(elapsed);
   for(const shard of shards)if(shard.obj.visible){shard.obj.rotation.y+=dt;shard.obj.position.y=shard.y+Math.sin(elapsed*1.8+shard.id)*.16;}
   npcs.forEach((n,i)=>{
     const relation=state.friends[n.id];n.obj.visible=relation!=='home';n.label.visible=n.obj.visible;

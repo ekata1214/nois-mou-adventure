@@ -30,9 +30,26 @@ export function nearestReachable(origin,points,maxDistance=23){let best=null;let
 export function resolveFieldPosition(x,z,y,obstacles){
   for(const c of obstacles){
     const dx=x-c.x,dz=z-c.z,d=Math.hypot(dx,dz),r=c.r+.35;
-    if(d<r&&y<terrainHeight(c.x,c.z)+(c.h??c.r*2)+.5){const a=d>.001?Math.atan2(dz,dx):0;x=c.x+Math.cos(a)*r;z=c.z+Math.sin(a)*r;}
+    const ceiling=c.walkable?c.top-.06:terrainHeight(c.x,c.z)+(c.h??c.r*2)+.5;
+    if(d<r&&y<ceiling){const a=d>.001?Math.atan2(dz,dx):0;x=c.x+Math.cos(a)*r;z=c.z+Math.sin(a)*r;}
   }
   return {x,z};
+}
+export function supportHeight(x,z,previousY,surfaces){
+  let floor=terrainHeight(x,z);
+  for(const p of surfaces){
+    const inside=p.r?Math.hypot(x-p.x,z-p.z)<p.r:Math.abs(x-p.x)<3&&Math.abs(z-p.z)<2;
+    if(inside&&previousY>=p.y-.08)floor=Math.max(floor,p.y);
+  }
+  return floor;
+}
+export function stepVertical(y,velocity,grounded,floor,dt){
+  // Keep feet on gentle descending slopes instead of alternating fall/land.
+  if(grounded&&velocity<=0&&Math.abs(y-floor)<.4)return {y:floor,velocity:0,grounded:true};
+  velocity-=22*dt;
+  const next=y+velocity*dt;
+  if(next<=floor&&velocity<=0)return {y:floor,velocity:0,grounded:true};
+  return {y:next,velocity,grounded:false};
 }
 export function cameraClearance(from,to,obstacles){
   for(let i=2;i<=24;i++){
