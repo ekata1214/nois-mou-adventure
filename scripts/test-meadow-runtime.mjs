@@ -12,7 +12,7 @@ class El {
   getContext(){return {fillText(){},fillRect(){},stroke(){},beginPath(){},ellipse(){},fill(){},createImageData(w,h){return {data:new Uint8ClampedArray(w*h*4)};},putImageData(){}};}
 }
 const els=new Map(),get=id=>{if(!els.has(id))els.set(id,new El());return els.get(id);};
-const document={getElementById:get,querySelectorAll(){return [];},createElement(){return new El();},addEventListener(){},hidden:false};
+const document={body:new El(),getElementById:get,querySelectorAll(){return [];},createElement(){return new El();},addEventListener(){},hidden:false};
 globalThis.document=document;
 const pondSource=fs.readFileSync(new URL('../js/pond-water.js',import.meta.url),'utf8').replace("'three'",JSON.stringify(threeURL)).replace(/'\.\/explore-state\.js\?v=[^']+'/g,JSON.stringify(new URL('../js/explore-state.js',import.meta.url).href));
 const pondURL='data:text/javascript;base64,'+Buffer.from(pondSource).toString('base64');
@@ -20,7 +20,9 @@ const worldSource=fs.readFileSync(new URL('../js/meadow-world.js',import.meta.ur
 const {buildMeadow,pathDistance}=await import('data:text/javascript;base64,'+Buffer.from(worldSource).toString('base64'));
 const THREE={...RealThree,WebGLRenderer:class{constructor(){this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}},TextureLoader:class{load(){return new RealThree.Texture();}}};
 const sandbox={THREE,...State,buildMeadow,advanceCharacter,canOccupy,console,GLTFLoader:class{load(){}},devicePixelRatio:1,innerWidth:1200,innerHeight:800,document,window:{addEventListener(){}},localStorage:{getItem(){return null;},setItem(){}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){}};
-vm.createContext(sandbox);vm.runInContext(fs.readFileSync(new URL('../js/explore.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,''),sandbox);
+vm.createContext(sandbox);
+for(const file of ['field-encounters','encounter-views','field-combat']){let source=fs.readFileSync(new URL('../js/'+file+'.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export /g,'');if(file==='field-encounters'){sandbox.ENTITY_DEFS=(await import('../js/entities.js')).ENTITY_DEFS;sandbox.PATTERNS=(await import('../js/enemy-patterns.js')).PATTERNS;}vm.runInContext(source,sandbox);}
+vm.runInContext(fs.readFileSync(new URL('../js/explore.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,''),sandbox);
 const run=s=>vm.runInContext(s,sandbox);
 run("$('begin').onclick();update(.016)");assert.equal(run('lastRegion'),'ki');
 assert.ok(run('meadow.colliders.length')>40);assert.equal(run('meadow.markers.length'),3);
@@ -47,3 +49,14 @@ assert.equal(pond.emitted,1);pond.update(1.1,{x:State.POND.x,y:State.POND.level-
 pond.update(1.5,{x:State.POND.x+.5,y:State.POND.level-.3,z:State.POND.z});assert.equal(pond.emitted,2);
 pond.update(2,{x:0,y:2,z:0});assert.equal(pond.emitted,3);
 console.log('Meadow runtime OK: real geometry, movement, jump, thought leap, 3 discoveries without duplicates, collection, friendship, shell. DOM and renderer mocked.');
+
+run("$('welcome').close();$('memory').close();$('conversation').close();$('shell').close();active=true;flight=null;const enemy=combat.enemies[0];player.position.set(enemy.x,enemy.y,enemy.z+2);player.rotation.y=Math.PI;combat.lock();");
+assert.equal(run('combat.target().id'),'ember');
+run('combat.strike();combat.update(.18,elapsed,camera,true)');
+assert(run('combat.enemies[0].hp')<42);
+const pausedHp=run('combat.enemies[0].hp');run('combat.update(1,elapsed,camera,false)');assert.equal(run('combat.enemies[0].hp'),pausedHp);
+run("for(let i=0;i<5;i++){combat.update(.6,elapsed,camera,false);combat.fighter.action=null;combat.fighter.stamina=100;combat.strike();combat.update(.18,elapsed,camera,true);}");
+assert.equal(run('state.encounters.ember'),'calmed');
+run("nearest={kind:'calmed',item:combat.enemies[0]};interact();");assert.equal(run('state.encounters.ember'),'friend');
+run("$('defeat').showModal();$('retry').onclick();");assert.equal(run('combat.fighter.hp'),5);assert.equal(run('state.encounters.ember'),'friend');
+console.log('Combat runtime OK: lock, damage, pause, calm, friend, safe retry.');

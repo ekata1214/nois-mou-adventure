@@ -1,10 +1,11 @@
+import {createFieldCombat} from './field-combat.js?v=20260907encounters';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createMouMotion } from './mou-motion.js?v=20260907motion';
+import { createMouMotion } from './mou-motion.js?v=20260907encounters';
 import { createMouAppearance } from './mou-appearance.js?v=20260907physics';
 import { advanceCharacter, canOccupy } from './field-physics.js?v=20260907physics';
 import { buildMeadow } from './meadow-world.js?v=20260907physics';
-import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable, resolveFieldPosition, cameraClearance, supportHeight, waterDepth } from './explore-state.js?v=20260907physics';
+import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable, resolveFieldPosition, cameraClearance, supportHeight, waterDepth } from './explore-state.js?v=20260907encounters';
 
 const $=id=>document.getElementById(id);
 const canvas=$('world');
@@ -94,12 +95,12 @@ let yaw=Math.PI*1.25,pitch=.22,verticalSpeed=0,grounded=true,flight=null,active=
 const body={x:0,y:0,z:0,vx:0,vy:0,vz:0,grounded:true};
 let nearest=null,leapTarget=null,lastRegion=null,elapsed=0,lastTime=0,toastTimer;
 const keys=new Set(),held=new Map();let drag=null;
-const dialogs=[$('welcome'),$('conversation'),$('shell'),$('memory')];
+const dialogs=[$('welcome'),$('conversation'),$('shell'),$('memory'),$('defeat')];
 const modalOpen=()=>dialogs.some(d=>d.open);
 function toast(message){$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4200);}
 function updateHUD(){
   $('inventory').textContent=`記憶のかけら ${availableShards(state)}`;
-  $('friend-count').textContent=`友達 ${Object.keys(state.friends).length}`;
+  $('friend-count').textContent=`友達 ${Object.keys(state.friends).length+Object.values(state.encounters).filter(v=>v==='friend').length}`;
   $('trail-progress').textContent=`野原の記憶 ${state.discoveries.length} / 3`;
   $('trail-hint').textContent=state.discoveries.length===3?'道の先まで来た。気配に会って、殻に持ち帰ろう。':'土の道をたどって、光る石碑を探そう。';
 }
@@ -110,6 +111,7 @@ window.addEventListener('keydown',e=>{
   if(modalOpen()||!active)return;
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   keys.add(e.code);if(e.repeat)return;
+  if(e.code==='KeyF')strike();if(e.code==='KeyC')dodge();if(e.code==='KeyT')combat.lock();
   if(e.code==='Space')jump();if(e.code==='KeyQ')leap();if(e.code==='KeyE')interact();if(e.code==='KeyR')wave();
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));
@@ -124,14 +126,20 @@ $('run').onclick=()=>{runToggle=!runToggle;$('run').setAttribute('aria-pressed',
 $('jump').onclick=jump;$('leap').onclick=leap;$('interact').onclick=interact;
 $('wave').onclick=wave;
 function wave(){if(!active||modalOpen()||!grounded||flight)return;motion?.gesture('wave');}
-function jump(){if(!active||modalOpen()||flight||!grounded)return;verticalSpeed=waterDepth(player.position.x,player.position.z,player.position.y)>.3?6.5:9;grounded=false;}
+function jump(){if(!active||modalOpen()||flight||!grounded||combat.fighter.action)return;verticalSpeed=waterDepth(player.position.x,player.position.z,player.position.y)>.3?6.5:9;grounded=false;}
 function leap(){
-  if(!active||modalOpen()||!leapTarget||flight)return;
+  if(!active||modalOpen()||!leapTarget||flight||combat.fighter.action)return;
   flight={from:player.position.clone(),to:new THREE.Vector3(leapTarget.x,leapTarget.y,leapTarget.z),t:0};verticalSpeed=0;
   toast(`「${leapTarget.word}」へ、思考をつなぐ。`);
 }
 const supportSurfaces=[...platforms,...meadow.stumps];
 const physicsColliders=[...meadow.colliders,...platforms.map(p=>({x:p.x,z:p.z,halfX:3,halfZ:2,bottom:p.y-.5,top:p.y,walkable:true}))];
+const combat=createFieldCombat(scene,player,physicsColliders,supportSurfaces,state.encounters,e=>{state.encounters[e.id]='calmed';save();toast(`${e.name}が静かになった。近づいて、Eで友達になれる。`);},()=>{flight=null;clearInput();openDialog($('defeat'));});
+$('strike').onclick=strike;$('dodge').onclick=dodge;$('lock-on').onclick=()=>combat.lock();
+function strike(){if(active&&!modalOpen()&&grounded&&!flight)combat.strike();}
+function dodge(){if(!active||modalOpen()||!grounded||flight)return;const dirs=[...held.values()],f=(keys.has('KeyW')||keys.has('ArrowUp')||dirs.includes('forward')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')||dirs.includes('back')?1:0),s=(keys.has('KeyD')||keys.has('ArrowRight')||dirs.includes('right')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')||dirs.includes('left')?1:0);combat.dodge(f||s?f*Math.sin(yaw)-s*Math.cos(yaw):-Math.sin(player.rotation.y),f||s?f*Math.cos(yaw)+s*Math.sin(yaw):-Math.cos(player.rotation.y));}
+$('retry').onclick=()=>{player.position.set(-3,terrainHeight(-3,-3),-3);verticalSpeed=0;grounded=true;body.vx=body.vz=0;combat.reset();$('defeat').close();canvas.focus();};
+$('defeat').addEventListener('cancel',e=>e.preventDefault());
 function standingHeight(x,z,previousY){return supportHeight(x,z,previousY,supportSurfaces);}
 function openDialog(d){clearInput();d.showModal();}
 $('welcome').addEventListener('cancel',e=>{if(!active)e.preventDefault();});
@@ -143,6 +151,7 @@ $('return-field').onclick=()=>$('shell').close();
 $('leave-memory').onclick=()=>$('memory').close();
 function interact(){
   if(!active||modalOpen()||!nearest)return;
+  if(nearest.kind==='calmed'){const e=nearest.item;e.friendly=!e.friendly;state.encounters[e.id]=e.friendly?'friend':'calmed';save();toast(e.friendly?`${e.name}と友達になった。一緒に歩こう。`:'ここで待っているね。');return;}
   if(nearest.kind==='portal'){openShell();return;}
   if(nearest.kind==='memory'){
     const place=nearest.item;
@@ -183,9 +192,10 @@ function updateNearby(){
   for(const s of shards)if(s.obj.visible)consider('shard',s,s.obj.position);
   for(const n of npcs)if(n.obj.visible)consider('npc',n,n.obj.position);
   for(const p of meadow.markers)consider('memory',p,p.mesh.position);
+  for(const e of combat.enemies)if(e.phase==='calmed')consider('calmed',e,new THREE.Vector3(e.x,e.y,e.z));
   $('interact').hidden=!nearest;
-  $('nearby-label').textContent=nearest?(nearest.kind==='npc'||nearest.kind==='memory'?nearest.item.name:nearest.kind==='portal'?'内省と生活の場所':'記憶のかけら'):'';
-  $('interact').textContent=nearest?.kind==='memory'?'耳をすます · E':nearest?.kind==='npc'?'話しかける · E':nearest?.kind==='portal'?'殻へ帰る · E':'拾う · E';
+  $('nearby-label').textContent=nearest?(nearest.kind==='calmed'||nearest.kind==='npc'||nearest.kind==='memory'?nearest.item.name:nearest.kind==='portal'?'内省と生活の場所':'記憶のかけら'):'';
+  $('interact').textContent=nearest?.kind==='calmed'?(nearest.item.friendly?'ここで待ってて · E':'友達になる · E'):nearest?.kind==='memory'?'耳をすます · E':nearest?.kind==='npc'?'話しかける · E':nearest?.kind==='portal'?'殻へ帰る · E':'拾う · E';
   leapTarget=nearestReachable(player.position,platforms.filter(p=>{
     const dx=p.x-player.position.x,dz=p.z-player.position.z;return dx*Math.sin(yaw)+dz*Math.cos(yaw)>0;
   }));
@@ -203,6 +213,7 @@ function update(dt){
     const side=(keys.has('KeyD')||keys.has('ArrowRight')||dirs.includes('right')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')||dirs.includes('left')?1:0);
     const length=Math.hypot(side,forward)||1,speed=runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight')?8:4;
     const direction={x:(forward*Math.sin(yaw)-side*Math.cos(yaw))/length,z:(forward*Math.cos(yaw)+side*Math.sin(yaw))/length,speed};
+    const f=combat.fighter;if(f.action==='dodge'){direction.x=f.dodgeX;direction.z=f.dodgeZ;direction.speed=f.actionTime<.32?10:2;}else if(f.action)direction.speed*=.25;
     Object.assign(body,{x:player.position.x,y:player.position.y,z:player.position.z,vy:verticalSpeed,grounded});
     advanceCharacter(body,direction,dt,physicsColliders,supportSurfaces);
     player.position.set(body.x,body.y,body.z);verticalSpeed=body.vy;grounded=body.grounded;
@@ -217,12 +228,19 @@ function update(dt){
     if(blocked){player.position.copy(previous);flight=null;grounded=false;verticalSpeed=0;body.vx=body.vz=0;toast('行く手がふさがっている。別の場所から、思考をつなごう。');}
     else if(t===1){flight=null;grounded=true;body.vx=body.vz=0;}
   }
-  if(avatar && (moveX||moveZ)){
+  if(combat.fighter.action?.startsWith('strike'))player.rotation.y=combat.fighter.heading;
+  else if(avatar && (moveX||moveZ)){
     const target=Math.atan2(moveX,moveZ);
     const delta=Math.atan2(Math.sin(target-player.rotation.y),Math.cos(target-player.rotation.y));
     player.rotation.y+=delta*(1-Math.exp(-dt*12));
   }
-  motion?.update(dt,{moving:Math.hypot(moveX,moveZ)>.0001,running:runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight'),grounded,verticalSpeed,flight:!!flight,paused:!movingAllowed});
+  motion?.update(dt,{moving:Math.hypot(moveX,moveZ)>.0001,running:runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight'),grounded,verticalSpeed,flight:!!flight,paused:!movingAllowed,action:combat.fighter.action,actionTime:combat.fighter.actionTime});
+  combat.update(dt,elapsed,camera,movingAllowed);
+  const f=combat.fighter;$('vitality').textContent='♥'.repeat(f.hp)+'♡'.repeat(5-f.hp);$('stamina').value=f.stamina;
+  $('combat-status').textContent=combat.target()?.name||'F 思考を振る · C 回避 · T 注目';
+  $('lock-on').setAttribute('aria-pressed',String(!!combat.target()));
+  document.body.classList.toggle('damaged',f.action==='hurt');
+  if(avatar){avatar.rotation.z=f.action==='dodge'?Math.sin(f.actionTime/.48*Math.PI)*.25:f.action==='hurt'?.12:0;avatar.rotation.y=f.action?.startsWith('strike')?Math.sin(f.actionTime/.55*Math.PI)*.65*(f.action==='strike'?1:-1):0;}
   appearance?.update(elapsed);
   for(const shard of shards)if(shard.obj.visible){shard.obj.rotation.y+=dt;shard.obj.position.y=shard.y+Math.sin(elapsed*1.8+shard.id)*.16;}
   npcs.forEach((n,i)=>{
@@ -241,6 +259,7 @@ function update(dt){
     lastRegion=r.id;$('region-label').textContent='NOU / 思考の野原';$('region-name').textContent=r.name;$('region-desc').textContent=r.note;
     if(active&&!state.visited.includes(r.id)){state.visited.push(r.id);save();toast(`${r.name} に足を踏み入れた。`);}
   }
+  const focus=combat.target();if(focus&&movingAllowed){const angle=Math.atan2(focus.x-player.position.x,focus.z-player.position.z);yaw+=Math.atan2(Math.sin(angle-yaw),Math.cos(angle-yaw))*(1-Math.exp(-dt*4));}
   lookAt.copy(player.position).add(new THREE.Vector3(0,1.7,0));
   desiredCam.set(player.position.x-Math.sin(yaw)*9,player.position.y+3+pitch*8,player.position.z-Math.cos(yaw)*9);
   desiredCam.y=Math.max(desiredCam.y,terrainHeight(desiredCam.x,desiredCam.z)+1.8);
