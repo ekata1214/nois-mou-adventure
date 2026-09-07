@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {terrainHeight} from './explore-state.js?v=20260908shell';
 import {advanceCharacter,canOccupy} from './field-physics.js?v=20260908shell';
-import {createEncounters,createFighter,startStrike,startDodge,stepFighter,hitFighter,applyStrike,stepEncounter} from './field-encounters.js';
+import {createEncounters,createFighter,startStrike,startDodge,stepFighter,hitFighter,applyStrike,stepEncounter} from './field-encounters.js?v=20260908shell';
 import {buildEncounterViews} from './encounter-views.js?v=20260908shell';
 
 export function createFieldCombat(scene,player,colliders,surfaces,saved,onCalm,onDefeat){
