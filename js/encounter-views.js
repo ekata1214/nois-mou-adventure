@@ -3,13 +3,16 @@ import {terrainHeight} from './explore-state.js?v=20260908shell';
 
 export function buildEncounterViews(scene,enemies){
   const texture=new THREE.TextureLoader().load('assets/icons/giger/eyeball.png');texture.colorSpace=THREE.SRGBColorSpace;
+  const surface=document.createElement('canvas');surface.width=surface.height=128;const ctx=surface.getContext('2d'),pixels=ctx.createImageData(128,128);
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){const vein=Math.abs(Math.sin(x*.18+Math.sin(y*.15)*2)),ridge=Math.sin(y*.7+Math.sin(x*.2));const n=155+ridge*24-(vein<.13?65:0);pixels.data.set([n,n*.97,n*.95,255],(y*128+x)*4);}ctx.putImageData(pixels,0,0);const skinMap=new THREE.CanvasTexture(surface);skinMap.colorSpace=THREE.SRGBColorSpace;
   const up=new THREE.Vector3(0,1,0),direction=new THREE.Vector3();
   const views=enemies.map((e,index)=>{
     const group=new THREE.Group();scene.add(group);
-    const armor=new THREE.MeshStandardMaterial({color:e.color,roughness:.32,metalness:.7});
-    armor.color.lerp(new THREE.Color(0x29272b),.78);
+    const armor=new THREE.MeshStandardMaterial({color:e.color,map:skinMap,bumpMap:skinMap,bumpScale:.045,roughness:.78,metalness:.18});
+    armor.color.lerp(new THREE.Color(0x77716f),.62);
     const dark=new THREE.MeshStandardMaterial({color:0x302e29,roughness:.65,metalness:.35});
-    const core=new THREE.Mesh(new THREE.SphereGeometry(.61,24,16),armor);core.scale.set(1,.85,1);core.castShadow=true;group.add(core);
+    function shellGeometry(radius,w=32,h=20){const g=new THREE.SphereGeometry(radius,w,h),p=g.attributes.position;for(let n=0;n<p.count;n++){const x=p.getX(n),y=p.getY(n),z=p.getZ(n);const f=1+.055*Math.sin(x*34+z*11)*Math.sin(y*27+index)+.035*Math.cos(z*48+y*7);p.setXYZ(n,x*f,y*f,z*f);}g.computeVertexNormals();return g;}
+    const core=new THREE.Mesh(shellGeometry(.61),armor);core.scale.set(1,.85,1);core.castShadow=true;group.add(core);
     const faceMaterial=new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide});
     faceMaterial.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\nif(max(diffuseColor.r,max(diffuseColor.g,diffuseColor.b))<.095)discard;');};
     const face=new THREE.Mesh(new THREE.PlaneGeometry(1.95,1.95),faceMaterial);face.position.z=.58;core.add(face);face.scale.setScalar(.38);face.position.z=.63;
@@ -22,14 +25,14 @@ export function buildEncounterViews(scene,enemies){
     const eye=new THREE.Mesh(new THREE.SphereGeometry(.31,24,16),new THREE.MeshStandardMaterial({color:0x45343b,roughness:.25}));eye.scale.set(1,.38,.65);eye.position.set(0,.06,.67);core.add(eye);
     const iris=new THREE.Mesh(new THREE.SphereGeometry(.17,18,12),new THREE.MeshStandardMaterial({color:index===0?0xd09a42:index===1?0x80bdb1:0xa6adc9,roughness:.25,emissive:0x302314}));iris.scale.z=.28;iris.position.set(0,.06,.86);core.add(iris);
     const pupil=new THREE.Mesh(new THREE.SphereGeometry(.08,12,8),dark);pupil.scale.set(.6,1.4,.3);pupil.position.set(0,.06,.91);core.add(pupil);
-    for(let j=0;j<5;j++){const plate=new THREE.Mesh(new THREE.SphereGeometry(.42,12,8),armor);plate.position.set(Math.sin(j*2.4)*.38,.25+Math.cos(j*2.4)*.22,-.3-j*.085);plate.scale.set(1,.42,1.1);plate.rotation.z=j*.4;plate.castShadow=true;core.add(plate);}
+    for(let j=0;j<5;j++){const plate=new THREE.Mesh(shellGeometry(.42,20,12),armor);plate.position.set(Math.sin(j*2.4)*.38,.25+Math.cos(j*2.4)*.22,-.3-j*.085);plate.scale.set(1,.42,1.1);plate.rotation.z=j*.4;plate.castShadow=true;core.add(plate);}
     for(const side of [-1,1]){
       const horn=new THREE.Mesh(new THREE.ConeGeometry(index===0?.16:.09,index===1?1.2:.7,7),dark);horn.position.set(side*.5,.56,-.18);horn.rotation.z=-side*.45;core.add(horn);
       const jaw=new THREE.Mesh(new THREE.ConeGeometry(.14,.5,7),armor);jaw.position.set(side*.39,-.4,.49);jaw.rotation.z=side*.7+Math.PI;core.add(jaw);
     }
     if(index===2){for(let j=0;j<7;j++){const rib=new THREE.Mesh(new THREE.TorusGeometry(.52+j*.025,.025,6,20,Math.PI*1.6),dark);rib.position.set(0,-j*.065,-.2-j*.08);rib.rotation.x=.55;core.add(rib);}}
     // Ribbed exoskeleton, elongated crown and breathing hoses; original geometry.
-    const crown=new THREE.Mesh(new THREE.SphereGeometry(.55,24,12),armor);crown.scale.set(.78,.58,2.05);crown.position.set(0,.48,-.45);core.add(crown);
+    const crown=new THREE.Mesh(shellGeometry(.55),armor);crown.scale.set(.78,.58,2.05);crown.position.set(0,.48,-.45);core.add(crown);
     for(let j=0;j<9;j++){
       const rib=new THREE.Mesh(new THREE.TorusGeometry(.43+j*.013,.043,6,24,Math.PI*1.65),j%2?armor:dark);rib.position.set(0,-.04,-.16-j*.11);rib.rotation.z=.55;core.add(rib);
     }
@@ -38,6 +41,10 @@ export function buildEncounterViews(scene,enemies){
       const tube=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),18,.085,6,false),dark);core.add(tube);
       for(let k=0;k<4;k++){const tooth=new THREE.Mesh(new THREE.ConeGeometry(.035,.2,5),armor);tooth.position.set(side*(.09+k*.065),-.3,.65);tooth.rotation.x=Math.PI;core.add(tooth);}
     }
+    // Layered ridges, small sutures and uneven nodules break the smooth shell.
+    const nodules=new THREE.InstancedMesh(new THREE.SphereGeometry(.035,8,6),armor,80),detail=new THREE.Object3D();
+    for(let k=0;k<80;k++){const a=k*2.399,y=-.35+(k%13)*.065,r=Math.sqrt(Math.max(.03,.36-y*y));detail.position.set(Math.cos(a)*r,y,Math.sin(a)*r-.15);detail.scale.set(1+(k%3)*.4,.7,1);detail.updateMatrix();nodules.setMatrixAt(k,detail.matrix);}core.add(nodules);
+    for(let k=0;k<8;k++){const points=[];for(let j=0;j<=12;j++){const t=j/12;points.push(new THREE.Vector3(Math.sin(t*Math.PI)*(.3+k*.018)*(k%2?1:-1),.52+Math.sin(t*Math.PI)*.2,-.1-t*.9));}const ridge=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),16,.018,5,false),dark);core.add(ridge);}
     const legs=Array.from({length:4},()=>[0,1].map(()=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(.055,.09,1,7),dark);m.castShadow=true;group.add(m);return m;}));
     const tell=new THREE.Mesh(new THREE.RingGeometry(1.12,1.3,48),new THREE.MeshBasicMaterial({color:0xff9f4a,transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));tell.rotation.x=-Math.PI/2;tell.position.y=.045;group.add(tell);
     const lane=new THREE.Mesh(new THREE.PlaneGeometry(.7,3.4),tell.material.clone());lane.rotation.x=-Math.PI/2;lane.position.set(0,.055,2);group.add(lane);

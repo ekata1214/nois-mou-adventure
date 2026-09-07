@@ -58,7 +58,7 @@ export function buildMeadow(scene,renderer,sun) {
   Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:180});
   sun.shadow.bias=-.00025;sun.shadow.normalBias=.035;scene.add(sun.target);
   const stone=new THREE.MeshStandardMaterial({color:0xa3a0a1,map:texture,bumpMap:texture,bumpScale:.16,roughness:.95});
-  const bark=new THREE.MeshStandardMaterial({color:0xaaa29e,map:texture,bumpMap:texture,bumpScale:.15,roughness:1});
+  const bark=new THREE.MeshStandardMaterial({color:0xd4d2cf,map:texture,bumpMap:texture,bumpScale:.15,roughness:1});
   function add(geo,mat,x,y,z,sx=1,sy=1,sz=1) {
     const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=m.receiveShadow=true;scene.add(m);return m;
   }
@@ -92,13 +92,15 @@ export function buildMeadow(scene,renderer,sun) {
   const rockMap=new THREE.CanvasTexture(rockCanvas);rockMap.colorSpace=THREE.SRGBColorSpace;rockMap.wrapS=rockMap.wrapT=THREE.RepeatWrapping;
   const rockMaterial=new THREE.MeshStandardMaterial({map:rockMap,bumpMap:rockMap,bumpScale:.12,roughness:1,vertexColors:true});
   const rockVariants=Array.from({length:5},(_,variant)=>{
-    const geo=new THREE.IcosahedronGeometry(1,2),p=geo.attributes.position,colors=[];
+    const geo=new THREE.SphereGeometry(1,48,32),p=geo.attributes.position,colors=[];
     for(let i=0;i<p.count;i++){
       let x=p.getX(i),y=p.getY(i),z=p.getZ(i);
-      const warp=1+.14*Math.sin(x*5+variant)*Math.cos(z*4+y*3)+.08*Math.sin(y*8+variant);
-      x*=warp;z*=warp;y=Math.min(.8,y*warp);p.setXYZ(i,x,y,z);
+      let cavity=0;
+      for(let k=0;k<28;k++){const a=k*2.399+variant,cy=-.6+(k%5)*.33,cr=Math.sqrt(Math.max(.05,1-cy*cy)),cx=Math.cos(a)*cr,cz=Math.sin(a)*cr;const d=(x-cx)**2+(y-cy)**2+(z-cz)**2;cavity=Math.max(cavity,Math.exp(-d/(.009+(k%3)*.007))*.42);}
+      const warp=1-cavity+.14*Math.sin(x*5+variant)*Math.cos(z*4+y*3)+.08*Math.sin(y*8+variant);
+      x*=warp;z*=warp;y=y*warp*.86;p.setXYZ(i,x,y,z);
       const moss=y>.25?Math.max(0,Math.sin(x*7+z*5+variant))*.3:0;
-      const shade=.67+.16*Math.sin(x*3+y*2+variant);colors.push(shade-moss*.3,shade+moss*.08,shade*.94-moss*.4);
+      const shade=.67-cavity*1.3+.16*Math.sin(x*3+y*2+variant);colors.push(shade-moss*.3,shade+moss*.08,shade*.94-moss*.4);
     }
     geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.computeVertexNormals();return geo;
   });
@@ -113,55 +115,40 @@ export function buildMeadow(scene,renderer,sun) {
     const rock=add(rockVariants[i%5],rockMaterial,x,terrainHeight(x,z)-s*.2,z,s,s*(.5+random()),s*.85);rock.rotation.y=random()*6.28;
     if(s>1)colliders.push({x,z,r:s,top:rock.position.y+rock.scale.y*.8,h:Math.max(.1,rock.scale.y*.8-s*.2)});
   }
-  // Real volumes instead of camera-facing tree cards; crowns share one draw call.
-  const leafCanvas=document.createElement('canvas');leafCanvas.width=leafCanvas.height=128;
-  const leafCtx=leafCanvas.getContext('2d');
-  for(let i=0;i<35;i++){
-    const x=16+random()*96,y=16+random()*96;
-    leafCtx.fillStyle=`hsl(${70+random()*20} 25% ${48+random()*27}%)`;
-    leafCtx.beginPath();leafCtx.ellipse(x,y,4+random()*4,9+random()*6,random()*6.28,0,Math.PI*2);leafCtx.fill();
+  // Tapered, fluted growths retain soft silhouettes instead of uniform pipes.
+  function growth(points,radius,segments=24){
+    const curve=new THREE.CatmullRomCurve3(points),g=new THREE.TubeGeometry(curve,segments,radius,10,false),p=g.attributes.position;
+    for(let i=0;i<=segments;i++){const t=i/segments,c=curve.getPointAt(t),taper=.08+.92*Math.pow(1-t,.7);for(let j=0;j<=10;j++){const n=i*11+j,v=new THREE.Vector3().fromBufferAttribute(p,n).sub(c);v.multiplyScalar(taper*(1+.12*Math.sin(j*3.77+t*35)));v.add(c);p.setXYZ(n,v.x,v.y,v.z);}}
+    g.computeVertexNormals();return g;
   }
-  const leafTexture=new THREE.CanvasTexture(leafCanvas);leafTexture.colorSpace=THREE.SRGBColorSpace;
-  const crowns=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshStandardMaterial({map:leafTexture,color:0x969397,alphaTest:.45,side:THREE.DoubleSide,roughness:.9}),10000);
-  const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.22,.43,1,8),bark,400);
-  let crownCount=0,trunkCount=0;
-  const canopy=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,2),new THREE.MeshStandardMaterial({color:0x77757c,roughness:1,flatShading:false}),300);let canopyCount=0;
-  for(let i=0;i<100;i++) {
+  const limbGeo=growth([new THREE.Vector3(0,0,0),new THREE.Vector3(.12,.35,0),new THREE.Vector3(.45,.72,.08),new THREE.Vector3(.3,1,.14),new THREE.Vector3(.13,.96,.12)],.11);
+  const limbs=new THREE.InstancedMesh(limbGeo,bark,2200);let limbCount=0;
+  function instanceLimb(x,y,z,sx,sy,sz,ry,rz=0){dummy.position.set(x,y,z);dummy.rotation.set(0,ry,rz);dummy.scale.set(sx,sy,sz);dummy.updateMatrix();limbs.setMatrixAt(limbCount++,dummy.matrix);}
+  for(let i=0;i<80;i++){
     const x=-100+random()*175,z=-103+random()*183;
-    if([...CAMPS,...CHESTS,...RUNES,...BERRIES].some(p=>Math.hypot(x-p.x,z-p.z)<3.4))continue;
+    if([...CAMPS,...CHESTS,...RUNES,...BERRIES,...MEMORY_PLACES].some(p=>Math.hypot(x-p.x,z-p.z)<4))continue;
     if(stumpSpots.some(p=>Math.hypot(x-p[0],z-p[1])<p[3]+3))continue;
-    if(MEMORY_PLACES.some(p=>Math.hypot(x-p.x,z-p.z)<3))continue;
-    if(pathDistance(x,z)<5||Math.hypot(x+19,z+46)<14||Math.hypot(x+65,z+62)<13||Math.hypot(x,z)<9)continue;
-    const h=5+random()*6,y=terrainHeight(x,z),width=2+random()*1.3;
-    dummy.position.set(x,y+h/2,z);dummy.rotation.set(0,random()*6.28,(random()-.5)*.1);dummy.scale.set(1,h,1);dummy.updateMatrix();trunks.setMatrixAt(trunkCount++,dummy.matrix);
-    colliders.push({x,z,r:.55,h});
-    if(i%3===0)for(let k=0;k<3;k++){
-      const angle=k*2.1,points=[];
-      for(let q=0;q<=12;q++){const t=q/12,spread=Math.sin(t*3.8)*2.2;points.push(new THREE.Vector3(Math.cos(angle)*spread,h*.55+t*h*.62,Math.sin(angle)*spread));}
-      const limb=add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),24,.18,7,false),bark,x,y,z);
-    }
-
-    for(let j=0;j<3;j++) {
-      const a=j*2.1;dummy.position.set(x+Math.cos(a)*.65,y+h*.8,z+Math.sin(a)*.65);dummy.rotation.set(Math.sin(a)*.6,0,Math.cos(a)*.6);dummy.scale.set(.45,h*.45,.45);dummy.updateMatrix();trunks.setMatrixAt(trunkCount++,dummy.matrix);
-    }
-    for(let j=0;j<(i%3===0?0:3);j++){const a=j*2.1;dummy.position.set(x+Math.cos(a)*width*.45,y+h+Math.sin(j)*.4,z+Math.sin(a)*width*.45);dummy.rotation.set(.1,j,0);dummy.scale.set(width*.82,width*.48,width*.85);dummy.updateMatrix();canopy.setMatrixAt(canopyCount++,dummy.matrix);}
-    for(let j=0;j<(i%3===0?0:45);j++) {
-      const a=random()*6.28,r=Math.sqrt(random())*width*1.45;
-      dummy.position.set(x+Math.cos(a)*r,y+h+.5+(random()-.5)*width*1.5,z+Math.sin(a)*r);
-      dummy.rotation.set(random()*Math.PI,random()*6.28,random()*Math.PI);const size=1.3+random()*.9;dummy.scale.set(size,size,1);dummy.updateMatrix();crowns.setMatrixAt(crownCount,dummy.matrix);
-      crowns.setColorAt(crownCount++,new THREE.Color().setHSL(.24+random()*.035,.3,.7+random()*.15));
+    if(pathDistance(x,z)<6||Math.hypot(x+19,z+46)<14||Math.hypot(x+65,z+62)<13||Math.hypot(x,z)<9)continue;
+    const h=4+random()*6,y=terrainHeight(x,z),rotation=random()*6.28;
+    instanceLimb(x,y,z,3,h,3,rotation);colliders.push({x,z,r:.6,h});
+    for(let j=0;j<5;j++){
+      const a=rotation+j*2.4,branchY=y+h*(.25+j*.11);
+      instanceLimb(x+Math.cos(rotation)*.4,branchY,z+Math.sin(rotation)*.4,2.3,h*(.35+random()*.15),2.3,a,.25);
+      instanceLimb(x,y-.05,z,2.6,1.2,2.6,a,1.15);
+      for(let k=0;k<2;k++)instanceLimb(x+Math.sin(a)*(.6+k*.5),branchY+h*.22,z+Math.cos(a)*(.6+k*.5),.6,1.3+k*.3,.6,a+k,.4);
     }
   }
-  canopy.count=canopyCount;canopy.castShadow=canopy.receiveShadow=true;scene.add(canopy);
-  crowns.count=crownCount;trunks.count=trunkCount;crowns.castShadow=trunks.castShadow=true;crowns.receiveShadow=trunks.receiveShadow=true;scene.add(crowns,trunks);
-  // A distant hollow grove: curling roots surround an open silhouette.
+  // Dense connected buttresses and small bridging veins create irregular openings.
   const groveX=-43,groveZ=-57,groveY=terrainHeight(groveX,groveZ);
-  for(let k=0;k<9;k++){
-    const a=k*Math.PI*2/9,points=[];
-    for(let q=0;q<=20;q++){const t=q/20,r=7*(1-t)+Math.sin(t*Math.PI*2)*1.4;points.push(new THREE.Vector3(Math.cos(a+t*t*2.1)*r,Math.sin(t*Math.PI*.78)*(10+Math.sin(k*1.7)*2),Math.sin(a+t*t*2.1)*r));}
-    add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),40,.32,8,false),bark,groveX,groveY,groveZ);
-    const x=groveX+Math.cos(a)*7,z=groveZ+Math.sin(a)*7;colliders.push({x,z,r:.65,h:4});
+  for(let k=0;k<13;k++){
+    const a=k*2.399,r=5.5+(k%3)*.8,h=7+(k%5)*1.2;
+    const points=[new THREE.Vector3(Math.cos(a)*r,0,Math.sin(a)*r),new THREE.Vector3(Math.cos(a+.2)*3,h*.22,Math.sin(a+.2)*3),new THREE.Vector3(Math.cos(a+.5)*1.7,h*.65,Math.sin(a+.5)*1.7),new THREE.Vector3(Math.cos(a+1)*2,h,Math.sin(a+1)*2),new THREE.Vector3(Math.cos(a+1.8)*2.7,h*.92,Math.sin(a+1.8)*2.7)];
+    points[0].y=terrainHeight(groveX+points[0].x,groveZ+points[0].z)-groveY-.3;
+    add(growth(points,.7,40),bark,groveX,groveY,groveZ);
+    for(let j=0;j<3;j++){const t=.2+j*.18,curve=new THREE.CatmullRomCurve3(points),v=curve.getPoint(t),u=curve.getPoint(Math.min(.95,t+.22));const mid=v.clone().lerp(u,.5);mid.x+=Math.cos(a)*(.7+j*.2);mid.z+=Math.sin(a)*(.7+j*.2);add(growth([v,mid,u],.15,14),bark,groveX,groveY,groveZ);}
+    const x=groveX+Math.cos(a)*r,z=groveZ+Math.sin(a)*r;colliders.push({x,z,r:.85,h:3});
   }
+  limbs.count=limbCount;limbs.castShadow=limbs.receiveShadow=true;scene.add(limbs);
   // Distant birds use shared geometry; their gentle orbit adds life without input.
   const birds=[];
   const wingGeo=new THREE.BufferGeometry();wingGeo.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,-.8,.08,.2,-.18,0,.4],3));wingGeo.computeVertexNormals();
@@ -194,6 +181,11 @@ export function buildMeadow(scene,renderer,sun) {
     const x=cx+Math.sin(a)*r,z=cz+Math.cos(a)*r,y=terrainHeight(x,z)+.38;
     for(let j=0;j<5;j++){const angle=j*Math.PI*2/5;dummy.position.set(x+Math.cos(angle)*.12,y,z+Math.sin(angle)*.12);dummy.scale.set(1,.45,1);dummy.rotation.set(0,angle,0);dummy.updateMatrix();flowers.setMatrixAt(i*5+j,dummy.matrix);flowers.setColorAt(i*5+j,new THREE.Color(palette[i%4]));}
   }flowers.receiveShadow=true;scene.add(flowers);
+
+  const stemGeo=growth([new THREE.Vector3(),new THREE.Vector3(.05,.3,0),new THREE.Vector3(-.08,.65,.06),new THREE.Vector3(.12,.9,0)],.025,12);
+  const stems=new THREE.InstancedMesh(stemGeo,bark,180),leaves=new THREE.InstancedMesh(new THREE.SphereGeometry(1,8,6),new THREE.MeshStandardMaterial({color:0x777b70,roughness:1}),720);
+  for(let i=0;i<180;i++){const a=i*2.399,cx=[-5,-14,-39,-30][i%4],cz=[-6,-19,-28,-32][i%4],r=.4+Math.sqrt(i%45)*.35,x=cx+Math.sin(a)*r,z=cz+Math.cos(a)*r,y=terrainHeight(x,z),h=.45+(i%5)*.09;dummy.position.set(x,y,z);dummy.rotation.set(0,a,0);dummy.scale.set(1,h,1);dummy.updateMatrix();stems.setMatrixAt(i,dummy.matrix);for(let j=0;j<4;j++){dummy.position.set(x+Math.sin(a+j)*.1,y+h*(.2+j*.12),z+Math.cos(a+j)*.1);dummy.rotation.set(.3,a+j,.5);dummy.scale.set(.055,.018,.18);dummy.updateMatrix();leaves.setMatrixAt(i*4+j,dummy.matrix);}}
+  stems.receiveShadow=leaves.receiveShadow=true;scene.add(stems,leaves);
 
   // A shallow pool, kept outside the route, with animated ripples and a visible bed.
   const pond=buildPond(scene);
