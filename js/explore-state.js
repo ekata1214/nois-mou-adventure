@@ -18,11 +18,12 @@ export function waterDepth(x,z,y=terrainHeight(x,z)){
   return Math.hypot(x-POND.x,z-POND.z)<POND.radius?Math.max(0,POND.level-y):0;
 }
 export function regionAt(x,z){ return REGIONS.find(r=>r.x===(x<0?-1:1)&&r.z===(z<0?-1:1)); }
-export function freshState(){ return {collected:[],friends:{},lamp:false,memos:[],visited:[],discoveries:[]}; }
+export function freshState(){ return {collected:[],friends:{},lamp:false,memos:[],visited:[],discoveries:[],encounters:{}}; }
 export function sanitizeState(value){
   const s=freshState(); if(!value||typeof value!=='object') return s;
   s.collected=[...new Set(Array.isArray(value.collected)?value.collected.filter(x=>Number.isInteger(x)&&x>=0&&x<24):[])];
   for(const [id,relation] of Object.entries(value.friends||{})) if(REGIONS.some(r=>r.id===id)&&['follow','home','stay'].includes(relation)) s.friends[id]=relation;
+  for(const id of ['ember','thorn','shade'])if(['calmed','friend'].includes(value.encounters?.[id]))s.encounters[id]=value.encounters[id];
   s.lamp=value.lamp===true && s.collected.length>=3;
   s.memos=(Array.isArray(value.memos)?value.memos:[]).filter(x=>typeof x==='string').map(x=>x.slice(0,160)).slice(-12);
   s.visited=[...new Set((Array.isArray(value.visited)?value.visited:[]).filter(x=>REGIONS.some(r=>r.id===x)))];

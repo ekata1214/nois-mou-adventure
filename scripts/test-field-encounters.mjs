@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {createEncounters,createFighter,startStrike,startDodge,stepFighter,hitFighter,applyStrike,stepEncounter} from '../js/field-encounters.js';
+import {sanitizeState} from '../js/explore-state.js';
+const f=createFighter(),e=createEncounters()[0],p={x:0,y:0,z:0,hp:5};
+Object.assign(e,{x:0,y:0,z:2,homeX:0,homeZ:2});
+assert(startStrike(f,0));assert(!startStrike(f,0));stepFighter(f,.18);
+assert.equal(applyStrike(f,p,[e],()=>false).length,0);
+stepFighter(f,.5);startStrike(f,0);stepFighter(f,.18);
+assert.equal(applyStrike(f,p,[e]).length,1);assert.equal(applyStrike(f,p,[e]).length,0);
+stepFighter(f,.5);assert(startDodge(f,1,0));assert(!hitFighter(f));stepFighter(f,.4);assert(hitFighter(f));assert(!hitFighter(f));
+Object.assign(e,{phase:'chase',timer:0});stepEncounter(e,p,.01);assert.equal(e.phase,'windup');const aim=e.aimZ;
+stepEncounter(e,{...p,x:5},.3);assert.equal(e.phase,'windup');assert.equal(e.aimZ,aim);
+stepEncounter(e,p,1);assert.equal(e.phase,'lunge');let hits=0;Object.assign(e,{z:1});
+stepEncounter(e,p,.1,{damage(){hits++;}});stepEncounter(e,p,.1,{damage(){hits++;}});assert.equal(hits,1);
+stepEncounter(e,p,.5);assert.equal(e.phase,'recover');
+const saved=sanitizeState({encounters:{ember:'friend',thorn:'calmed',shade:'hacked'},collected:[1]});
+assert.deepEqual(saved.encounters,{ember:'friend',thorn:'calmed'});assert.equal(createEncounters(saved.encounters)[0].friendly,true);assert.deepEqual(saved.collected,[1]);
+console.log('Encounters OK: attack cone/window, blocked sight, single hit, dodge immunity, stamina, fixed telegraph aim, recovery, friendship saves.');
