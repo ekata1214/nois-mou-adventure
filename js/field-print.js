@@ -4,7 +4,7 @@ import * as THREE from 'three';
 export function createFieldPrint(renderer) {
   const target=new THREE.WebGLRenderTarget(1,1,{minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:true});
   const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
-  const material=new THREE.ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,uniforms:{picture:{value:target.texture},texel:{value:new THREE.Vector2(1,1)}},vertexShader:`varying vec2 uvPrint;void main(){uvPrint=uv;gl_Position=vec4(position.xy,0.,1.);}`,fragmentShader:`
+  const material=new THREE.ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:true,uniforms:{picture:{value:target.texture},texel:{value:new THREE.Vector2(1,1)}},vertexShader:`varying vec2 uvPrint;void main(){uvPrint=uv;gl_Position=vec4(position.xy,0.,1.);}`,fragmentShader:`
     uniform sampler2D picture;uniform vec2 texel;varying vec2 uvPrint;
     float lightness(vec3 c){return dot(c,vec3(.299,.587,.114));}
     void main(){
@@ -17,6 +17,7 @@ export function createFieldPrint(renderer) {
       float d=(p.x+2.*p.y)/4.-.375;
       c=floor(clamp(c,0.,1.)*27.+.5+d*.6)/27.;
       gl_FragColor=vec4(c,1.);
+      #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`});
   scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),material));
