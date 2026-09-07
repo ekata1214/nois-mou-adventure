@@ -98,7 +98,7 @@ export function buildMeadow(scene,renderer,sun) {
       let cavity=0;
       for(let k=0;k<28;k++){const a=k*2.399+variant,cy=-.6+(k%5)*.33,cr=Math.sqrt(Math.max(.05,1-cy*cy)),cx=Math.cos(a)*cr,cz=Math.sin(a)*cr;const d=(x-cx)**2+(y-cy)**2+(z-cz)**2;cavity=Math.max(cavity,Math.exp(-d/(.009+(k%3)*.007))*.42);}
       const warp=1-cavity+.14*Math.sin(x*5+variant)*Math.cos(z*4+y*3)+.08*Math.sin(y*8+variant);
-      x*=warp;z*=warp;y=y*warp*.86;p.setXYZ(i,x,y,z);
+      x*=warp;z*=warp;y=.8*Math.tanh(y*warp*1.4);p.setXYZ(i,x,y,z);
       const moss=y>.25?Math.max(0,Math.sin(x*7+z*5+variant))*.3:0;
       const shade=.67-cavity*1.3+.16*Math.sin(x*3+y*2+variant);colors.push(shade-moss*.3,shade+moss*.08,shade*.94-moss*.4);
     }
