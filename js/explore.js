@@ -1,3 +1,4 @@
+import {createFieldPrint} from './field-print.js?v=20260908print';
 import {createShellLifeView} from './shell-life-view.js?v=20260908cosmos';
 import {collectFragment,makeVessel,inscribe} from './shell-life-state.js';
 import {createFieldAudio} from './field-audio.js';
@@ -9,7 +10,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createMouMotion } from './mou-motion.js?v=20260908shell';
 import { createMouAppearance } from './mou-appearance.js?v=20260907physics';
 import { advanceCharacter, canOccupy } from './field-physics.js?v=20260908shell';
-import { buildMeadow } from './meadow-world.js?v=20260908shell';
+import { buildMeadow } from './meadow-world.js?v=20260908print';
 import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable, resolveFieldPosition, cameraClearance, supportHeight, waterDepth } from './explore-state.js?v=20260908shell';
 
 const $=id=>document.getElementById(id);
@@ -24,12 +25,13 @@ renderer.setPixelRatio(Math.min(devicePixelRatio,matchMedia('(pointer:coarse)').
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.05;
+const fieldPrint=createFieldPrint(renderer);
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x695258);
-scene.fog=new THREE.FogExp2(0x695258,.006);
+scene.background=new THREE.Color(0x85838b);
+scene.fog=new THREE.FogExp2(0x85838b,.006);
 const camera=new THREE.PerspectiveCamera(58,1,.1,360);
-scene.add(new THREE.HemisphereLight(0xd3bfc0,0x342634,2.0));
-const sun=new THREE.DirectionalLight(0xffc7ac,2.5);sun.position.set(-30,70,-40);scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xd1d4df,0x49464d,2.0));
+const sun=new THREE.DirectionalLight(0xe0d8c9,2.1);sun.position.set(-30,70,-40);scene.add(sun);
 const meadow=buildMeadow(scene,renderer,sun);
 function mesh(geo,color,x,y,z){const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color,roughness:.9}));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;scene.add(m);return m;}
 const textures=new THREE.TextureLoader();
@@ -333,10 +335,10 @@ function update(dt){
   camera.position.lerpVectors(lookAt,camera.position,cameraClearance(lookAt,camera.position,physicsColliders));camera.lookAt(lookAt);
   hudTick+=dt;if(hudTick>.15){hudTick=0;updateNearby();const deg=((yaw*180/Math.PI)%360+360)%360;$('compass').textContent=['S','E','N','W'][Math.round(deg/90)%4];}
 }
-function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();shellView?.resize(innerWidth,innerHeight);}
+function resize(){renderer.setSize(innerWidth,innerHeight,false);fieldPrint.resize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();shellView?.resize(innerWidth,innerHeight);}
 window.addEventListener('resize',resize);resize();camera.position.set(0,7,10);
 $('compass').onclick=()=>{yaw=player.rotation.y;pitch=.08;combat.unlock();};
 $('objective-button').onclick=()=>$('journey-open').onclick();
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();active=false;$('fatal').hidden=false;});
-function frame(ms){requestAnimationFrame(frame);const dt=Math.min((ms-lastTime)/1000,.1);lastTime=ms;if(document.hidden)return;update(dt);renderer.render(shellMode?shellView.scene:scene,shellMode?shellView.camera:camera);}
+function frame(ms){requestAnimationFrame(frame);const dt=Math.min((ms-lastTime)/1000,.1);lastTime=ms;if(document.hidden)return;update(dt);if(shellMode)renderer.render(shellView.scene,shellView.camera);else fieldPrint.render(scene,camera);}
 updateHUD();modelNote.textContent='野原は準備できました。ムー君の3Dは後から読み込まれます。';$('begin').disabled=false;openDialog($('welcome'));requestAnimationFrame(frame);
