@@ -10,11 +10,13 @@ export function buildFieldSky(scene){
     const elevation=1-y/height,h=Math.max(0,Math.min(1,(elevation-.5)*2));let n=0,amp=.55;
     for(let o=0;o<5;o++){const scale=8*2**o;n+=noise(x/width*scale,y/height*scale*.65,scale)*amp;amp*=.5;}
     const cloud=Math.max(0,Math.min(1,(n-.57)*8))*Math.min(1,h*8)*Math.min(1,(1-h)*4+.15);
-    const base=[156-91*h,192-60*h,219-27*h],shade=235+n*17;
-    data.data.set(base.map(v=>v*(1-cloud)+shade*cloud).concat(255),(y*width+x)*4);
+    const base=[133-101*h,93-73*h,100-69*h],shade=160+n*28;
+    data.data.set(base.map(v=>v*(1-cloud)+(shade*(.85))*cloud).concat(255),(y*width+x)*4);
   }
   ctx.putImageData(data,0,0);const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;
   const material=new THREE.MeshBasicMaterial({map:texture,side:THREE.BackSide,depthWrite:false,fog:false,toneMapped:false});
   const dome=new THREE.Mesh(new THREE.SphereGeometry(290,48,24),material);dome.renderOrder=-10;scene.add(dome);
+  const moon=new THREE.Mesh(new THREE.SphereGeometry(13,32,20),new THREE.MeshBasicMaterial({color:0x9c172b,fog:false,toneMapped:false}));moon.position.set(-115,110,-165);scene.add(moon);
+  const orbit=new THREE.Mesh(new THREE.TorusGeometry(20,.35,8,80),new THREE.MeshBasicMaterial({color:0xc98c86,fog:false}));orbit.position.copy(moon.position);orbit.rotation.set(.7,.3,.6);scene.add(orbit);
   return {texture,update(time,player){dome.position.copy(player);dome.rotation.y=time*.0015;}};
 }

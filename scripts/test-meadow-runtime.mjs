@@ -21,9 +21,9 @@ const skyURL='data:text/javascript;base64,'+Buffer.from(skySource).toString('bas
 const worldSource=fs.readFileSync(new URL('../js/meadow-world.js',import.meta.url),'utf8').replace("'three'",JSON.stringify(threeURL)).replace(/'\.\/explore-state\.js\?v=[^']+'/g,JSON.stringify(new URL('../js/explore-state.js',import.meta.url).href)).replace(/'\.\/pond-water\.js\?v=[^']+'/g,JSON.stringify(pondURL)).replace(/'\.\/field-sky\.js\?v=[^']+'/g,JSON.stringify(skyURL)).replace(/'\.\/adventure-state\.js\?v=[^']+'/g,JSON.stringify(new URL('../js/adventure-state.js',import.meta.url).href));
 const {buildMeadow,pathDistance}=await import('data:text/javascript;base64,'+Buffer.from(worldSource).toString('base64'));
 const THREE={...RealThree,WebGLRenderer:class{constructor(){this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}},TextureLoader:class{load(){return new RealThree.Texture();}}};
-const sandbox={matchMedia(){return {matches:false};},THREE,...State,...(await import('../js/adventure-state.js')),buildMeadow,advanceCharacter,canOccupy,console,GLTFLoader:class{load(){}},devicePixelRatio:1,innerWidth:1200,innerHeight:800,document,window:{addEventListener(){}},localStorage:{getItem(){return null;},setItem(){}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){}};
+const sandbox={matchMedia(){return {matches:false};},THREE,...State,...(await import('../js/shell-life-state.js')),...(await import('../js/adventure-state.js')),buildMeadow,advanceCharacter,canOccupy,console,GLTFLoader:class{load(){}},devicePixelRatio:1,innerWidth:1200,innerHeight:800,document,window:{addEventListener(){}},localStorage:{getItem(){return null;},setItem(){}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){}};
 vm.createContext(sandbox);
-for(const file of ['field-encounters','encounter-views','field-combat','field-adventure']){let source=fs.readFileSync(new URL('../js/'+file+'.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export /g,'');if(file==='field-encounters'){sandbox.ENTITY_DEFS=(await import('../js/entities.js')).ENTITY_DEFS;sandbox.PATTERNS=(await import('../js/enemy-patterns.js')).PATTERNS;}vm.runInContext(source,sandbox);}
+for(const file of ['shell-life-view','field-audio','field-encounters','encounter-views','field-combat','field-adventure']){let source=fs.readFileSync(new URL('../js/'+file+'.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export /g,'');if(file==='field-encounters'){sandbox.ENTITY_DEFS=(await import('../js/entities.js')).ENTITY_DEFS;sandbox.PATTERNS=(await import('../js/enemy-patterns.js')).PATTERNS;}vm.runInContext(source,sandbox);}
 vm.runInContext(fs.readFileSync(new URL('../js/explore.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,''),sandbox);
 const run=s=>vm.runInContext(s,sandbox);
 run("$('begin').onclick();update(.016)");assert.equal(run('lastRegion'),'ki');
@@ -42,7 +42,7 @@ run('combat.fighter.action=null;player.position.set(shards[0].x,terrainHeight(sh
 run('combat.fighter.action=null;player.position.set(npcs[0].x,terrainHeight(npcs[0].x,npcs[0].z),npcs[0].z);nearest={kind:"npc",item:npcs[0]};interact()');get('npc-choices').children[0].onclick();assert.equal(run('state.friends.ki'),'follow');
 run("openShell();state.collected=[0,1,2];$('craft-lamp').onclick()");assert.equal(run('state.lamp'),true);
 assert.ok(run('Number.isFinite(camera.position.y)'));
-run("$('return-field').onclick();const stump=meadow.stumps[0];player.position.set(stump.x,stump.y+1,stump.z);grounded=false;verticalSpeed=-1;for(let i=0;i<100;i++)update(1/60)");
+run("$('return-field').onclick();$('room-leave').onclick();const stump=meadow.stumps[0];player.position.set(stump.x,stump.y+1,stump.z);grounded=false;verticalSpeed=-1;for(let i=0;i<100;i++)update(1/60)");
 assert.ok(run('Math.abs(player.position.y-meadow.stumps[0].y)<.001'));assert.equal(run('grounded'),true);
 run('jump();for(let i=0;i<100;i++)update(1/60)');assert.ok(run('Math.abs(player.position.y-meadow.stumps[0].y)<.001'));
 const {buildPond}=await import(pondURL);const pond=buildPond(new RealThree.Scene());
@@ -84,3 +84,11 @@ const frozenY=run('player.position.y');run('suspended=true;update(.1)');assert.e
 run("$('resume-play').onclick();");assert.equal(run('suspended'),false);
 run("gliding=false;grounded=true;combat.fighter.action=null;const friend=combat.enemies[0];player.position.set(friend.x,friend.y,friend.z+2);nearest={kind:'calmed',item:friend};interact();");assert.equal(run('state.encounters.ember'),'friend-stay');assert.equal(run("Object.values(state.encounters).filter(v=>v==='friend'||v==='friend-stay').length"),1);
 console.log('Adventure runtime OK: actual nearby actions, remote interaction blocked, ordered lights, shrine blessing, cooking, checkpoint retry, glide, suspension, waiting friendship.');
+run(`$('journey').close();$('defeat').close();active=true;suspended=false;combat.fighter.action=null;const fieldPose=player.position.clone();const fieldHeading=player.rotation.y;openShell();const enemyBefore=combat.enemies[0].x;keys.add('KeyW');for(let i=0;i<60;i++)update(1/60);`);
+assert.equal(run('shellMode'),true);assert.equal(run('combat.enemies[0].x===enemyBefore'),true);
+run("state.shellLife.spots.fill(0);shellView.collect(0);for(let i=0;i<600;i++)update(1/60)");assert.ok(run('state.shellLife.fragments>=1'));
+run("state.shellLife.fragments=3;$('room-make').onclick();const vesselIndex=state.shellLife.items.length-1;$('room-items').children[vesselIndex].onclick();$('memo').value='';$('save-memo').onclick()");assert.equal(run('state.shellLife.items[vesselIndex].text'),'');assert.equal(get('shell').open,true);
+run("$('memo').value='この部屋で考えたこと';$('save-memo').onclick()");assert.equal(run('state.shellLife.items[vesselIndex].text'),'この部屋で考えたこと');
+run("$('room-leave').onclick()");assert.equal(run('player.position.equals(fieldPose)'),true);assert.equal(run('player.rotation.y===fieldHeading'),true);assert.equal(run('player.parent===scene'),true);assert.equal(run('keys.size'),0);
+run("const rpgEnemy=combat.enemies.find(e=>e.mode==='rpg');rpgEnemy.hp=rpgEnemy.maxHp;openRpg(rpgEnemy);for(let i=0;i<3;i++)$('npc-choices').children[1].onclick()");assert.equal(run('rpgEnemy.phase'),'calmed');assert.equal(get('conversation').open,false);
+console.log('Shell runtime: no field combat, walking collection, empty note safety, vessel conversion, exact return pose. RPG listening resolves without timed input.');

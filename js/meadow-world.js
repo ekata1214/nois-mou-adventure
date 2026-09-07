@@ -1,8 +1,8 @@
-import {buildFieldSky} from './field-sky.js?v=20260907journey';
-import {CAMPS,CHESTS,RUNES,BERRIES} from './adventure-state.js?v=20260907journey';
+import {buildFieldSky} from './field-sky.js?v=20260908shell';
+import {CAMPS,CHESTS,RUNES,BERRIES} from './adventure-state.js?v=20260908shell';
 import * as THREE from 'three';
 import {buildPond} from './pond-water.js?v=20260907physics';
-import { terrainHeight } from './explore-state.js?v=20260907journey';
+import { terrainHeight } from './explore-state.js?v=20260908shell';
 
 // A deterministic, entirely local landscape. No additional image downloads.
 export const MEMORY_PLACES = [
@@ -40,11 +40,11 @@ export function buildMeadow(scene,renderer,sun) {
   const texture=stoneTexture();
   const ground=new THREE.PlaneGeometry(240,240,200,200);ground.rotateX(-Math.PI/2);
   const pos=ground.attributes.position,colors=[];
-  const grassColor=new THREE.Color(),earth=new THREE.Color('#a3956c');
+  const grassColor=new THREE.Color(),earth=new THREE.Color('#ae8276');
   for(let i=0;i<pos.count;i++) {
     const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,terrainHeight(x,z));
     const patch=Math.sin(x*.12+Math.cos(z*.17))*Math.cos(z*.095);
-    grassColor.setHSL(.275+patch*.018,.52,.36+patch*.04);
+    grassColor.setHSL(.12+patch*.055,.22,.29+patch*.05);
     const path=1-THREE.MathUtils.smoothstep(pathDistance(x,z),1.4,3.5);
     grassColor.lerp(earth,path*.85);
     colors.push(grassColor.r,grassColor.g,grassColor.b);
@@ -122,10 +122,10 @@ export function buildMeadow(scene,renderer,sun) {
     leafCtx.beginPath();leafCtx.ellipse(x,y,4+random()*4,9+random()*6,random()*6.28,0,Math.PI*2);leafCtx.fill();
   }
   const leafTexture=new THREE.CanvasTexture(leafCanvas);leafTexture.colorSpace=THREE.SRGBColorSpace;
-  const crowns=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshStandardMaterial({map:leafTexture,color:0xc3d59a,alphaTest:.45,side:THREE.DoubleSide,roughness:.9}),10000);
+  const crowns=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshStandardMaterial({map:leafTexture,color:0xad8d88,alphaTest:.45,side:THREE.DoubleSide,roughness:.9}),10000);
   const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.22,.43,1,8),bark,400);
   let crownCount=0,trunkCount=0;
-  const canopy=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,2),new THREE.MeshStandardMaterial({color:0x547742,roughness:1,flatShading:true}),300);let canopyCount=0;
+  const canopy=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,2),new THREE.MeshStandardMaterial({color:0x4d363f,roughness:1,flatShading:true}),300);let canopyCount=0;
   for(let i=0;i<100;i++) {
     const x=-100+random()*175,z=-103+random()*183;
     if([...CAMPS,...CHESTS,...RUNES,...BERRIES].some(p=>Math.hypot(x-p.x,z-p.z)<3.4))continue;
@@ -164,10 +164,10 @@ export function buildMeadow(scene,renderer,sun) {
     const x=-105+random()*extent,z=-105+random()*extent;
     if(pathDistance(x,z)<2.3||Math.hypot(x+19,z+46)<9)continue;
     dummy.position.set(x,terrainHeight(x,z),z);dummy.rotation.set(0,random()*6.28,0);const s=.45+random()*.8;dummy.scale.set(s,s,s);dummy.updateMatrix();grass.setMatrixAt(count,dummy.matrix);
-    grass.setColorAt(count++,new THREE.Color().setHSL(.235+random()*.045,.53,.43+random()*.14));
+    grass.setColorAt(count++,new THREE.Color().setHSL(.04+random()*.12,.30,.32+random()*.12));
   }
   grass.count=touchDevice?Math.floor(count*.55):count;grass.receiveShadow=true;scene.add(grass);
-  const flowers=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.085,0),new THREE.MeshStandardMaterial({color:0xffefd0,roughness:1}),220);
+  const flowers=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.085,0),new THREE.MeshStandardMaterial({color:0xe88987,roughness:1}),220);
   for(let i=0;i<220;i++){const a=i*2.399,r=2+Math.sqrt(i)*.22,cx=i%2?-39:-14,cz=i%2?-28:-39,x=cx+Math.sin(a)*r,z=cz+Math.cos(a)*r;dummy.position.set(x,terrainHeight(x,z)+.3,z);dummy.scale.set(1,.55,1);dummy.rotation.set(0,a,0);dummy.updateMatrix();flowers.setMatrixAt(i,dummy.matrix);}flowers.receiveShadow=true;scene.add(flowers);
   // A shallow pool, kept outside the route, with animated ripples and a visible bed.
   const pond=buildPond(scene);

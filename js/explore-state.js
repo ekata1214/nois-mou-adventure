@@ -1,3 +1,4 @@
+import {shellState} from './shell-life-state.js';
 import {freshAdventure,sanitizeAdventure} from './adventure-state.js?v=20260907journey';
 export const KEY = 'nois-mou-explore-v1';
 export const POND={x:-19,z:-46,radius:8.8,level:-1.6,depth:1.25};
@@ -19,12 +20,13 @@ export function waterDepth(x,z,y=terrainHeight(x,z)){
   return Math.hypot(x-POND.x,z-POND.z)<POND.radius?Math.max(0,POND.level-y):0;
 }
 export function regionAt(x,z){ return REGIONS.find(r=>r.x===(x<0?-1:1)&&r.z===(z<0?-1:1)); }
-export function freshState(){ return {collected:[],friends:{},lamp:false,memos:[],visited:[],discoveries:[],encounters:{},adventure:freshAdventure()}; }
+export function freshState(){ return {collected:[],friends:{},lamp:false,memos:[],visited:[],discoveries:[],encounters:{},shellLife:shellState(),adventure:freshAdventure()}; }
 export function sanitizeState(value){
   const s=freshState(); if(!value||typeof value!=='object') return s;
   s.collected=[...new Set(Array.isArray(value.collected)?value.collected.filter(x=>Number.isInteger(x)&&x>=0&&x<24):[])];
   for(const [id,relation] of Object.entries(value.friends||{})) if(REGIONS.some(r=>r.id===id)&&['follow','home','stay'].includes(relation)) s.friends[id]=relation;
   for(const id of ['ember','thorn','shade'])if(['calmed','friend','friend-stay'].includes(value.encounters?.[id]))s.encounters[id]=value.encounters[id];
+  s.shellLife=shellState(value.shellLife);
   s.adventure=sanitizeAdventure(value.adventure);
   s.lamp=value.lamp===true && s.collected.length>=3;
   s.memos=(Array.isArray(value.memos)?value.memos:[]).filter(x=>typeof x==='string').map(x=>x.slice(0,160)).slice(-12);
