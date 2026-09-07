@@ -1,3 +1,4 @@
+import {freshAdventure,sanitizeAdventure} from './adventure-state.js?v=20260907journey';
 export const KEY = 'nois-mou-explore-v1';
 export const POND={x:-19,z:-46,radius:8.8,level:-1.6,depth:1.25};
 export const REGIONS = [
@@ -18,12 +19,13 @@ export function waterDepth(x,z,y=terrainHeight(x,z)){
   return Math.hypot(x-POND.x,z-POND.z)<POND.radius?Math.max(0,POND.level-y):0;
 }
 export function regionAt(x,z){ return REGIONS.find(r=>r.x===(x<0?-1:1)&&r.z===(z<0?-1:1)); }
-export function freshState(){ return {collected:[],friends:{},lamp:false,memos:[],visited:[],discoveries:[],encounters:{}}; }
+export function freshState(){ return {collected:[],friends:{},lamp:false,memos:[],visited:[],discoveries:[],encounters:{},adventure:freshAdventure()}; }
 export function sanitizeState(value){
   const s=freshState(); if(!value||typeof value!=='object') return s;
   s.collected=[...new Set(Array.isArray(value.collected)?value.collected.filter(x=>Number.isInteger(x)&&x>=0&&x<24):[])];
   for(const [id,relation] of Object.entries(value.friends||{})) if(REGIONS.some(r=>r.id===id)&&['follow','home','stay'].includes(relation)) s.friends[id]=relation;
-  for(const id of ['ember','thorn','shade'])if(['calmed','friend'].includes(value.encounters?.[id]))s.encounters[id]=value.encounters[id];
+  for(const id of ['ember','thorn','shade'])if(['calmed','friend','friend-stay'].includes(value.encounters?.[id]))s.encounters[id]=value.encounters[id];
+  s.adventure=sanitizeAdventure(value.adventure);
   s.lamp=value.lamp===true && s.collected.length>=3;
   s.memos=(Array.isArray(value.memos)?value.memos:[]).filter(x=>typeof x==='string').map(x=>x.slice(0,160)).slice(-12);
   s.visited=[...new Set((Array.isArray(value.visited)?value.visited:[]).filter(x=>REGIONS.some(r=>r.id===x)))];
@@ -36,6 +38,7 @@ export function craftLamp(s){if(s.lamp||availableShards(s)<3)return false;s.lamp
 export function nearestReachable(origin,points,maxDistance=23){let best=null;let distance=maxDistance;for(const p of points){const d=Math.hypot(p.x-origin.x,p.y-origin.y,p.z-origin.z);if(d<distance&&d>2){distance=d;best=p;}}return best;}
 export function resolveFieldPosition(x,z,y,obstacles){
   for(const c of obstacles){
+    if(c.halfX){const ceiling=c.top??terrainHeight(c.x,c.z)+(c.h||1);if(y<ceiling&&y+2>(c.bottom??terrainHeight(c.x,c.z))){const px=c.halfX+.35-Math.abs(x-c.x),pz=c.halfZ+.35-Math.abs(z-c.z);if(px>0&&pz>0){if(px<pz)x+=(x<c.x?-1:1)*px;else z+=(z<c.z?-1:1)*pz;}}continue;}
     const dx=x-c.x,dz=z-c.z,d=Math.hypot(dx,dz),r=c.r+.35;
     const ceiling=c.walkable?c.top-.06:terrainHeight(c.x,c.z)+(c.h??c.r*2)+.5;
     if(d<r&&y<ceiling){const a=d>.001?Math.atan2(dz,dx):0;x=c.x+Math.cos(a)*r;z=c.z+Math.sin(a)*r;}
@@ -45,7 +48,7 @@ export function resolveFieldPosition(x,z,y,obstacles){
 export function supportHeight(x,z,previousY,surfaces){
   let floor=terrainHeight(x,z);
   for(const p of surfaces){
-    const inside=p.r?Math.hypot(x-p.x,z-p.z)<p.r:Math.abs(x-p.x)<3&&Math.abs(z-p.z)<2;
+    const inside=p.r?Math.hypot(x-p.x,z-p.z)<p.r:Math.abs(x-p.x)<(p.halfX??3)&&Math.abs(z-p.z)<(p.halfZ??2);
     if(inside&&previousY>=p.y-.08)floor=Math.max(floor,p.y);
   }
   return floor;
@@ -59,9 +62,10 @@ export function stepVertical(y,velocity,grounded,floor,dt){
   return {y:next,velocity,grounded:false};
 }
 export function cameraClearance(from,to,obstacles){
-  for(let i=2;i<=24;i++){
-    const t=i/24,x=from.x+(to.x-from.x)*t,y=from.y+(to.y-from.y)*t,z=from.z+(to.z-from.z)*t;
-    if(y<terrainHeight(x,z)+.45||obstacles.some(c=>Math.hypot(x-c.x,z-c.z)<c.r+.35&&y<terrainHeight(c.x,c.z)+(c.h??c.r*2)+.5))return Math.max(.12,(i-1)/24);
+  const steps=Math.max(24,Math.ceil(Math.hypot(to.x-from.x,to.y-from.y,to.z-from.z)/.2));
+  for(let i=1;i<=steps;i++){
+    const t=i/steps,x=from.x+(to.x-from.x)*t,y=from.y+(to.y-from.y)*t,z=from.z+(to.z-from.z)*t;
+    if(y<terrainHeight(x,z)+.18||obstacles.some(c=>{const inside=c.halfX?Math.abs(x-c.x)<c.halfX+.15&&Math.abs(z-c.z)<c.halfZ+.15:Math.hypot(x-c.x,z-c.z)<c.r+.15;return inside&&y>(c.bottom??terrainHeight(c.x,c.z))-.15&&y<(c.top??terrainHeight(c.x,c.z)+(c.h??c.r*2))+.15;}))return Math.max(.03,(i-1)/steps);
   }
   return 1;
 }

@@ -1,4 +1,4 @@
-import {terrainHeight,waterDepth,supportHeight} from './explore-state.js?v=20260907physics';
+import {terrainHeight,waterDepth,supportHeight} from './explore-state.js?v=20260907journey';
 
 export const BODY={radius:.35,height:2.05,gravity:22,maxStep:.3};
 const approach=(value,target,delta)=>value+Math.max(-delta,Math.min(delta,target-value));
@@ -40,11 +40,12 @@ export function advanceCharacter(body,input,dt,colliders,surfaces){
     body.x=Math.max(-110,Math.min(110,body.x+body.vx*step));body.z=Math.max(-110,Math.min(110,body.z+body.vz*step));
     const ground=terrainHeight(body.x,body.z);
     if(body.grounded&&ground-oldY>BODY.maxStep){body.x=oldX;body.z=oldZ;body.vx=body.vz=0;}
-    const floor=supportHeight(body.x,body.z,oldY,surfaces);
+    const floor=supportHeight(body.x,body.z,oldY+(body.grounded&&body.vy<=0?BODY.maxStep:0),surfaces);
     if(body.grounded&&body.vy<=0&&Math.abs(oldY-floor)<=BODY.maxStep){body.y=floor;body.vy=0;}
     else{
       // Displaced water partly offsets weight; this shallow pool permits wading.
       body.vy-=BODY.gravity*(1-immersion*.92)*step;
+      if(input.gliding&&depth===0)body.vy=Math.max(body.vy,-2.2);
       body.vy*=Math.exp(-immersion*2.5*step);
       body.y+=body.vy*step;body.grounded=false;
       if(body.vy>0)for(const c of colliders){

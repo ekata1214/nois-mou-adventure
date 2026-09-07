@@ -1,0 +1,38 @@
+name: Field regression checks
+on:
+  pull_request:
+    paths:
+      - 'js/**'
+      - 'css/explore.css'
+      - 'explore.html'
+      - 'scripts/test-*.mjs'
+      - 'assets/muu/**'
+      - '.github/workflows/field-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  field:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install the exact renderer used by the game
+        run: npm install --prefix "$RUNNER_TEMP/field-checks" --ignore-scripts --no-audit --no-fund three@0.170.0
+      - name: Saves, physics, combat, and adventure
+        run: |
+          node scripts/test-explore.mjs
+          node scripts/test-field-physics.mjs
+          node scripts/test-field-encounters.mjs
+          node scripts/test-adventure.mjs
+          node scripts/test-dpad-input.mjs
+          node scripts/test-bug-sweep.mjs
+      - name: Real Three.js scene and character animations
+        run: |
+          node scripts/test-meadow-runtime.mjs "$RUNNER_TEMP/field-checks/node_modules/three/build/three.module.js"
+          node scripts/test-mou-motion.mjs "$RUNNER_TEMP/field-checks/node_modules/three/build/three.module.js"
