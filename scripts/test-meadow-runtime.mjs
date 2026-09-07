@@ -9,7 +9,7 @@ const threeURL=pathToFileURL(process.argv[2]).href,RealThree=await import(threeU
 class El {
   constructor(){this.open=false;this.children=[];this.value='';this.dataset={};this.classList={add(){},remove(){},toggle(){}};this.handlers={};}
   addEventListener(k,f){this.handlers[k]=f;}style={setProperty(){}};setAttribute(){}setPointerCapture(){}focus(){}showModal(){this.open=true;}close(){this.open=false;}replaceChildren(){this.children=[];}append(x){this.children.push(x);}
-  getContext(){return {fillText(){},fillRect(){},stroke(){},beginPath(){},ellipse(){},fill(){},createImageData(w,h){return {data:new Uint8ClampedArray(w*h*4)};},putImageData(){}};}
+  getContext(){return {createRadialGradient(){return {addColorStop(){}};},fillText(){},fillRect(){},stroke(){},beginPath(){},ellipse(){},fill(){},createImageData(w,h){return {data:new Uint8ClampedArray(w*h*4)};},putImageData(){}};}
 }
 const els=new Map(),get=id=>{if(!els.has(id))els.set(id,new El());return els.get(id);};
 const document={body:new El(),getElementById:get,querySelectorAll(){return [];},createElement(){return new El();},addEventListener(){},hidden:false};
@@ -23,7 +23,7 @@ const {buildMeadow,pathDistance}=await import('data:text/javascript;base64,'+Buf
 const THREE={...RealThree,WebGLRenderer:class{constructor(){this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}},TextureLoader:class{load(){return new RealThree.Texture();}}};
 const sandbox={matchMedia(){return {matches:false};},THREE,...State,...(await import('../js/shell-life-state.js')),...(await import('../js/adventure-state.js')),buildMeadow,advanceCharacter,canOccupy,console,GLTFLoader:class{load(){}},devicePixelRatio:1,innerWidth:1200,innerHeight:800,document,window:{addEventListener(){}},localStorage:{getItem(){return null;},setItem(){}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){}};
 vm.createContext(sandbox);
-for(const file of ['shell-life-view','field-audio','field-encounters','encounter-views','field-combat','field-adventure']){let source=fs.readFileSync(new URL('../js/'+file+'.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export /g,'');if(file==='field-encounters'){sandbox.ENTITY_DEFS=(await import('../js/entities.js')).ENTITY_DEFS;sandbox.PATTERNS=(await import('../js/enemy-patterns.js')).PATTERNS;}vm.runInContext(source,sandbox);}
+for(const file of ['shell-starfield','shell-life-view','field-audio','field-encounters','encounter-views','field-combat','field-adventure']){let source=fs.readFileSync(new URL('../js/'+file+'.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export /g,'');if(file==='field-encounters'){sandbox.ENTITY_DEFS=(await import('../js/entities.js')).ENTITY_DEFS;sandbox.PATTERNS=(await import('../js/enemy-patterns.js')).PATTERNS;}vm.runInContext(source,sandbox);}
 vm.runInContext(fs.readFileSync(new URL('../js/explore.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,''),sandbox);
 const run=s=>vm.runInContext(s,sandbox);
 run("$('begin').onclick();update(.016)");assert.equal(run('lastRegion'),'ki');
