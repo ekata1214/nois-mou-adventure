@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createMouMotion } from './mou-motion.js?v=20260907motion';
-import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable } from './explore-state.js';
+import { buildMeadow } from './meadow-world.js?v=20260907meadow';
+import { KEY, REGIONS, terrainHeight, regionAt, freshState, sanitizeState, availableShards, makeFriend, craftLamp, nearestReachable, resolveFieldPosition, cameraClearance } from './explore-state.js?v=20260907meadow';
 
 const $=id=>document.getElementById(id);
 const canvas=$('world');
@@ -12,23 +13,15 @@ const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'h
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.2;
+renderer.toneMappingExposure=1.05;
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x708f88);
-scene.fog=new THREE.FogExp2(0x708f88,.0085);
+scene.background=new THREE.Color(0xb9c2ab);
+scene.fog=new THREE.FogExp2(0xb9c2ab,.007);
 const camera=new THREE.PerspectiveCamera(58,1,.1,360);
-scene.add(new THREE.HemisphereLight(0xe1e9f5,0x54513f,2.4));
-const sun=new THREE.DirectionalLight(0xffebc3,3.1);sun.position.set(-30,70,-40);scene.add(sun);
-const groundGeo=new THREE.PlaneGeometry(240,240,100,100);groundGeo.rotateX(-Math.PI/2);
-const verts=groundGeo.attributes.position, colors=[];
-for(let i=0;i<verts.count;i++){
-  const x=verts.getX(i),z=verts.getZ(i);verts.setY(i,terrainHeight(x,z));
-  const color=new THREE.Color(regionAt(x,z).color).multiplyScalar(.88+.1*Math.sin(x*.34)*Math.cos(z*.29));
-  colors.push(color.r,color.g,color.b);
-}
-groundGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));groundGeo.computeVertexNormals();
-scene.add(new THREE.Mesh(groundGeo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,flatShading:true})));
-function mesh(geo,color,x,y,z){const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color,roughness:.9}));m.position.set(x,y,z);scene.add(m);return m;}
+scene.add(new THREE.HemisphereLight(0xd4e4ed,0x535132,2.1));
+const sun=new THREE.DirectionalLight(0xffedd1,3);sun.position.set(-30,70,-40);scene.add(sun);
+const meadow=buildMeadow(scene,renderer,sun);
+function mesh(geo,color,x,y,z){const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color,roughness:.9}));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;scene.add(m);return m;}
 const textures=new THREE.TextureLoader();
 function sprite(path,height,x,y,z){const material=new THREE.SpriteMaterial({map:textures.load(path),alphaTest:.15});const obj=new THREE.Sprite(material);obj.scale.set(height,height,1);obj.position.set(x,y,z);scene.add(obj);return obj;}
 function label(text,x,y,z,width=8){
@@ -37,16 +30,9 @@ function label(text,x,y,z,width=8){
   const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false}));s.position.set(x,y,z);s.scale.set(width,width*160/768,1);scene.add(s);return s;
 }
-// All visual sprites are the project's existing art; geometry is playable terrain and landmarks.
-let seed=907;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
-const treeFiles=['summer_tree','autumn_tree','rain_tree','sunset_tree'];
-for(let i=0;i<100;i++){
-  const x=(rand()-.5)*215,z=(rand()-.5)*215;if(Math.hypot(x,z)<13)continue;
-  const r=regionAt(x,z),idx=REGIONS.indexOf(r),h=6+rand()*7;
-  sprite(`assets/scenery/${treeFiles[idx]}.png`,h,x,terrainHeight(x,z)+h*.43,z);
-}
 // Tall open frames give each horizon a recognizable destination, without enclosing the field.
 for(const r of REGIONS){
+  if(r.id==='ki')continue;
   const x=r.x*65,z=r.z*62,y=terrainHeight(x,z);
   mesh(new THREE.BoxGeometry(2,20,3),r.color,x-8,y+10,z);
   mesh(new THREE.BoxGeometry(2,20,3),r.color,x+8,y+10,z);
@@ -57,7 +43,8 @@ const platforms=[];
 for(const r of REGIONS){
   ['もしも',r.word,'その先'].forEach((word,i)=>{
     const x=r.x*(13+i*12),z=r.z*(13+i*9),y=terrainHeight(x,z)+4+i*3;
-    const slab=mesh(new THREE.BoxGeometry(6,.5,4),0xc8c6b3,x,y-.25,z);
+    const slab=mesh(new THREE.BoxGeometry(6,.5,4),0x8c9173,x,y-.25,z);
+    const underside=mesh(new THREE.ConeGeometry(3,2.5,7),0x777765,x,y-1.7,z);underside.rotation.z=Math.PI;underside.scale.z=.67;
     slab.material.emissive=new THREE.Color(r.color);slab.material.emissiveIntensity=.14;
     label(word,x,y+1.7,z,6);platforms.push({x,y,z,word,mesh:slab});
   });
@@ -82,7 +69,7 @@ const npcs=REGIONS.map((r,i)=>{
   const obj=sprite(['assets/icons/eyeball.png','assets/icons/giger/ear.png','assets/icons/giger/clock.png','assets/icons/hylics/book.png'][i],2.8,x,y+1.7,z);
   return {id:r.id,name:npcNames[i],line:npcLines[i],x,z,obj,label:label(npcNames[i],x,y+4,z,7)};
 });
-const player=new THREE.Group();player.position.set(0,terrainHeight(0,0),0);scene.add(player);
+const player=new THREE.Group();player.position.set(-3,terrainHeight(-3,-3),-3);player.rotation.y=Math.PI*1.25;scene.add(player);
 const fallback=sprite('assets/muu/back.png',2.2,0,1.1,0);scene.remove(fallback);player.add(fallback);
 let avatar=null,motion=null;
 // One existing GLB, loaded in the background. Exploration is usable while it downloads.
@@ -93,21 +80,24 @@ new GLTFLoader().load('assets/muu/mou-actions.glb?v=20260907motion',gltf=>{
   if(!Number.isFinite(size.y)||size.y<=0)return;
   root.scale.setScalar(2.05/size.y);box.setFromObject(root);const center=box.getCenter(new THREE.Vector3());
   root.position.set(-center.x,-box.min.y,-center.z);
+  root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
   player.add(root);avatar=root;fallback.visible=false;
   motion=createMouMotion(root,gltf.animations);
   $('wave').disabled=!motion.ready;
   modelNote.textContent='ムー君の動作も準備できました。';
 },event=>{if(event.total)modelNote.textContent=`野原は準備できました。ムー君の3Dを読込中 ${Math.round(event.loaded/event.total*100)}%（先に遊べます）`;},()=>{modelNote.textContent='今回は元のムー君の絵で遊べます。3Dモデルは読み込めませんでした。';});
 
-let yaw=Math.PI,pitch=.3,verticalSpeed=0,grounded=true,flight=null,active=false,runToggle=false;
+let yaw=Math.PI*1.25,pitch=.22,verticalSpeed=0,grounded=true,flight=null,active=false,runToggle=false;
 let nearest=null,leapTarget=null,lastRegion=null,elapsed=0,lastTime=0,toastTimer;
 const keys=new Set(),held=new Map();let drag=null;
-const dialogs=[$('welcome'),$('conversation'),$('shell')];
+const dialogs=[$('welcome'),$('conversation'),$('shell'),$('memory')];
 const modalOpen=()=>dialogs.some(d=>d.open);
 function toast(message){$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4200);}
 function updateHUD(){
   $('inventory').textContent=`記憶のかけら ${availableShards(state)}`;
   $('friend-count').textContent=`友達 ${Object.keys(state.friends).length}`;
+  $('trail-progress').textContent=`野原の記憶 ${state.discoveries.length} / 3`;
+  $('trail-hint').textContent=state.discoveries.length===3?'道の先まで来た。気配に会って、殻に持ち帰ろう。':'土の道をたどって、光る石碑を探そう。';
 }
 function clearInput(){keys.clear();held.clear();drag=null;runToggle=false;$('run').setAttribute('aria-pressed','false');}
 window.addEventListener('blur',clearInput);
@@ -144,9 +134,17 @@ $('begin').onclick=()=>{$('welcome').close();active=true;lastRegion=null;canvas.
 $('leave-npc').onclick=()=>$('conversation').close();
 $('shell-button').onclick=openShell;
 $('return-field').onclick=()=>$('shell').close();
+$('leave-memory').onclick=()=>$('memory').close();
 function interact(){
   if(!active||modalOpen()||!nearest)return;
   if(nearest.kind==='portal'){openShell();return;}
+  if(nearest.kind==='memory'){
+    const place=nearest.item;
+    if(!state.discoveries.includes(place.id)){state.discoveries.push(place.id);save();}
+    $('memory-name').textContent=place.name;$('memory-text').textContent=place.text;
+    $('memory-progress').textContent=`野原に残る記憶 ${state.discoveries.length} / 3`;
+    openDialog($('memory'));return;
+  }
   if(nearest.kind==='shard'){
     const shard=nearest.item;if(state.collected.includes(shard.id))return;
     state.collected.push(shard.id);shard.obj.visible=false;motion?.gesture('pickup');save();toast('記憶のかけらを、ひとつ預かった。');return;
@@ -178,9 +176,10 @@ function updateNearby(){
   consider('portal',portal,new THREE.Vector3(portal.x,portal.y,portal.z));
   for(const s of shards)if(s.obj.visible)consider('shard',s,s.obj.position);
   for(const n of npcs)if(n.obj.visible)consider('npc',n,n.obj.position);
+  for(const p of meadow.markers)consider('memory',p,p.mesh.position);
   $('interact').hidden=!nearest;
-  $('nearby-label').textContent=nearest?(nearest.kind==='npc'?nearest.item.name:nearest.kind==='portal'?'内省と生活の場所':'記憶のかけら'):'';
-  $('interact').textContent=nearest?.kind==='npc'?'話しかける · E':nearest?.kind==='portal'?'殻へ帰る · E':'拾う · E';
+  $('nearby-label').textContent=nearest?(nearest.kind==='npc'||nearest.kind==='memory'?nearest.item.name:nearest.kind==='portal'?'内省と生活の場所':'記憶のかけら'):'';
+  $('interact').textContent=nearest?.kind==='memory'?'耳をすます · E':nearest?.kind==='npc'?'話しかける · E':nearest?.kind==='portal'?'殻へ帰る · E':'拾う · E';
   leapTarget=nearestReachable(player.position,platforms.filter(p=>{
     const dx=p.x-player.position.x,dz=p.z-player.position.z;return dx*Math.sin(yaw)+dz*Math.cos(yaw)>0;
   }));
@@ -195,10 +194,13 @@ function update(dt){
     const dirs=[...held.values()];
     const forward=(keys.has('KeyW')||keys.has('ArrowUp')||dirs.includes('forward')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')||dirs.includes('back')?1:0);
     const side=(keys.has('KeyD')||keys.has('ArrowRight')||dirs.includes('right')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')||dirs.includes('left')?1:0);
-    const length=Math.hypot(side,forward)||1,speed=(runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight')?12:6)*dt;
+    const length=Math.hypot(side,forward)||1,speed=(runToggle||keys.has('ShiftLeft')||keys.has('ShiftRight')?8:4)*dt;
     moveX=(forward*Math.sin(yaw)-side*Math.cos(yaw))/length*speed;
     moveZ=(forward*Math.cos(yaw)+side*Math.sin(yaw))/length*speed;
     player.position.x=THREE.MathUtils.clamp(player.position.x+moveX,-110,110);player.position.z=THREE.MathUtils.clamp(player.position.z+moveZ,-110,110);
+    // Resolve solid trunks and large rocks without trapping the player on contact.
+    const resolved=resolveFieldPosition(player.position.x,player.position.z,player.position.y,meadow.colliders);
+    player.position.x=resolved.x;player.position.z=resolved.z;
     const floor=standingHeight(player.position.x,player.position.z,player.position.y);
     verticalSpeed-=22*dt;player.position.y+=verticalSpeed*dt;
     if(player.position.y<=floor){player.position.y=floor;verticalSpeed=0;grounded=true;}else grounded=false;
@@ -225,7 +227,7 @@ function update(dt){
     n.label.position.copy(n.obj.position).add(new THREE.Vector3(0,2.5,0));
   });
   const r=regionAt(player.position.x,player.position.z);
-  const sky=new THREE.Color(r.sky);scene.background.lerp(sky,Math.min(1,dt));scene.fog.color.copy(scene.background);
+  meadow.update(elapsed,player.position);
   if(lastRegion!==r.id){
     lastRegion=r.id;$('region-label').textContent='NOU / 思考の野原';$('region-name').textContent=r.name;$('region-desc').textContent=r.note;
     if(active&&!state.visited.includes(r.id)){state.visited.push(r.id);save();toast(`${r.name} に足を踏み入れた。`);}
@@ -233,7 +235,10 @@ function update(dt){
   lookAt.copy(player.position).add(new THREE.Vector3(0,1.7,0));
   desiredCam.set(player.position.x-Math.sin(yaw)*9,player.position.y+3+pitch*8,player.position.z-Math.cos(yaw)*9);
   desiredCam.y=Math.max(desiredCam.y,terrainHeight(desiredCam.x,desiredCam.z)+1.8);
-  camera.position.lerp(desiredCam,1-Math.exp(-dt*8));camera.lookAt(lookAt);
+  // Shorten the camera arm before terrain or a solid landscape object hides Mou.
+  desiredCam.lerpVectors(lookAt,desiredCam,cameraClearance(lookAt,desiredCam,meadow.colliders));
+  camera.position.lerp(desiredCam,1-Math.exp(-dt*8));
+  camera.position.lerpVectors(lookAt,camera.position,cameraClearance(lookAt,camera.position,meadow.colliders));camera.lookAt(lookAt);
   hudTick+=dt;if(hudTick>.15){hudTick=0;updateNearby();const deg=((yaw*180/Math.PI)%360+360)%360;$('compass').textContent=['S','E','N','W'][Math.round(deg/90)%4];}
 }
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
