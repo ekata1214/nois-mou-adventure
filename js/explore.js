@@ -1,4 +1,4 @@
-import {createShellLifeView} from './shell-life-view.js';
+import {createShellLifeView} from './shell-life-view.js?v=20260908cosmos';
 import {collectFragment,makeVessel,inscribe} from './shell-life-state.js';
 import {createFieldAudio} from './field-audio.js';
 import {buildFieldAdventure} from './field-adventure.js?v=20260908shell';

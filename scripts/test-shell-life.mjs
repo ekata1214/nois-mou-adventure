@@ -12,3 +12,8 @@ const {createFieldAudio}=await import('../js/field-audio.js');
 const tracks=[];globalThis.Audio=class{constructor(path){this.path=path;this.playing=false;tracks.push(this);}play(){this.playing=true;return Promise.resolve();}pause(){this.playing=false;}};
 const button={setAttribute(){}};const music=createFieldAudio(button);music.start();assert.equal(tracks.length,0);button.onclick();assert.equal(tracks[0].playing,true);music.zone('shell');assert.equal(tracks[0].playing,false);assert.ok(tracks[1].path.includes('heal'));music.pause(true);assert.equal(tracks[1].playing,false);music.pause(false);assert.equal(tracks[1].playing,true);button.onclick();assert.equal(tracks[1].playing,false);
 console.log('Audio: opt-in, zone switching, background pause and mute OK');
+// The authored shell architecture is part of the concept, not optional furniture.
+const fs=await import('node:fs');const glb=fs.readFileSync(new URL('../assets/room/shell-lite.glb',import.meta.url));
+assert.equal(glb.toString('ascii',0,4),'glTF');const model=JSON.parse(glb.toString('utf8',20,20+glb.readUInt32LE(12)));
+for(const name of ['room.002','bed','tvs','kt'])assert.ok(model.nodes.some(n=>n.name===name),`original shell node missing: ${name}`);
+assert.ok(model.images.length>0);console.log('Shell asset: original walls, furniture, pendant and textures retained.');

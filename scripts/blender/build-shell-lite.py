@@ -5,10 +5,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[2]
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=str(root / 'assets/room/this ver2.glb'))
-# Use the authored furniture in a cutaway room so touch users can see Mou.
-for obj in list(bpy.data.objects):
-    if obj.name in {'room.002', 'room lg', 'kt'}:
-        bpy.data.objects.remove(obj, do_unlink=True)
+# Retain the authored walls, floor, ceiling, lights and furniture.
 for image in bpy.data.images:
     if image.size[0] > 1024 or image.size[1] > 1024:
         scale = 1024 / max(image.size)
@@ -19,7 +16,8 @@ for obj in bpy.data.objects:
         continue
     bpy.context.view_layer.objects.active = obj
     modifier = obj.modifiers.new('Browser simplification', 'DECIMATE')
-    modifier.ratio = min(1, 26000 / len(obj.data.polygons))
+    budget = 220000 if obj.name == "room.002" else 26000
+    modifier.ratio = min(1, budget / len(obj.data.polygons))
     bpy.ops.object.modifier_apply(modifier=modifier.name)
     print('SIMPLIFIED', obj.name, len(obj.data.polygons), flush=True)
 bpy.ops.export_scene.gltf(filepath=str(root / 'assets/room/shell-lite.glb'), export_format='GLB', export_image_format='AUTO', export_animations=False, export_apply=True)
