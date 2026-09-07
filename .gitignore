@@ -7,3 +7,5 @@ package.json
 !scripts/package.json
 tools/
 assets/muu/.export-options.json
+assets/muu/mou-actions.blend1
+assets/muu/actions/*.blend1

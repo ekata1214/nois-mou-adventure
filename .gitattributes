@@ -1,5 +1,6 @@
 assets/muu/*.glb filter=lfs diff=lfs merge=lfs -text
 assets/muu/*.blend filter=lfs diff=lfs merge=lfs -text
+assets/muu/actions/*.blend filter=lfs diff=lfs merge=lfs -text
 assets/muu/*.GLB filter=lfs diff=lfs merge=lfs -text
 assets/room/*.glb filter=lfs diff=lfs merge=lfs -text
 assets/room/*.GLB filter=lfs diff=lfs merge=lfs -text
