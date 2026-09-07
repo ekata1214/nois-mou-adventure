@@ -1,4 +1,4 @@
-import {buildFieldSky} from './field-sky.js?v=20260908shell';
+import {buildFieldSky} from './field-sky.js?v=20260908print';
 import {CAMPS,CHESTS,RUNES,BERRIES} from './adventure-state.js?v=20260908shell';
 import * as THREE from 'three';
 import {buildPond} from './pond-water.js?v=20260907physics';
@@ -40,11 +40,11 @@ export function buildMeadow(scene,renderer,sun) {
   const texture=stoneTexture();
   const ground=new THREE.PlaneGeometry(240,240,200,200);ground.rotateX(-Math.PI/2);
   const pos=ground.attributes.position,colors=[];
-  const grassColor=new THREE.Color(),earth=new THREE.Color('#ae8276');
+  const grassColor=new THREE.Color(),earth=new THREE.Color('#9e9794');
   for(let i=0;i<pos.count;i++) {
     const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,terrainHeight(x,z));
     const patch=Math.sin(x*.12+Math.cos(z*.17))*Math.cos(z*.095);
-    grassColor.setHSL(.12+patch*.055,.22,.29+patch*.05);
+    grassColor.setHSL(.18+patch*.055,.075,.34+patch*.05);
     const path=1-THREE.MathUtils.smoothstep(pathDistance(x,z),1.4,3.5);
     grassColor.lerp(earth,path*.85);
     colors.push(grassColor.r,grassColor.g,grassColor.b);
@@ -57,8 +57,8 @@ export function buildMeadow(scene,renderer,sun) {
   sun.castShadow=true;sun.shadow.mapSize.set(touchDevice?1024:2048,touchDevice?1024:2048);
   Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:180});
   sun.shadow.bias=-.00025;sun.shadow.normalBias=.035;scene.add(sun.target);
-  const stone=new THREE.MeshStandardMaterial({color:0x99917b,map:texture,bumpMap:texture,bumpScale:.16,roughness:.95});
-  const bark=new THREE.MeshStandardMaterial({color:0x574735,map:texture,bumpMap:texture,bumpScale:.15,roughness:1});
+  const stone=new THREE.MeshStandardMaterial({color:0xa3a0a1,map:texture,bumpMap:texture,bumpScale:.16,roughness:.95});
+  const bark=new THREE.MeshStandardMaterial({color:0xaaa29e,map:texture,bumpMap:texture,bumpScale:.15,roughness:1});
   function add(geo,mat,x,y,z,sx=1,sy=1,sz=1) {
     const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=m.receiveShadow=true;scene.add(m);return m;
   }
@@ -122,10 +122,10 @@ export function buildMeadow(scene,renderer,sun) {
     leafCtx.beginPath();leafCtx.ellipse(x,y,4+random()*4,9+random()*6,random()*6.28,0,Math.PI*2);leafCtx.fill();
   }
   const leafTexture=new THREE.CanvasTexture(leafCanvas);leafTexture.colorSpace=THREE.SRGBColorSpace;
-  const crowns=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshStandardMaterial({map:leafTexture,color:0xad8d88,alphaTest:.45,side:THREE.DoubleSide,roughness:.9}),10000);
+  const crowns=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshStandardMaterial({map:leafTexture,color:0x969397,alphaTest:.45,side:THREE.DoubleSide,roughness:.9}),10000);
   const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.22,.43,1,8),bark,400);
   let crownCount=0,trunkCount=0;
-  const canopy=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,2),new THREE.MeshStandardMaterial({color:0x4d363f,roughness:1,flatShading:true}),300);let canopyCount=0;
+  const canopy=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,2),new THREE.MeshStandardMaterial({color:0x77757c,roughness:1,flatShading:false}),300);let canopyCount=0;
   for(let i=0;i<100;i++) {
     const x=-100+random()*175,z=-103+random()*183;
     if([...CAMPS,...CHESTS,...RUNES,...BERRIES].some(p=>Math.hypot(x-p.x,z-p.z)<3.4))continue;
@@ -135,11 +135,17 @@ export function buildMeadow(scene,renderer,sun) {
     const h=5+random()*6,y=terrainHeight(x,z),width=2+random()*1.3;
     dummy.position.set(x,y+h/2,z);dummy.rotation.set(0,random()*6.28,(random()-.5)*.1);dummy.scale.set(1,h,1);dummy.updateMatrix();trunks.setMatrixAt(trunkCount++,dummy.matrix);
     colliders.push({x,z,r:.55,h});
+    if(i%3===0)for(let k=0;k<3;k++){
+      const angle=k*2.1,points=[];
+      for(let q=0;q<=12;q++){const t=q/12,spread=Math.sin(t*3.8)*2.2;points.push(new THREE.Vector3(Math.cos(angle)*spread,h*.55+t*h*.62,Math.sin(angle)*spread));}
+      const limb=add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),24,.18,7,false),bark,x,y,z);
+    }
+
     for(let j=0;j<3;j++) {
       const a=j*2.1;dummy.position.set(x+Math.cos(a)*.65,y+h*.8,z+Math.sin(a)*.65);dummy.rotation.set(Math.sin(a)*.6,0,Math.cos(a)*.6);dummy.scale.set(.45,h*.45,.45);dummy.updateMatrix();trunks.setMatrixAt(trunkCount++,dummy.matrix);
     }
-    for(let j=0;j<3;j++){const a=j*2.1;dummy.position.set(x+Math.cos(a)*width*.45,y+h+Math.sin(j)*.4,z+Math.sin(a)*width*.45);dummy.rotation.set(.1,j,0);dummy.scale.set(width*.82,width*.48,width*.85);dummy.updateMatrix();canopy.setMatrixAt(canopyCount++,dummy.matrix);}
-    for(let j=0;j<95;j++) {
+    for(let j=0;j<(i%3===0?0:3);j++){const a=j*2.1;dummy.position.set(x+Math.cos(a)*width*.45,y+h+Math.sin(j)*.4,z+Math.sin(a)*width*.45);dummy.rotation.set(.1,j,0);dummy.scale.set(width*.82,width*.48,width*.85);dummy.updateMatrix();canopy.setMatrixAt(canopyCount++,dummy.matrix);}
+    for(let j=0;j<(i%3===0?0:45);j++) {
       const a=random()*6.28,r=Math.sqrt(random())*width*1.45;
       dummy.position.set(x+Math.cos(a)*r,y+h+.5+(random()-.5)*width*1.5,z+Math.sin(a)*r);
       dummy.rotation.set(random()*Math.PI,random()*6.28,random()*Math.PI);const size=1.3+random()*.9;dummy.scale.set(size,size,1);dummy.updateMatrix();crowns.setMatrixAt(crownCount,dummy.matrix);
@@ -148,6 +154,19 @@ export function buildMeadow(scene,renderer,sun) {
   }
   canopy.count=canopyCount;canopy.castShadow=canopy.receiveShadow=true;scene.add(canopy);
   crowns.count=crownCount;trunks.count=trunkCount;crowns.castShadow=trunks.castShadow=true;crowns.receiveShadow=trunks.receiveShadow=true;scene.add(crowns,trunks);
+  // A distant hollow grove: curling roots surround an open silhouette.
+  const groveX=-43,groveZ=-57,groveY=terrainHeight(groveX,groveZ);
+  for(let k=0;k<9;k++){
+    const a=k*Math.PI*2/9,points=[];
+    for(let q=0;q<=20;q++){const t=q/20,r=7*(1-t)+Math.sin(t*Math.PI*2)*1.4;points.push(new THREE.Vector3(Math.cos(a+t*t*2.1)*r,Math.sin(t*Math.PI*.78)*(10+Math.sin(k*1.7)*2),Math.sin(a+t*t*2.1)*r));}
+    add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),40,.32,8,false),bark,groveX,groveY,groveZ);
+    const x=groveX+Math.cos(a)*7,z=groveZ+Math.sin(a)*7;colliders.push({x,z,r:.65,h:4});
+  }
+  // Distant birds use shared geometry; their gentle orbit adds life without input.
+  const birds=[];
+  const wingGeo=new THREE.BufferGeometry();wingGeo.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,-.8,.08,.2,-.18,0,.4],3));wingGeo.computeVertexNormals();
+  const wingMat=new THREE.MeshBasicMaterial({color:0x494750,side:THREE.DoubleSide});
+  for(let i=0;i<9;i++){const bird=new THREE.Group(),left=new THREE.Mesh(wingGeo,wingMat),right=new THREE.Mesh(wingGeo,wingMat);right.scale.x=-1;bird.add(left,right);scene.add(bird);birds.push({bird,left,right,phase:i*1.7});}
   const wind={value:0};
   const bladeGeo=new THREE.BufferGeometry(),blades=[];
   for(let b=0;b<4;b++){
@@ -164,11 +183,18 @@ export function buildMeadow(scene,renderer,sun) {
     const x=-105+random()*extent,z=-105+random()*extent;
     if(pathDistance(x,z)<2.3||Math.hypot(x+19,z+46)<9)continue;
     dummy.position.set(x,terrainHeight(x,z),z);dummy.rotation.set(0,random()*6.28,0);const s=.45+random()*.8;dummy.scale.set(s,s,s);dummy.updateMatrix();grass.setMatrixAt(count,dummy.matrix);
-    grass.setColorAt(count++,new THREE.Color().setHSL(.04+random()*.12,.30,.32+random()*.12));
+    grass.setColorAt(count++,new THREE.Color().setHSL(.16+random()*.12,.09,.34+random()*.12));
   }
   grass.count=touchDevice?Math.floor(count*.55):count;grass.receiveShadow=true;scene.add(grass);
-  const flowers=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.085,0),new THREE.MeshStandardMaterial({color:0xe88987,roughness:1}),220);
-  for(let i=0;i<220;i++){const a=i*2.399,r=2+Math.sqrt(i)*.22,cx=i%2?-39:-14,cz=i%2?-28:-39,x=cx+Math.sin(a)*r,z=cz+Math.cos(a)*r;dummy.position.set(x,terrainHeight(x,z)+.3,z);dummy.scale.set(1,.55,1);dummy.rotation.set(0,a,0);dummy.updateMatrix();flowers.setMatrixAt(i,dummy.matrix);}flowers.receiveShadow=true;scene.add(flowers);
+  // Small, readable five-petal flowers punctuate the quiet grey ground.
+  const flowers=new THREE.InstancedMesh(new THREE.SphereGeometry(.11,6,4),new THREE.MeshStandardMaterial({roughness:.9}),600);
+  const palette=[0xe7bd45,0x9684de,0x619ed3,0xd883b7];
+  for(let i=0;i<120;i++){
+    const a=i*2.399,r=.3+Math.sqrt(i%30)*.32,cx=[-5,-14,-39,-30][i%4],cz=[-6,-19,-28,-32][i%4];
+    const x=cx+Math.sin(a)*r,z=cz+Math.cos(a)*r,y=terrainHeight(x,z)+.38;
+    for(let j=0;j<5;j++){const angle=j*Math.PI*2/5;dummy.position.set(x+Math.cos(angle)*.12,y,z+Math.sin(angle)*.12);dummy.scale.set(1,.45,1);dummy.rotation.set(0,angle,0);dummy.updateMatrix();flowers.setMatrixAt(i*5+j,dummy.matrix);flowers.setColorAt(i*5+j,new THREE.Color(palette[i%4]));}
+  }flowers.receiveShadow=true;scene.add(flowers);
+
   // A shallow pool, kept outside the route, with animated ripples and a visible bed.
   const pond=buildPond(scene);
   for(let i=0;i<42;i++){const a=random()*6.28,r=8.2+random()*2.3,x=-19+Math.cos(a)*r,z=-46+Math.sin(a)*r;add(rockGeo,rockMaterial,x,terrainHeight(x,z)-.1,z,.25+random()*.5,.2+random()*.35,.3+random()*.4);}
@@ -201,5 +227,5 @@ export function buildMeadow(scene,renderer,sun) {
   dustGeo.setAttribute('position',new THREE.Float32BufferAttribute(dust,3));
   const particles=new THREE.Points(dustGeo,new THREE.PointsMaterial({color:0xffe9af,size:.065,transparent:true,opacity:.6,depthWrite:false}));scene.add(particles);
   const sky=buildFieldSky(scene);
-  return {colliders,markers,stumps,pond,rockMaterial,update(time,player){wind.value=time;pond.update(time,player);particles.position.y=Math.sin(time*.14)*.4;sky.update(time,player);sun.position.set(player.x-35,player.y+55,player.z-35);sun.target.position.copy(player);for(const p of markers){p.light.rotation.y=time*.7;p.light.position.y=p.y+1.3+Math.sin(time*1.4)*.1;}}};
+  return {colliders,markers,stumps,pond,rockMaterial,update(time,player){wind.value=time;for(const {bird,left,right,phase} of birds){const a=time*.045+phase;bird.position.set(-35+Math.cos(a)*24,23+Math.sin(a*1.3)*3,-45+Math.sin(a)*20);bird.rotation.y=-a;const flap=Math.sin(time*2.3+phase)*.28;left.rotation.z=flap;right.rotation.z=-flap;}pond.update(time,player);particles.position.y=Math.sin(time*.14)*.4;sky.update(time,player);sun.position.set(player.x-35,player.y+55,player.z-35);sun.target.position.copy(player);for(const p of markers){p.light.rotation.y=time*.7;p.light.position.y=p.y+1.3+Math.sin(time*1.4)*.1;}}};
 }
