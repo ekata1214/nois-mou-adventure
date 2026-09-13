@@ -18,12 +18,16 @@ const pondSource=fs.readFileSync(new URL('../js/pond-water.js',import.meta.url),
 const pondURL='data:text/javascript;base64,'+Buffer.from(pondSource).toString('base64');
 const skySource=fs.readFileSync(new URL('../js/field-sky.js',import.meta.url),'utf8').replace("'three'",JSON.stringify(threeURL));
 const skyURL='data:text/javascript;base64,'+Buffer.from(skySource).toString('base64');
-const worldSource=fs.readFileSync(new URL('../js/meadow-world.js',import.meta.url),'utf8').replace("'three'",JSON.stringify(threeURL)).replace(/'\.\/explore-state\.js\?v=[^']+'/g,JSON.stringify(new URL('../js/explore-state.js',import.meta.url).href)).replace(/'\.\/pond-water\.js\?v=[^']+'/g,JSON.stringify(pondURL)).replace(/'\.\/field-sky\.js\?v=[^']+'/g,JSON.stringify(skyURL)).replace(/'\.\/adventure-state\.js\?v=[^']+'/g,JSON.stringify(new URL('../js/adventure-state.js',import.meta.url).href));
+const handSource=fs.readFileSync(new URL('../js/hand-signal.js',import.meta.url),'utf8').replace("'three'",JSON.stringify(threeURL)).replace(/import \{GLTFLoader\} from [^;]+;/,"class GLTFLoader{load(){}}");
+const handURL='data:text/javascript;base64,'+Buffer.from(handSource).toString('base64');
+const furnitureSource=fs.readFileSync(new URL('../js/field-furnishings.js',import.meta.url),'utf8').replace("'three'",JSON.stringify(threeURL)).replace(/import \{GLTFLoader\} from [^;]+;/,"class GLTFLoader{loadAsync(){return new Promise(()=>{});}}");
+const furnitureURL='data:text/javascript;base64,'+Buffer.from(furnitureSource).toString('base64');
+const worldSource=fs.readFileSync(new URL('../js/meadow-world.js',import.meta.url),'utf8').replace("'three'",JSON.stringify(threeURL)).replace(/'\.\/explore-state\.js\?v=[^']+'/g,JSON.stringify(new URL('../js/explore-state.js',import.meta.url).href)).replace(/'\.\/pond-water\.js\?v=[^']+'/g,JSON.stringify(pondURL)).replace(/'\.\/field-sky\.js\?v=[^']+'/g,JSON.stringify(skyURL)).replace(/'\.\/field-furnishings\.js\?v=[^']+'/g,JSON.stringify(furnitureURL)).replace(/'\.\/hand-signal\.js\?v=[^']+'/g,JSON.stringify(handURL)).replace(/'\.\/adventure-state\.js\?v=[^']+'/g,JSON.stringify(new URL('../js/adventure-state.js',import.meta.url).href));
 const {buildMeadow,pathDistance}=await import('data:text/javascript;base64,'+Buffer.from(worldSource).toString('base64'));
 const THREE={...RealThree,WebGLRenderer:class{constructor(){this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}},TextureLoader:class{load(){return new RealThree.Texture();}}};
-const sandbox={matchMedia(){return {matches:false};},THREE,...State,...(await import('../js/shell-life-state.js')),...(await import('../js/adventure-state.js')),buildMeadow,advanceCharacter,canOccupy,console,GLTFLoader:class{load(){}},devicePixelRatio:1,innerWidth:1200,innerHeight:800,document,window:{addEventListener(){}},localStorage:{getItem(){return null;},setItem(){}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){}};
+const sandbox={createAuthoredScenery(){return {update(){}};},matchMedia(){return {matches:false};},THREE,...State,...(await import('../js/shell-life-state.js')),...(await import('../js/adventure-state.js')),buildMeadow,advanceCharacter,canOccupy,console,GLTFLoader:class{load(){}loadAsync(){return new Promise(()=>{});}},devicePixelRatio:1,innerWidth:1200,innerHeight:800,document,window:{addEventListener(){}},localStorage:{getItem(){return null;},setItem(){}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){}};
 vm.createContext(sandbox);
-for(const file of ['field-print','shell-starfield','shell-life-view','field-audio','field-encounters','encounter-views','field-combat','field-adventure']){let source=fs.readFileSync(new URL('../js/'+file+'.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export /g,'');if(file==='field-encounters'){sandbox.ENTITY_DEFS=(await import('../js/entities.js')).ENTITY_DEFS;sandbox.PATTERNS=(await import('../js/enemy-patterns.js')).PATTERNS;}vm.runInContext(source,sandbox);}
+for(const file of ['field-furnishings','hand-signal','uncanny-props','field-print','shell-starfield','shell-life-view','field-audio','field-encounters','encounter-views','field-combat','field-adventure']){let source=fs.readFileSync(new URL('../js/'+file+'.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export /g,'');if(file==='field-encounters'){sandbox.ENTITY_DEFS=(await import('../js/entities.js')).ENTITY_DEFS;sandbox.PATTERNS=(await import('../js/enemy-patterns.js')).PATTERNS;}vm.runInContext(source,sandbox);}
 vm.runInContext(fs.readFileSync(new URL('../js/explore.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,''),sandbox);
 const run=s=>vm.runInContext(s,sandbox);
 run("$('begin').onclick();update(.016)");assert.equal(run('lastRegion'),'ki');
@@ -79,11 +83,11 @@ run("const reward=adventure.items.find(i=>i.id==='shrine');player.position.set(r
 run("const restPlace=adventure.items.find(i=>i.id==='grove');player.position.set(restPlace.x,restPlace.y,restPlace.z+2);updateNearby();interact();");assert.equal(run('state.adventure.checkpoint'),'grove');assert.equal(get('journey').open,true);
 run("state.adventure.fruit=2;$('cook-meal').onclick();");assert.equal(run('state.adventure.fruit'),0);
 run("$('close-journey').onclick();$('defeat').showModal();$('retry').onclick();");assert.equal(run('combat.fighter.hp'),6);assert.equal(run('player.position.x'),-39);
-run("grounded=false;player.position.y+=12;verticalSpeed=-2;combat.fighter.action=null;combat.fighter.stamina=100;jump();update(.1);");assert.equal(run('gliding'),true);assert(run('verticalSpeed')>=-2.21);
+run("grounded=false;player.position.y+=12;verticalSpeed=-2;combat.fighter.action=null;combat.fighter.stamina=100;jump();update(.1);");assert(run('verticalSpeed') < -2.21);assert.equal(run("$('jump').textContent"),'跳ぶ');
 const frozenY=run('player.position.y');run('suspended=true;update(.1)');assert.equal(run('player.position.y'),frozenY);
 run("$('resume-play').onclick();");assert.equal(run('suspended'),false);
-run("gliding=false;grounded=true;combat.fighter.action=null;const friend=combat.enemies[0];player.position.set(friend.x,friend.y,friend.z+2);nearest={kind:'calmed',item:friend};interact();");assert.equal(run('state.encounters.ember'),'friend-stay');assert.equal(run("Object.values(state.encounters).filter(v=>v==='friend'||v==='friend-stay').length"),1);
-console.log('Adventure runtime OK: actual nearby actions, remote interaction blocked, ordered lights, shrine blessing, cooking, checkpoint retry, glide, suspension, waiting friendship.');
+run("grounded=true;combat.fighter.action=null;const friend=combat.enemies[0];player.position.set(friend.x,friend.y,friend.z+2);nearest={kind:'calmed',item:friend};interact();");assert.equal(run('state.encounters.ember'),'friend-stay');assert.equal(run("Object.values(state.encounters).filter(v=>v==='friend'||v==='friend-stay').length"),1);
+console.log('Adventure runtime OK: actual nearby actions, remote interaction blocked, ordered lights, shrine blessing, cooking, checkpoint retry, airborne jump ignored, suspension, waiting friendship.');
 run(`$('journey').close();$('defeat').close();active=true;suspended=false;combat.fighter.action=null;const fieldPose=player.position.clone();const fieldHeading=player.rotation.y;openShell();const enemyBefore=combat.enemies[0].x;keys.add('KeyW');for(let i=0;i<60;i++)update(1/60);`);
 assert.equal(run('shellMode'),true);assert.equal(run('combat.enemies[0].x===enemyBefore'),true);
 run("state.shellLife.spots.fill(0);shellView.collect(0);for(let i=0;i<600;i++)update(1/60)");assert.ok(run('state.shellLife.fragments>=1'));
@@ -92,3 +96,12 @@ run("$('memo').value='この部屋で考えたこと';$('save-memo').onclick()")
 run("$('room-leave').onclick()");assert.equal(run('player.position.equals(fieldPose)'),true);assert.equal(run('player.rotation.y===fieldHeading'),true);assert.equal(run('player.parent===scene'),true);assert.equal(run('keys.size'),0);
 run("const rpgEnemy=combat.enemies.find(e=>e.mode==='rpg');rpgEnemy.hp=rpgEnemy.maxHp;openRpg(rpgEnemy);for(let i=0;i<3;i++)$('npc-choices').children[1].onclick()");assert.equal(run('rpgEnemy.phase'),'calmed');assert.equal(get('conversation').open,false);
 console.log('Shell runtime: no field combat, walking collection, empty note safety, vessel conversion, exact return pose. RPG listening resolves without timed input.');
+// Prop replacement keeps old save identifiers and unclaimed/claimed readability.
+const soot=run('createSootShard(7)');soot.userData.animate(123);assert.equal(soot.children.length,9);for(const w of soot.children)assert.ok(Number.isFinite(w.position.y)&&w.scale.x>0);
+const watcher=run('createWatcher()');watcher.update(3,false,{x:1,z:3});assert.equal(watcher.root.children[0].visible,true);watcher.update(3,true,{x:1,z:3});assert.equal(watcher.root.children[0].visible,false);
+console.log('Uncanny props: finite smoke motion and persistent closed-eye state OK.');
+
+const distortedStep=run('createUncannyStep(2)');const stepPositions=distortedStep.children[0].geometry.attributes.position;
+for(let i=0;i<stepPositions.count;i++){assert.ok(Math.abs(stepPositions.getY(i))<1e-6);assert.ok(Math.abs(stepPositions.getX(i))<=3&&Math.abs(stepPositions.getZ(i))<=2);}
+assert.ok(run('npcs[0].watcher'),'eye NPC uses a three-dimensional eye');
+console.log('Furnishings: level step support within original bounds; eye NPC is 3D.');

@@ -1,11 +1,20 @@
 import * as THREE from 'three';
 
+// Use the relaxed walking arm pose at running cadence, retaining the run legs.
+// Clone tracks so another character using the source clips remains unaffected.
+export function softenRunArms(clips){
+  const walk=clips.find(c=>c.name==='walk');
+  if(!walk)return clips;
+  const arm=/^(upper_arm|forearm|hand)[._]?[LR]\./;
+  return clips.map(clip=>{if(clip.name!=='run')return clip;const result=clip.clone();result.tracks=result.tracks.map(track=>{if(!arm.test(track.name))return track;const relaxed=walk.tracks.find(t=>t.name===track.name);if(!relaxed)return track;const copy=relaxed.clone();copy.scale(clip.duration/walk.duration);return copy;});return result;});
+}
+
 /** A single animation owner: gestures yield immediately to locomotion. */
 export function createMouMotion(root, clips) {
   const combatBones=[];root.traverse(o=>{if(o.isBone&&['upper_arm.R','forearm.R','spine.002'].includes(o.name))combatBones.push({bone:o,base:o.quaternion.clone()});});
   const axis=new THREE.Vector3(1,0,0),turn=new THREE.Quaternion();
   const mixer = new THREE.AnimationMixer(root);
-  const actions = new Map(clips.map(clip => [clip.name, mixer.clipAction(clip)]));
+  const actions = new Map(softenRunArms(clips).map(clip => [clip.name, mixer.clipAction(clip)]));
   let current = null, gesture = null, remaining = 0, wasGrounded = true;
   const loops = new Set(['idle', 'walk', 'run', 'fall', 'thought']);
   function play(name) {

@@ -9,3 +9,6 @@ tools/
 assets/muu/.export-options.json
 assets/muu/mou-actions.blend1
 assets/muu/actions/*.blend1
+
+# Editable local sculpt sources; ship the GLB variants only.
+assets/sculpt-202698/*.blend*
