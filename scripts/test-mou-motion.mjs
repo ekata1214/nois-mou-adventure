@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 const threeURL = pathToFileURL(process.argv[2]).href;
 const THREE = await import(threeURL);
 const source = fs.readFileSync(new URL('../js/mou-motion.js', import.meta.url), 'utf8').replace("'three'", JSON.stringify(threeURL));
-const { createMouMotion } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const { createMouMotion, softenRunArms } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const binary = fs.readFileSync(new URL('../assets/muu/mou-actions.glb', import.meta.url));
 assert.equal(binary.toString('ascii', 0, 4), 'glTF');
 const gltf = JSON.parse(binary.toString('utf8', 20, 20 + binary.readUInt32LE(12)));
@@ -40,3 +40,9 @@ head.material.onBeforeCompile(surface);head.customDepthMaterial.onBeforeCompile(
 appearance.update(4);assert.equal(surface.uniforms.brainTime.value,4);assert.equal(shadow.uniforms.brainTime,surface.uniforms.brainTime);
 assert.ok(surface.vertexShader.includes('transformed += normal'));assert.equal(body.customDepthMaterial,undefined);
 console.log('Mou motion OK: 9 skinned clips, movement priority, jump/fall/landing, gestures, pause, flight landing, repeated transitions.');
+
+const armTrack=new THREE.QuaternionKeyframeTrack('forearmR.quaternion',[0,1],[0,0,0,1,0,0,0,1]);
+const sourceWalk=new THREE.AnimationClip('walk',1,[armTrack]);
+const sourceRun=new THREE.AnimationClip('run',.64,[new THREE.QuaternionKeyframeTrack('forearmR.quaternion',[0,.64],[.4,0,0,.9165,.4,0,0,.9165])]);
+const softened=softenRunArms([sourceWalk,sourceRun])[1];assert.equal(softened.tracks[0].values[0],0);assert.ok(Math.abs(softened.tracks[0].times[1]-.64)<1e-6);assert.ok(sourceRun.tracks[0].values[0]>.39);
+console.log('Run arms: relaxed pose, matching cadence, source clip unchanged.');

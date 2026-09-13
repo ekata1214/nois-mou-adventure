@@ -1,0 +1,74 @@
+[
+  {
+    "name": "rock-0",
+    "lod": "near",
+    "triangles": 135910,
+    "bytes": 2727716
+  },
+  {
+    "name": "rock-0",
+    "lod": "far",
+    "triangles": 9064,
+    "bytes": 369532
+  },
+  {
+    "name": "rock-1",
+    "lod": "near",
+    "triangles": 136650,
+    "bytes": 2748436
+  },
+  {
+    "name": "rock-1",
+    "lod": "far",
+    "triangles": 12334,
+    "bytes": 445068
+  },
+  {
+    "name": "rock-2",
+    "lod": "near",
+    "triangles": 139472,
+    "bytes": 2827452
+  },
+  {
+    "name": "rock-2",
+    "lod": "far",
+    "triangles": 13483,
+    "bytes": 465908
+  },
+  {
+    "name": "stump-0",
+    "lod": "near",
+    "triangles": 440572,
+    "bytes": 11264028
+  },
+  {
+    "name": "stump-0",
+    "lod": "far",
+    "triangles": 13334,
+    "bytes": 455748
+  },
+  {
+    "name": "stump-1",
+    "lod": "near",
+    "triangles": 444416,
+    "bytes": 11394688
+  },
+  {
+    "name": "stump-1",
+    "lod": "far",
+    "triangles": 21376,
+    "bytes": 638276
+  },
+  {
+    "name": "stump-2",
+    "lod": "near",
+    "triangles": 448318,
+    "bytes": 11527356
+  },
+  {
+    "name": "stump-2",
+    "lod": "far",
+    "triangles": 14888,
+    "bytes": 477684
+  }
+]
